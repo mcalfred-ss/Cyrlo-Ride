@@ -1,0 +1,355 @@
+// Cyrlo Ride uses one PostgreSQL database and one Prisma schema.
+// Money is stored in pesewas (GHS 1.00 = 100). Coordinates on API boundaries
+// use latitude/longitude. Service-zone polygons use GeoJSON axis order:
+// [longitude, latitude].
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// --- Identity ---
+
+enum UserRole {
+  PASSENGER
+  RIDER
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum OtpPurpose {
+  LOGIN
+}
+
+model User {
+  id          String     @id @default(uuid()) @db.Uuid
+  phoneNumber String     @unique @map("phone_number")
+  role        UserRole
+  status      UserStatus @default(ACTIVE)
+  displayName String?    @map("display_name")
+  createdAt   DateTime   @default(now()) @map("created_at")
+  updatedAt   DateTime   @updatedAt @map("updated_at")
+
+  refreshTokens    RefreshToken[]
+  passengerProfile PassengerProfile?
+  riderProfile     RiderProfile?
+  passengerBookings Booking[]         @relation("PassengerBookings")
+  notifications    Notification[]
+  payments         Payment[]
+  auditLogs        AuditLog[]         @relation("AuditActor")
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+model OtpChallenge {
+  id          String     @id @default(uuid()) @db.Uuid
+  phoneNumber String     @map("phone_number")
+  purpose     OtpPurpose
+  codeHash    String     @map("code_hash")
+  expiresAt   DateTime   @map("expires_at")
+  attempts    Int        @default(0)
+  maxAttempts Int        @map("max_attempts")
+  consumedAt  DateTime?  @map("consumed_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  @@index([phoneNumber, purpose, createdAt])
+  @@map("otp_challenges")
+}
+
+model PassengerProfile {
+  userId    String   @id @map("user_id") @db.Uuid
+  fullName  String?  @map("full_name")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("passenger_profiles")
+}
+
+// --- Riders ---
+
+enum RiderVerificationStatus {
+  DRAFT
+  PENDING_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum RiderAvailability {
+  OFFLINE
+  AVAILABLE
+  BUSY
+}
+
+enum RiderDocumentKind {
+  GHANA_CARD
+  RIDER_PHOTO
+  VEHICLE_PHOTO
+}
+
+model RiderProfile {
+  userId               String                   @id @map("user_id") @db.Uuid
+  fullName             String                   @map("full_name")
+  verificationStatus   RiderVerificationStatus  @default(DRAFT) @map("verification_status")
+  availability         RiderAvailability        @default(OFFLINE)
+  ghanaCardNumber      String?                  @map("ghana_card_number")
+  vehicleRegistration  String?                  @map("vehicle_registration")
+  vehicleDescription   String?                  @map("vehicle_description")
+  verificationNotes    String?                  @map("verification_notes")
+  createdAt            DateTime                 @default(now()) @map("created_at")
+  updatedAt            DateTime                 @updatedAt @map("updated_at")
+  user                 User                     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  location             RiderLocation?
+  wallet               RiderWallet?
+  documents            RiderDocument[]
+  bookings             Booking[]                @relation("RiderBookings")
+  offers               BookingOffer[]
+  ledgerEntries        TokenLedgerEntry[]
+
+  @@map("rider_profiles")
+}
+
+model RiderDocument {
+  id         String            @id @default(uuid()) @db.Uuid
+  riderId    String            @map("rider_id") @db.Uuid
+  kind       RiderDocumentKind
+  storageKey String            @map("storage_key")
+  createdAt  DateTime          @default(now()) @map("created_at")
+  rider      RiderProfile      @relation(fields: [riderId], references: [userId], onDelete: Cascade)
+
+  @@index([riderId, kind])
+  @@map("rider_documents")
+}
+
+model RiderLocation {
+  riderId         String       @id @map("rider_id") @db.Uuid
+  latitude        Decimal      @db.Decimal(9, 6)
+  longitude       Decimal      @db.Decimal(9, 6)
+  accuracyMeters  Decimal?     @map("accuracy_meters") @db.Decimal(8, 2)
+  heading         Decimal?     @db.Decimal(5, 2)
+  sharingEnabled  Boolean      @default(false) @map("sharing_enabled")
+  recordedAt      DateTime     @map("recorded_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  rider           RiderProfile @relation(fields: [riderId], references: [userId], onDelete: Cascade)
+
+  @@index([sharingEnabled, recordedAt])
+  @@map("rider_locations")
+}
+
+// --- Service zones ---
+
+model ServiceZone {
+  id           String   @id @default(uuid()) @db.Uuid
+  name         String
+  isActive     Boolean  @default(true) @map("is_active")
+  boundary     Json
+  minLatitude  Decimal  @map("min_latitude") @db.Decimal(9, 6)
+  maxLatitude  Decimal  @map("max_latitude") @db.Decimal(9, 6)
+  minLongitude Decimal  @map("min_longitude") @db.Decimal(9, 6)
+  maxLongitude Decimal  @map("max_longitude") @db.Decimal(9, 6)
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  bookings     Booking[]
+
+  @@index([isActive])
+  @@map("service_zones")
+}
+
+// --- Bookings ---
+
+enum BookingStatus {
+  REQUESTED
+  ACCEPTED
+  CANCELLED
+  COMPLETED
+  EXPIRED
+}
+
+enum BookingOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+  CANCELLED
+}
+
+model Booking {
+  id                   String        @id @default(uuid()) @db.Uuid
+  passengerId          String        @map("passenger_id") @db.Uuid
+  riderId              String?       @map("rider_id") @db.Uuid
+  serviceZoneId        String?       @map("service_zone_id") @db.Uuid
+  status               BookingStatus @default(REQUESTED)
+  pickupLatitude       Decimal       @map("pickup_latitude") @db.Decimal(9, 6)
+  pickupLongitude      Decimal       @map("pickup_longitude") @db.Decimal(9, 6)
+  destinationLatitude  Decimal       @map("destination_latitude") @db.Decimal(9, 6)
+  destinationLongitude Decimal       @map("destination_longitude") @db.Decimal(9, 6)
+  pickupLabel          String?       @map("pickup_label")
+  destinationLabel     String?       @map("destination_label")
+  bookingFeePesewas    Int           @default(100) @map("booking_fee_pesewas")
+  requestedAt          DateTime      @default(now()) @map("requested_at")
+  acceptedAt           DateTime?     @map("accepted_at")
+  cancelledAt          DateTime?     @map("cancelled_at")
+  completedAt          DateTime?     @map("completed_at")
+  expiredAt            DateTime?     @map("expired_at")
+  cancellationReason   String?       @map("cancellation_reason")
+  createdAt            DateTime      @default(now()) @map("created_at")
+  updatedAt            DateTime      @updatedAt @map("updated_at")
+
+  passenger     User              @relation("PassengerBookings", fields: [passengerId], references: [id])
+  rider         RiderProfile?     @relation("RiderBookings", fields: [riderId], references: [userId])
+  serviceZone   ServiceZone?      @relation(fields: [serviceZoneId], references: [id])
+  offers        BookingOffer[]
+  payments      Payment[]
+  ledgerEntries TokenLedgerEntry[]
+
+  @@index([passengerId, createdAt])
+  @@index([riderId, status])
+  @@index([status, requestedAt])
+  @@map("bookings")
+}
+
+model BookingOffer {
+  id          String             @id @default(uuid()) @db.Uuid
+  bookingId   String             @map("booking_id") @db.Uuid
+  riderId     String             @map("rider_id") @db.Uuid
+  status      BookingOfferStatus @default(PENDING)
+  offeredAt   DateTime           @default(now()) @map("offered_at")
+  respondedAt DateTime?          @map("responded_at")
+  booking     Booking            @relation(fields: [bookingId], references: [id])
+  rider       RiderProfile       @relation(fields: [riderId], references: [userId])
+
+  @@unique([bookingId, riderId])
+  @@index([riderId, status])
+  @@map("booking_offers")
+}
+
+// --- Payments and rider tokens ---
+
+enum PaymentPurpose {
+  BOOKING_FEE
+  TOKEN_PURCHASE
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  ABANDONED
+}
+
+enum LedgerEntryType {
+  PURCHASE
+  DEDUCTION
+  REFUND
+  ADJUSTMENT
+}
+
+model Payment {
+  id                String         @id @default(uuid()) @db.Uuid
+  userId            String         @map("user_id") @db.Uuid
+  bookingId         String?        @map("booking_id") @db.Uuid
+  purpose           PaymentPurpose
+  amountPesewas     Int            @map("amount_pesewas")
+  currency          String         @default("GHS") @db.Char(3)
+  status            PaymentStatus  @default(PENDING)
+  provider          String         @default("paystack")
+  providerReference String?        @unique @map("provider_reference")
+  idempotencyKey    String         @unique @map("idempotency_key")
+  providerEventId   String?        @unique @map("provider_event_id")
+  createdAt         DateTime       @default(now()) @map("created_at")
+  updatedAt         DateTime       @updatedAt @map("updated_at")
+  user              User           @relation(fields: [userId], references: [id])
+  booking           Booking?       @relation(fields: [bookingId], references: [id])
+
+  @@index([userId, createdAt])
+  @@index([bookingId, purpose])
+  @@map("payments")
+}
+
+model RiderWallet {
+  riderId      String       @id @map("rider_id") @db.Uuid
+  tokenBalance Int          @default(0) @map("token_balance")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+  rider        RiderProfile @relation(fields: [riderId], references: [userId], onDelete: Cascade)
+
+  @@map("rider_wallets")
+}
+
+model TokenLedgerEntry {
+  id             String          @id @default(uuid()) @db.Uuid
+  riderId        String          @map("rider_id") @db.Uuid
+  bookingId      String?         @map("booking_id") @db.Uuid
+  paymentId      String?         @map("payment_id") @db.Uuid
+  type           LedgerEntryType
+  tokenDelta     Int             @map("token_delta")
+  balanceAfter   Int             @map("balance_after")
+  idempotencyKey String          @unique @map("idempotency_key")
+  reason         String
+  createdAt      DateTime        @default(now()) @map("created_at")
+  rider          RiderProfile    @relation(fields: [riderId], references: [userId])
+  booking        Booking?        @relation(fields: [bookingId], references: [id])
+
+  @@index([riderId, createdAt])
+  @@map("token_ledger_entries")
+}
+
+// --- Notifications and audit ---
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  IN_APP
+}
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @map("user_id") @db.Uuid
+  channel   NotificationChannel
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?           @map("read_at")
+  createdAt DateTime            @default(now()) @map("created_at")
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String
+  entityType String   @map("entity_type")
+  entityId   String?  @map("entity_id")
+  metadata   Json?
+  ipAddress  String?  @map("ip_address")
+  createdAt  DateTime @default(now()) @map("created_at")
+  actor      User?    @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
