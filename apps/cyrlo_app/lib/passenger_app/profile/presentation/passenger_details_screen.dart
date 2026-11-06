@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/cyrlo_text_field.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
+import '../../../shared/widgets/screen_header.dart';
 import '../../../features/auth/application/signup_controller.dart';
 
 class PassengerDetailsScreen extends ConsumerStatefulWidget {
@@ -33,25 +34,13 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
   @override
   Widget build(BuildContext context) {
     return FlowScaffold(
-      footer: CyrloButton(
-        key: const Key('passenger-continue'),
-        label: 'Continue',
-        onPressed: _submit,
-      ),
-      child: ListView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Your details',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'This is the name riders will see.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-            ),
+          const ScreenHeader(
+            title: 'Your details',
+            subtitle: 'This is the name riders will see.',
           ),
           const SizedBox(height: AppSpacing.xl),
           CyrloTextField(
@@ -63,8 +52,18 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
           ),
           if (_error != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(_error!, style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700)),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+            ),
           ],
+          const SizedBox(height: AppSpacing.xl),
+          CyrloButton(
+            key: const Key('passenger-continue'),
+            label: 'Continue',
+            onPressed: _submit,
+          ),
         ],
       ),
     );

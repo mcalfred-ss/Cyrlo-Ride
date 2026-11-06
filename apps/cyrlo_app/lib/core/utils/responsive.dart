@@ -22,9 +22,7 @@ abstract final class Responsive {
     return EdgeInsets.fromLTRB(gutter, top, gutter, bottom);
   }
 
-  static double formMaxWidth(BuildContext context) {
-    final shortest = MediaQuery.sizeOf(context).shortestSide;
-    if (shortest >= 600) return 520;
-    return 460;
-  }
+  static const double contentMaxWidth = 420;
+
+  static double formMaxWidth(BuildContext context) => contentMaxWidth;
 }

@@ -4,6 +4,9 @@ import '../../../core/utils/phone_numbers.dart';
 import 'signup_draft.dart';
 
 class SignupController extends Notifier<SignupDraft> {
+  /// Local stand-in until SMS OTP is connected.
+  static const testOtp = '123456';
+
   @override
   SignupDraft build() => const SignupDraft();
 
@@ -36,7 +39,7 @@ class SignupController extends Notifier<SignupDraft> {
   }
 
   bool verifyOtp(String code) {
-    if (!RegExp(r'^\d{6}$').hasMatch(code.trim())) return false;
+    if (code.trim() != testOtp) return false;
     state = state.copyWith(otpVerified: true);
     return true;
   }

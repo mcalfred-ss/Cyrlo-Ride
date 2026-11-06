@@ -6,6 +6,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
 import '../../../shared/widgets/ghana_phone_field.dart';
+import '../../../shared/widgets/screen_header.dart';
 import '../application/signup_controller.dart';
 
 class CreateAccountScreen extends ConsumerStatefulWidget {
@@ -35,27 +36,15 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return FlowScaffold(
-      child: ListView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const SizedBox(height: 36),
-          Text(
-            'Create account',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
+          const ScreenHeader(
+            title: 'Create account',
+            subtitle: 'We will send a code to this number.',
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'We will send a code to this number.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 36),
+          const SizedBox(height: AppSpacing.xl),
           GhanaPhoneField(controller: _phoneController),
           if (_error != null) ...[
             const SizedBox(height: AppSpacing.sm),

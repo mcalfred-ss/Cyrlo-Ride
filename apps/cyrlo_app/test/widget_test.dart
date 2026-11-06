@@ -57,7 +57,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('ghana-phone-input')), '201234567');
     await tester.tap(find.byKey(const Key('create-account')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('otp-input')), '654321');
+    await tester.enterText(find.byKey(const Key('otp-input')), '123456');
     await tester.tap(find.byKey(const Key('verify-otp')));
     await tester.pumpAndSettle();
 

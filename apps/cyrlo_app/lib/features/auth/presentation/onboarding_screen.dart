@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/choice_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
+import '../../../shared/widgets/screen_header.dart';
 import '../application/signup_controller.dart';
 
 class OnboardingScreen extends ConsumerStatefulWidget {
@@ -57,8 +59,10 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ],
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(
+          SizedBox(
+            height: 280,
             child: PageView.builder(
               controller: _controller,
               itemCount: _pages.length,
@@ -68,32 +72,9 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 return Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Container(
-                      width: 88,
-                      height: 88,
-                      decoration: BoxDecoration(
-                        color: AppColors.brandLight,
-                        borderRadius: BorderRadius.circular(28),
-                      ),
-                      child: Icon(page.$1, size: 40, color: AppColors.onBrandSoft),
-                    ),
+                    IconBadge(icon: page.$1),
                     const SizedBox(height: AppSpacing.lg),
-                    Text(
-                      page.$2,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      page.$3,
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: AppColors.textSecondary,
-                        height: 1.4,
-                      ),
-                    ),
+                    ScreenHeader(title: page.$2, subtitle: page.$3),
                   ],
                 );
               },

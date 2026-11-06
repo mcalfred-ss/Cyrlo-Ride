@@ -14,6 +14,7 @@ import '../../passenger_app/profile/presentation/passenger_details_screen.dart';
 import '../../rider_app/onboarding/presentation/driver_type_screen.dart';
 import '../../rider_app/onboarding/presentation/rider_application_screen.dart';
 import '../../rider_app/onboarding/presentation/rider_approval_screen.dart';
+import '../../shared/widgets/cyrlo_page.dart';
 import '../../shared/widgets/role_shell.dart';
 import 'app_routes.dart';
 
@@ -43,28 +44,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return location == next ? null : next;
     },
     routes: [
-      GoRoute(path: AppRoutes.splash, builder: (context, state) => const SplashScreen()),
-      GoRoute(path: AppRoutes.onboarding, builder: (context, state) => const OnboardingScreen()),
-      GoRoute(path: AppRoutes.welcome, builder: (context, state) => const WelcomeScreen()),
-      GoRoute(
-        path: AppRoutes.createAccount,
-        builder: (context, state) => const CreateAccountScreen(),
-      ),
-      GoRoute(path: AppRoutes.verifyOtp, builder: (context, state) => const VerifyOtpScreen()),
-      GoRoute(path: AppRoutes.selectRole, builder: (context, state) => const SelectRoleScreen()),
-      GoRoute(
-        path: AppRoutes.passengerDetails,
-        builder: (context, state) => const PassengerDetailsScreen(),
-      ),
-      GoRoute(path: AppRoutes.driverType, builder: (context, state) => const DriverTypeScreen()),
-      GoRoute(
-        path: AppRoutes.riderApplication,
-        builder: (context, state) => const RiderApplicationScreen(),
-      ),
-      GoRoute(
-        path: AppRoutes.riderApproval,
-        builder: (context, state) => const RiderApprovalScreen(),
-      ),
+      flowRoute(AppRoutes.splash, const SplashScreen()),
+      flowRoute(AppRoutes.onboarding, const OnboardingScreen()),
+      flowRoute(AppRoutes.welcome, const WelcomeScreen()),
+      flowRoute(AppRoutes.createAccount, const CreateAccountScreen()),
+      flowRoute(AppRoutes.verifyOtp, const VerifyOtpScreen()),
+      flowRoute(AppRoutes.selectRole, const SelectRoleScreen()),
+      flowRoute(AppRoutes.passengerDetails, const PassengerDetailsScreen()),
+      flowRoute(AppRoutes.driverType, const DriverTypeScreen()),
+      flowRoute(AppRoutes.riderApplication, const RiderApplicationScreen()),
+      flowRoute(AppRoutes.riderApproval, const RiderApprovalScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
           return RoleShell(

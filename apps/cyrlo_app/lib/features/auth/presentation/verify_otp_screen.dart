@@ -5,10 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/phone_numbers.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
+import '../../../shared/widgets/screen_header.dart';
 import '../application/signup_controller.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
@@ -54,7 +56,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
 
   void _verify() {
     final ok = ref.read(signupProvider.notifier).verifyOtp(_codeController.text);
-    setState(() => _error = ok ? null : 'Enter the 6-digit code.');
+    setState(() => _error = ok ? null : 'Enter the test code ${SignupController.testOtp}.');
   }
 
   @override
@@ -65,7 +67,9 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     final waiting = _secondsLeft > 0;
 
     return FlowScaffold(
-      child: ListView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Align(
             alignment: Alignment.centerLeft,
@@ -76,25 +80,22 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
             ),
           ),
           const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Verify code',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
-            ),
+          ScreenHeader(
+            title: 'Verify code',
+            subtitle: 'Enter the code sent to ${PhoneNumbers.formatGhanaDisplay(phone)}.',
           ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            'Enter the code sent to ${PhoneNumbers.formatGhanaDisplay(phone)}.',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.4,
-            ),
-          ),
-          const SizedBox(height: 36),
+          const SizedBox(height: AppSpacing.xl),
           _OtpBoxes(controller: _codeController),
+          const SizedBox(height: AppSpacing.sm),
+          Text(
+            'Test code ${SignupController.testOtp}',
+            textAlign: TextAlign.center,
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+              color: AppColors.darkGrey,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.2,
+            ),
+          ),
           if (_error != null) ...[
             const SizedBox(height: AppSpacing.sm),
             Text(
@@ -161,7 +162,9 @@ class _OtpBoxes extends StatelessWidget {
               final filled = index < code.length;
               final active = code.length == index;
               return Expanded(
-                child: Container(
+                child: AnimatedContainer(
+                  duration: AppMotion.fast,
+                  curve: AppMotion.standard,
                   margin: EdgeInsets.only(left: index == 0 ? 0 : 6),
                   alignment: Alignment.center,
                   decoration: BoxDecoration(

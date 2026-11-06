@@ -8,6 +8,7 @@ import '../../../features/auth/application/signup_draft.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/cyrlo_text_field.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
+import '../../../shared/widgets/screen_header.dart';
 
 class RiderApplicationScreen extends ConsumerStatefulWidget {
   const RiderApplicationScreen({super.key});
@@ -41,26 +42,13 @@ class _RiderApplicationScreenState extends ConsumerState<RiderApplicationScreen>
     };
 
     return FlowScaffold(
-      footer: CyrloButton(
-        key: const Key('rider-submit'),
-        label: 'Submit for approval',
-        onPressed: _submit,
-      ),
-      child: ListView(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            'Apply to drive',
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Text(
-            '$vehicle driver. We review this before you can go online.',
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: AppColors.textSecondary,
-              height: 1.4,
-            ),
+          ScreenHeader(
+            title: 'Apply to drive',
+            subtitle: '$vehicle driver. We review this before you can go online.',
           ),
           const SizedBox(height: AppSpacing.xl),
           CyrloTextField(
@@ -71,8 +59,18 @@ class _RiderApplicationScreenState extends ConsumerState<RiderApplicationScreen>
           ),
           if (_error != null) ...[
             const SizedBox(height: AppSpacing.sm),
-            Text(_error!, style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700)),
+            Text(
+              _error!,
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w700),
+            ),
           ],
+          const SizedBox(height: AppSpacing.xl),
+          CyrloButton(
+            key: const Key('rider-submit'),
+            label: 'Submit for approval',
+            onPressed: _submit,
+          ),
         ],
       ),
     );
