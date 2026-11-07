@@ -28,6 +28,7 @@ class PassengerMapScreen extends ConsumerStatefulWidget {
 class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   final CyrloMapController _mapController = CyrloMapController();
   String? _focusedRiderId;
+  GeoPoint? _focusedPickup;
 
   @override
   void dispose() {
@@ -44,6 +45,15 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     });
   }
 
+  void _focusPickup(GeoPoint? pickup) {
+    if (pickup == null || pickup == _focusedPickup) return;
+    _focusedPickup = pickup;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(pickup.toMapCoordinate(), 16);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final pins = ref.watch(tripPinProvider);
@@ -53,11 +63,14 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     final token = ref.watch(mapAccessTokenProvider);
     final theme = Theme.of(context);
     final shareContact = activeRequest?.sharesContact == true;
+    final sharedPickup = pins.pickup ?? activeRequest?.pickupPoint;
 
     ref.listen(selectedNearbyRiderProvider, (previous, next) {
       _focusNearbyRider(next);
     });
-    if (nearbyRider != null && nearbyRider.id != _focusedRiderId) {
+    if (sharedPickup != null) {
+      _focusPickup(sharedPickup);
+    } else if (nearbyRider != null && nearbyRider.id != _focusedRiderId) {
       _focusNearbyRider(nearbyRider);
     }
 
@@ -95,7 +108,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                         children: [
                           Text(
                             nearbyRider == null
-                                ? 'Set your pickup'
+                                ? 'Your pickup on the map'
                                 : '${nearbyRider.kindLabel} coming to you',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
@@ -104,8 +117,8 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                           const SizedBox(height: AppSpacing.xs),
                           Text(
                             nearbyRider != null
-                                ? '${nearbyRider.etaLabel}. Mark where the rider should meet you — tell them your destination when they arrive.'
-                                : 'Mark where the rider should meet you. Destination stays between you and the rider.',
+                                ? '${nearbyRider.etaLabel}. Your exact location is shared — tap the map or My location if you need to adjust it.'
+                                : 'Your exact spot is on the map for the rider. Tap to adjust if you moved.',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppColors.inkDim,
                               height: 1.35,
@@ -144,7 +157,8 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                               ),
                               TextButton(
                                 key: const Key('clear-pins'),
-                                onPressed: pins.pickup == null
+                                onPressed: pins.pickup == null ||
+                                        activeRequest?.pickupPoint != null
                                     ? null
                                     : () {
                                         ref

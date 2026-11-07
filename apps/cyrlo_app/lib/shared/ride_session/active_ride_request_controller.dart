@@ -18,11 +18,14 @@ class ActiveRideRequestController extends Notifier<ActiveRideRequest?> {
 
   /// Starts a live request after the GHS 1 fee. Numbers stay shared until done.
   /// [contactPhoneE164] is the number riders should call (signup or alternate).
+  /// [pickupPoint] is the passenger's exact GPS spot so the rider can find them.
   bool startFromNearbyRider(
     NearbyRider rider, {
     required String contactPhoneE164,
+    required GeoPoint pickupPoint,
   }) {
     if (!rider.canRequest) return false;
+    if (!pickupPoint.isValid) return false;
     final draft = ref.read(signupProvider);
     final riderPhone = rider.phoneE164;
     if (contactPhoneE164.isEmpty ||
@@ -43,13 +46,20 @@ class ActiveRideRequestController extends Notifier<ActiveRideRequest?> {
       passengerFirstName: draft.passengerFirstName,
       passengerGender: draft.passengerGender,
       etaMinutes: rider.etaMinutes,
-      pickupPoint: draft.passengerLocationPoint,
+      pickupPoint: pickupPoint,
     );
     return true;
   }
 
   void accept(ActiveRideRequest job) {
     state = job.copyWith(status: ActiveRideStatus.ongoing);
+  }
+
+  /// Keeps the rider map marker in sync when the passenger moves their pickup pin.
+  void updatePickup(GeoPoint point) {
+    final current = state;
+    if (current == null || !point.isValid) return;
+    state = current.copyWith(pickupPoint: point);
   }
 
   void markCompleted() {

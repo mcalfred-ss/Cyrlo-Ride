@@ -3,12 +3,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/mapping/device_location_gateway.dart';
+import '../../../core/mapping/mapping_providers.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/phone_numbers.dart';
 import '../../../features/auth/application/signup_controller.dart';
 import '../../../features/auth/application/signup_draft.dart';
+import '../../../shared/models/geo_point.dart';
+import '../../map/application/trip_pin_controller.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/ghana_phone_field.dart';
@@ -40,6 +44,17 @@ Future<void> startRequestRideFlow({
   );
   if (contactPhone == null || contactPhone.isEmpty || !context.mounted) return;
 
+  final pickupPoint = await showModalBottomSheet<GeoPoint>(
+    context: context,
+    isScrollControlled: true,
+    isDismissible: false,
+    enableDrag: false,
+    backgroundColor: Colors.transparent,
+    barrierColor: Colors.black.withValues(alpha: 0.35),
+    builder: (context) => const _ShareLocationSheet(),
+  );
+  if (pickupPoint == null || !pickupPoint.isValid || !context.mounted) return;
+
   final paid = await showModalBottomSheet<bool>(
     context: context,
     isScrollControlled: true,
@@ -52,17 +67,34 @@ Future<void> startRequestRideFlow({
   final started = ref.read(activeRideRequestProvider.notifier).startFromNearbyRider(
         rider,
         contactPhoneE164: contactPhone,
+        pickupPoint: pickupPoint,
       );
+  if (!started) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: AppColors.darkGrey,
+        content: Text(
+          'Could not start the request. Try again.',
+          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+    return;
+  }
+
   ref.read(selectedNearbyRiderProvider.notifier).select(rider);
+  ref.read(tripPinProvider.notifier).seedPickup(
+        pickupPoint,
+        message: 'Your exact location is shared with the rider.',
+      );
 
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       behavior: SnackBarBehavior.floating,
       backgroundColor: AppColors.darkGrey,
       content: Text(
-        started
-            ? '${rider.kindLabel} requested. Rider number is now shared — set your pickup.'
-            : '${rider.kindLabel} requested. Set your pickup so they can find you.',
+        '${rider.kindLabel} requested. Your location is on the map for the rider.',
         style: const TextStyle(
           color: Colors.white,
           fontWeight: FontWeight.w700,
@@ -134,7 +166,7 @@ class _RequestRideConfirmDialog extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              '${rider.etaLabel}. They’ll come to your pickup. You’ll tell them where you’re going when they arrive.',
+              '${rider.etaLabel}. You’ll share your exact location so they can find you. Tell them where you’re going when they arrive.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.textSecondary,
@@ -413,6 +445,217 @@ class _ContactChoiceTile extends StatelessWidget {
                 color: selected ? AppColors.onBrandLight : AppColors.textSecondary,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ShareLocationSheet extends ConsumerStatefulWidget {
+  const _ShareLocationSheet();
+
+  @override
+  ConsumerState<_ShareLocationSheet> createState() =>
+      _ShareLocationSheetState();
+}
+
+class _ShareLocationSheetState extends ConsumerState<_ShareLocationSheet> {
+  var _locating = false;
+  String? _error;
+  GeoPoint? _point;
+
+  Future<void> _useMyLocation() async {
+    if (_locating) return;
+    setState(() {
+      _locating = true;
+      _error = null;
+    });
+
+    final result = await ref.read(deviceLocationGatewayProvider).current();
+    if (!mounted) return;
+
+    if (!result.hasFix || result.point == null) {
+      setState(() {
+        _locating = false;
+        _point = null;
+        _error = switch (result.status) {
+          DeviceLocationStatus.denied =>
+            'Allow location access so the rider can see where you are.',
+          DeviceLocationStatus.serviceDisabled =>
+            'Turn on location services, then try again.',
+          _ => 'Could not read your GPS. Move outdoors and try again.',
+        };
+      });
+      return;
+    }
+
+    setState(() {
+      _locating = false;
+      _point = result.point;
+      _error = null;
+    });
+  }
+
+  void _continue() {
+    final point = _point;
+    if (point == null || !point.isValid) {
+      setState(() {
+        _error = 'Use your location so the rider can find your exact spot.';
+      });
+      return;
+    }
+    Navigator.of(context).pop(point);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasFix = _point != null;
+
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Material(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    'Share your location',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Riders need your exact spot on the map to come pick you up. Allow location, then continue.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.4,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: hasFix ? AppColors.brandLight : AppColors.field,
+                      borderRadius: BorderRadius.circular(AppRadii.lg),
+                      border: Border.all(
+                        color: hasFix ? AppColors.yellow : AppColors.border,
+                        width: hasFix ? 1.6 : 1,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(AppSpacing.md),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: hasFix
+                                  ? AppColors.yellow
+                                  : AppColors.surface,
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Icon(
+                              hasFix
+                                  ? Icons.check_circle_rounded
+                                  : Icons.my_location_rounded,
+                              color: hasFix
+                                  ? AppColors.darkGrey
+                                  : AppColors.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(width: AppSpacing.sm),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  hasFix
+                                      ? 'Exact location ready'
+                                      : 'Current location required',
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: AppColors.textPrimary,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  hasFix
+                                      ? '${_point!.latitude.toStringAsFixed(5)}, ${_point!.longitude.toStringAsFixed(5)}'
+                                      : 'This pin is what the rider sees on their map',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      _error!,
+                      style: const TextStyle(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  CyrloButton(
+                    key: const Key('use-location-for-request'),
+                    label: _locating
+                        ? 'Getting location...'
+                        : hasFix
+                            ? 'Update my location'
+                            : 'Use my location',
+                    onPressed: _locating ? null : _useMyLocation,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  CyrloButton(
+                    key: const Key('confirm-request-location'),
+                    label: 'Continue',
+                    onPressed: _locating || !hasFix ? null : _continue,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  CyrloButton(
+                    key: const Key('cancel-request-location'),
+                    label: 'Cancel',
+                    variant: CyrloButtonVariant.outlined,
+                    onPressed:
+                        _locating ? null : () => Navigator.of(context).pop(),
+                  ),
+                ],
+              ),
+            ),
           ),
         ),
       ),
