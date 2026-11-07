@@ -9,10 +9,12 @@ class GhanaPhoneField extends StatefulWidget {
     super.key,
     required this.controller,
     this.label = 'Phone number',
+    this.fieldKey = const Key('ghana-phone-input'),
   });
 
   final TextEditingController controller;
   final String label;
+  final Key fieldKey;
 
   @override
   State<GhanaPhoneField> createState() => _GhanaPhoneFieldState();
@@ -76,7 +78,7 @@ class _GhanaPhoneFieldState extends State<GhanaPhoneField> {
               const SizedBox(width: 12),
               Expanded(
                 child: TextField(
-                  key: const Key('ghana-phone-input'),
+                  key: widget.fieldKey,
                   focusNode: _focus,
                   controller: widget.controller,
                   keyboardType: TextInputType.phone,

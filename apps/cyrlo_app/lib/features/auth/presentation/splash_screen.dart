@@ -6,6 +6,7 @@ import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/widgets/centered_frame.dart';
 import '../../../shared/widgets/cyrlo_card.dart';
+import '../../../shared/widgets/illustration_view.dart';
 import '../application/signup_controller.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -45,6 +46,11 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const IllustrationView(
+                    asset: AppIllustrations.welcomeRide,
+                    height: 156,
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   Text(
                     'Cyrlo Ride',
                     textAlign: TextAlign.center,
@@ -55,7 +61,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Okada rides',
+                    'Pragya rides',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                       color: AppColors.textSecondary,

@@ -10,10 +10,15 @@ import '../../features/auth/presentation/select_role_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/verify_otp_screen.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
+import '../../passenger_app/account/presentation/passenger_account_screen.dart';
+import '../../passenger_app/home/presentation/passenger_home_screen.dart';
 import '../../passenger_app/map/presentation/passenger_map_screen.dart';
 import '../../passenger_app/profile/presentation/passenger_details_screen.dart';
+import '../../passenger_app/rides/presentation/passenger_rides_screen.dart';
+import '../../rider_app/jobs/presentation/rider_jobs_screen.dart';
 import '../../rider_app/onboarding/presentation/driver_type_screen.dart';
-import '../../rider_app/onboarding/presentation/rider_application_screen.dart';
+import '../../rider_app/onboarding/presentation/rider_details_screen.dart';
+import '../../rider_app/onboarding/presentation/rider_documents_screen.dart';
 import '../../rider_app/onboarding/presentation/rider_approval_screen.dart';
 import '../../shared/widgets/cyrlo_page.dart';
 import '../../shared/widgets/role_shell.dart';
@@ -53,7 +58,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       flowRoute(AppRoutes.selectRole, const SelectRoleScreen()),
       flowRoute(AppRoutes.passengerDetails, const PassengerDetailsScreen()),
       flowRoute(AppRoutes.driverType, const DriverTypeScreen()),
-      flowRoute(AppRoutes.riderApplication, const RiderApplicationScreen()),
+      flowRoute(AppRoutes.riderDetails, const RiderDetailsScreen()),
+      flowRoute(AppRoutes.riderDocuments, const RiderDocumentsScreen()),
       flowRoute(AppRoutes.riderApproval, const RiderApprovalScreen()),
       StatefulShellRoute.indexedStack(
         builder: (context, state, navigationShell) {
@@ -88,7 +94,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.passengerHome,
-                builder: (context, state) => const SectionPage(title: 'Home'),
+                builder: (context, state) => const PassengerHomeScreen(),
               ),
             ],
           ),
@@ -104,7 +110,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.passengerRides,
-                builder: (context, state) => const SectionPage(title: 'Rides'),
+                builder: (context, state) => const PassengerRidesScreen(),
               ),
             ],
           ),
@@ -112,7 +118,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.passengerAccount,
-                builder: (context, state) => const AccountPage(role: RideRole.passenger),
+                builder: (context, state) => const PassengerAccountScreen(),
               ),
             ],
           ),
@@ -146,7 +152,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.riderJobs,
-                builder: (context, state) => const SectionPage(title: 'Jobs'),
+                builder: (context, state) => const RiderJobsScreen(),
               ),
             ],
           ),
@@ -154,7 +160,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.riderToken,
-                builder: (context, state) => const SectionPage(title: 'Token'),
+                builder: (context, state) => const SectionPage(
+                  title: 'Token',
+                  subtitle: 'Your rider token balance will show here.',
+                ),
               ),
             ],
           ),
@@ -182,11 +191,12 @@ String? _requiredLocation(SignupDraft draft) {
   if (!draft.otpVerified) return AppRoutes.verifyOtp;
   if (draft.role == null) return AppRoutes.selectRole;
   if (draft.role == RideRole.passenger) {
-    if (draft.passengerName == null) return AppRoutes.passengerDetails;
+    if (!draft.hasPassengerProfile) return AppRoutes.passengerDetails;
     return null;
   }
   if (draft.driverKind == null) return AppRoutes.driverType;
-  if (!draft.applicationSubmitted) return AppRoutes.riderApplication;
+  if (!draft.hasRiderProfile) return AppRoutes.riderDetails;
+  if (!draft.applicationSubmitted) return AppRoutes.riderDocuments;
   if (!draft.riderApproved) return AppRoutes.riderApproval;
   return null;
 }

@@ -3,9 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../shared/widgets/choice_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
+import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/screen_header.dart';
 import '../application/signup_controller.dart';
 
@@ -21,9 +21,21 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   var _page = 0;
 
   static const _pages = [
-    (Icons.two_wheeler_rounded, 'Book a ride', 'Request an okada with your pickup and destination.'),
-    (Icons.map_rounded, 'See riders nearby', 'Follow the ride live once a rider accepts.'),
-    (Icons.badge_rounded, 'Ride or drive', 'Use the same app as a passenger or a rider.'),
+    (
+      AppIllustrations.bookRide,
+      'Request a Pragya',
+      'Pay the request fee, set your pickup, and a nearby Pragya comes to you.',
+    ),
+    (
+      AppIllustrations.nearbyMap,
+      'Meet at pickup',
+      'The rider finds you. Tell them where you’re going when they arrive.',
+    ),
+    (
+      AppIllustrations.rideOrDrive,
+      'Ride or drive',
+      'Use the same app as a passenger or a rider.',
+    ),
   ];
 
   @override
@@ -44,10 +56,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   Widget build(BuildContext context) {
     final last = _page == _pages.length - 1;
     return FlowScaffold(
+      scrollable: false,
       footer: Column(
         children: [
           CyrloButton(
-            label: last ? 'Get started' : 'Next',
+            label: last ? 'Continue' : 'Next',
             onPressed: _next,
           ),
           if (!last)
@@ -59,27 +72,29 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
         ],
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          SizedBox(
-            height: 280,
+          Expanded(
             child: PageView.builder(
               controller: _controller,
               itemCount: _pages.length,
               onPageChanged: (value) => setState(() => _page = value),
               itemBuilder: (context, index) {
                 final page = _pages[index];
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    IconBadge(icon: page.$1),
-                    const SizedBox(height: AppSpacing.lg),
-                    ScreenHeader(title: page.$2, subtitle: page.$3),
-                  ],
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IllustrationView(asset: page.$1, height: 168),
+                      const SizedBox(height: AppSpacing.lg),
+                      ScreenHeader(title: page.$2, subtitle: page.$3),
+                    ],
+                  ),
                 );
               },
             ),
           ),
+          const SizedBox(height: AppSpacing.md),
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: List.generate(_pages.length, (index) {

@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_spacing.dart';
-import '../../../shared/widgets/choice_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
+import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/screen_header.dart';
 import '../application/signup_controller.dart';
 
@@ -22,11 +22,11 @@ class WelcomeScreen extends ConsumerWidget {
       child: const Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          IconBadge(icon: Icons.two_wheeler_rounded),
+          IllustrationView(asset: AppIllustrations.welcomeRide, height: 176),
           SizedBox(height: AppSpacing.lg),
           ScreenHeader(
             title: 'Welcome',
-            subtitle: 'Book an okada, or drive one, with your phone number.',
+            subtitle: 'Book a Pragya, or drive one, with your phone number.',
           ),
         ],
       ),

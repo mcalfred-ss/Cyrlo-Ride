@@ -8,22 +8,19 @@ class CyrloTransitionPage<T> extends CustomTransitionPage<T> {
     required super.child,
     required super.key,
   }) : super(
-         transitionDuration: AppMotion.page,
-         reverseTransitionDuration: AppMotion.normal,
+         transitionDuration: AppMotion.fast,
+         reverseTransitionDuration: AppMotion.fast,
          transitionsBuilder: (context, animation, secondaryAnimation, child) {
            final enter = CurvedAnimation(parent: animation, curve: AppMotion.standard);
-           final leave = CurvedAnimation(parent: secondaryAnimation, curve: AppMotion.exit);
+           // Keep opacity high so route changes never flash a blank white frame.
            return FadeTransition(
-             opacity: Tween<double>(begin: 1, end: 0.72).animate(leave),
-             child: FadeTransition(
-               opacity: enter,
-               child: SlideTransition(
-                 position: Tween<Offset>(
-                   begin: const Offset(0.05, 0),
-                   end: Offset.zero,
-                 ).animate(enter),
-                 child: child,
-               ),
+             opacity: Tween<double>(begin: 0.92, end: 1).animate(enter),
+             child: SlideTransition(
+               position: Tween<Offset>(
+                 begin: const Offset(0.03, 0),
+                 end: Offset.zero,
+               ).animate(enter),
+               child: child,
              ),
            );
          },

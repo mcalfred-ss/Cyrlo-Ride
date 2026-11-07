@@ -10,10 +10,12 @@ class FlowScaffold extends StatelessWidget {
     super.key,
     required this.child,
     this.footer,
+    this.scrollable = true,
   });
 
   final Widget child;
   final Widget? footer;
+  final bool scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -21,14 +23,14 @@ class FlowScaffold extends StatelessWidget {
       backgroundColor: AppColors.background,
       body: CenteredFrame(
         child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: 1),
-          duration: AppMotion.normal,
+          tween: Tween(begin: 0.94, end: 1),
+          duration: AppMotion.fast,
           curve: AppMotion.standard,
           builder: (context, value, child) {
             return Opacity(
-              opacity: value,
+              opacity: value.clamp(0.0, 1.0),
               child: Transform.translate(
-                offset: Offset(0, (1 - value) * 18),
+                offset: Offset(0, (1 - value) * 8),
                 child: child,
               ),
             );
@@ -39,11 +41,18 @@ class FlowScaffold extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: child,
-                    ),
-                  ),
+                  child: scrollable
+                      ? LayoutBuilder(
+                          builder: (context, constraints) {
+                            return SingleChildScrollView(
+                              child: ConstrainedBox(
+                                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                                child: Center(child: child),
+                              ),
+                            );
+                          },
+                        )
+                      : child,
                 ),
                 if (footer != null) ...[
                   const SizedBox(height: 20),

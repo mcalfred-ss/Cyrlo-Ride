@@ -9,10 +9,15 @@ import '../../../core/mapping/mapping_providers.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/models/geo_point.dart';
+import '../../../shared/ride_session/active_ride_request_controller.dart';
+import '../../../shared/widgets/active_contact_card.dart';
+import '../../home/application/nearby_riders_provider.dart';
+import '../../home/domain/nearby_rider.dart';
 import '../application/trip_pin_controller.dart';
 import '../application/trip_pin_state.dart';
 
-/// Passenger map: pick pickup and destination. Booking and payment stay elsewhere.
+/// Passenger map: set pickup so the rider can come to you.
+/// Destination is agreed in person — the app does not take trip fare.
 class PassengerMapScreen extends ConsumerStatefulWidget {
   const PassengerMapScreen({super.key});
 
@@ -22,6 +27,7 @@ class PassengerMapScreen extends ConsumerStatefulWidget {
 
 class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   final CyrloMapController _mapController = CyrloMapController();
+  String? _focusedRiderId;
 
   @override
   void dispose() {
@@ -29,12 +35,31 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     super.dispose();
   }
 
+  void _focusNearbyRider(NearbyRider? rider) {
+    if (rider == null || rider.id == _focusedRiderId) return;
+    _focusedRiderId = rider.id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(rider.point.toMapCoordinate(), 15);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final pins = ref.watch(tripPinProvider);
+    final nearbyRider = ref.watch(selectedNearbyRiderProvider);
+    final activeRequest = ref.watch(activeRideRequestProvider);
     final project = ref.watch(passengerMapProjectProvider);
     final token = ref.watch(mapAccessTokenProvider);
     final theme = Theme.of(context);
+    final shareContact = activeRequest?.sharesContact == true;
+
+    ref.listen(selectedNearbyRiderProvider, (previous, next) {
+      _focusNearbyRider(next);
+    });
+    if (nearbyRider != null && nearbyRider.id != _focusedRiderId) {
+      _focusNearbyRider(nearbyRider);
+    }
 
     return Scaffold(
       body: Stack(
@@ -45,8 +70,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
             accessToken: token,
             isDark: false,
             controller: _mapController,
-            markers: _markers(pins),
-            polylines: _polylines(pins),
+            markers: _markers(pins, nearbyRider),
             onTap: (point) {
               unawaited(
                 ref
@@ -70,16 +94,21 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Set your trip',
-                            style: theme.textTheme.titleMedium,
+                            nearbyRider == null
+                                ? 'Set your pickup'
+                                : '${nearbyRider.kindLabel} coming to you',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            pins.focus == TripPinFocus.pickup
-                                ? 'Tap the map to set pickup.'
-                                : 'Tap the map to set destination.',
+                            nearbyRider != null
+                                ? '${nearbyRider.etaLabel}. Mark where the rider should meet you — tell them your destination when they arrive.'
+                                : 'Mark where the rider should meet you. Destination stays between you and the rider.',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppColors.inkDim,
+                              height: 1.35,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.sm),
@@ -87,44 +116,32 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                             spacing: AppSpacing.xs,
                             runSpacing: AppSpacing.xs,
                             children: [
-                              ChoiceChip(
+                              Chip(
                                 key: const Key('focus-pickup'),
+                                avatar: Icon(
+                                  pins.pickup == null
+                                      ? Icons.place_outlined
+                                      : Icons.check_circle_rounded,
+                                  size: 18,
+                                  color: AppColors.darkGrey,
+                                ),
                                 label: Text(
                                   pins.pickup == null
-                                      ? 'Pickup'
+                                      ? 'Pickup needed'
                                       : 'Pickup set',
                                 ),
-                                selected: pins.focus == TripPinFocus.pickup,
-                                onSelected: (_) {
-                                  ref
-                                      .read(tripPinProvider.notifier)
-                                      .setFocus(TripPinFocus.pickup);
-                                },
-                              ),
-                              ChoiceChip(
-                                key: const Key('focus-destination'),
-                                label: Text(
-                                  pins.destination == null
-                                      ? 'Destination'
-                                      : 'Destination set',
-                                ),
-                                selected:
-                                    pins.focus == TripPinFocus.destination,
-                                onSelected: (_) {
-                                  ref
-                                      .read(tripPinProvider.notifier)
-                                      .setFocus(TripPinFocus.destination);
-                                },
+                                backgroundColor: pins.pickup == null
+                                    ? AppColors.field
+                                    : AppColors.brandLight,
                               ),
                               TextButton(
                                 key: const Key('clear-pins'),
-                                onPressed: pins.pickup == null &&
-                                        pins.destination == null
+                                onPressed: pins.pickup == null
                                     ? null
                                     : () {
                                         ref
                                             .read(tripPinProvider.notifier)
-                                            .clearPins();
+                                            .clearPickup();
                                       },
                                 child: const Text('Clear'),
                               ),
@@ -138,18 +155,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                               style: theme.textTheme.bodySmall,
                             ),
                           ],
-                          if (pins.routeError != null) ...[
-                            const SizedBox(height: AppSpacing.xs),
-                            Text(
-                              pins.routeError!,
-                              key: const Key('route-error'),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: AppColors.tomato,
-                              ),
-                            ),
-                          ],
-                          if (pins.isResolvingRoute ||
-                              pins.isResolvingLocation)
+                          if (pins.isResolvingLocation)
                             const Padding(
                               padding: EdgeInsets.only(top: AppSpacing.xs),
                               child: LinearProgressIndicator(minHeight: 2),
@@ -158,6 +164,24 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                       ),
                     ),
                   ),
+                  if (shareContact) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    ActiveContactCard(
+                      title: '${activeRequest!.kindLabel} is on the way',
+                      subtitle:
+                          'Call the rider if they need help finding you. Tell them your destination when they arrive.',
+                      phoneE164: activeRequest.riderPhoneE164,
+                      contactLabel: 'Rider number',
+                      onCancel: () {
+                        ref.read(activeRideRequestProvider.notifier).markCancelled();
+                        ref.read(selectedNearbyRiderProvider.notifier).clear();
+                      },
+                      onComplete: () {
+                        ref.read(activeRideRequestProvider.notifier).markCompleted();
+                        ref.read(selectedNearbyRiderProvider.notifier).clear();
+                      },
+                    ),
+                  ],
                   const Spacer(),
                   Align(
                     alignment: Alignment.bottomRight,
@@ -190,8 +214,18 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     );
   }
 
-  List<MapMarker> _markers(TripPinState pins) {
+  List<MapMarker> _markers(TripPinState pins, NearbyRider? nearbyRider) {
     return [
+      if (nearbyRider != null)
+        MapMarker(
+          id: 'nearby-rider',
+          point: nearbyRider.point.toMapCoordinate(),
+          child: _PinMarker(
+            key: const Key('nearby-rider-marker'),
+            color: AppColors.darkGrey,
+            label: nearbyRider.kindLabel.substring(0, 1),
+          ),
+        ),
       if (pins.pickup != null)
         MapMarker(
           id: 'pickup',
@@ -202,30 +236,6 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
             label: 'P',
           ),
         ),
-      if (pins.destination != null)
-        MapMarker(
-          id: 'destination',
-          point: pins.destination!.toMapCoordinate(),
-          child: const _PinMarker(
-            key: Key('destination-marker'),
-            color: AppColors.darkGrey,
-            label: 'D',
-          ),
-        ),
-    ];
-  }
-
-  List<MapPolyline> _polylines(TripPinState pins) {
-    if (pins.routePoints.length < 2) return const [];
-    return [
-      MapPolyline(
-        id: 'preview',
-        points: [
-          for (final point in pins.routePoints) point.toMapCoordinate(),
-        ],
-        color: AppColors.darkGrey,
-        strokeWidth: 4,
-      ),
     ];
   }
 }

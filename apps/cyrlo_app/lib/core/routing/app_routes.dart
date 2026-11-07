@@ -11,7 +11,8 @@ abstract final class AppRoutes {
   static const passengerRides = '/passenger/rides';
   static const passengerAccount = '/passenger/account';
   static const driverType = '/rider/vehicle';
-  static const riderApplication = '/rider/apply';
+  static const riderDetails = '/rider/details';
+  static const riderDocuments = '/rider/documents';
   static const riderApproval = '/rider/approval';
   static const riderJobs = '/rider/jobs';
   static const riderToken = '/rider/token';
