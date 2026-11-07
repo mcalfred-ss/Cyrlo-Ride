@@ -1,6 +1,8 @@
 # Architecture
 
-Cyrlo Ride is one product with two clients of the same binary and one backend.
+Approved product rules, staff roles, and the booking lifecycle are in `docs/architecture/CYRLO_RIDE_MASTER_SPEC.md`. This file is the process shape. The single `ADMIN` role below is what the code enum contains today, not the four dashboard roles.
+
+Cyrlo Ride is one product with two clients of the same binary and one backend. Cyrlo Maps is a Flutter git dependency at commit `d299ede80fb63ccaa3f8d8b2135f757897317dfd`. It is not a hosted HTTP API.
 
 ## One app, two experiences
 
@@ -66,4 +68,4 @@ Backups run on the VPS with `backend/scripts/backup-postgres.sh`. A cron job sho
 
 ## What is intentionally absent
 
-No microservices, no Supabase, no Firebase as the system of record, and no second API. Business routes are specified and unwired. The executable rules that already exist are booking transitions, refund decisions, GPS freshness, zone geometry, OTP limits, JWT helpers, and Paystack signature verification.
+No microservices, no Supabase, no Firebase as the system of record, and no Cyrlo Maps HTTP API. Business routes are specified and unwired. The executable booking transitions and refund booleans are current code. The approved matrix and statuses are in `docs/architecture/CYRLO_RIDE_MASTER_SPEC.md`. GPS freshness, zone geometry, OTP limits, JWT helpers, and Paystack signature verification are the helpers to keep.

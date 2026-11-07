@@ -1,6 +1,8 @@
 # API contract
 
-This is the integration contract between the Flutter app and the backend. Only the health routes and the OpenAPI shell at `/api/docs` are live. Every other route below is planned and currently returns `404` because it is not registered. Do not call these planned routes as if they were finished.
+Approved target behaviour is `docs/architecture/CYRLO_RIDE_MASTER_SPEC.md`. Status `REQUESTED`, availability `BUSY`, and a single `ADMIN` role in the tables below are the current unimplemented schema. They are not the approved lifecycle or the final staff model.
+
+This is the integration contract between the Flutter app and the backend. Health routes, OpenAPI at `/api/docs`, auth (`/auth/*`), and `GET /users/me` are live as of Milestone 1. See `docs/architecture/AUTH_MILESTONE_1.md`. Other business routes below remain planned until their milestones land.
 
 Base URL: `/api/v1`
 
@@ -40,13 +42,13 @@ Error codes: `VALIDATION_ERROR`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONF
 
 Protected routes require `Authorization: Bearer <accessToken>`.
 
-The access token is a JWT. It expires in 15 minutes by default. Its claims are `sub` (user id) and `role` (`PASSENGER`, `RIDER`, or `ADMIN`).
+The access token is a JWT signed with HS256. It expires in 15 minutes by default. Claims include `sub` (user id), `role` (server-assigned `PASSENGER`, `RIDER`, or legacy `ADMIN`), `iss`, and `aud`. Clients must not supply a role.
 
-The refresh token is an opaque string, stored only as a hash, and expires in 30 days. The app sends it as JSON `{ "refreshToken": "..." }` to the refresh route. Refresh rotates the token. The mobile app keeps it in secure storage.
+The refresh token is an opaque string, stored only as a hash, and expires in 30 days. The app sends it as JSON `{ "refreshToken": "..." }` to the refresh route. Refresh rotates the token and detects reuse against the token family. The mobile app keeps it in secure storage.
 
 Socket.IO uses the same access token in the handshake: `auth: { token: "<accessToken>" }`. Connections without a valid token are rejected. The server joins `user:{userId}`. After a rider is assigned, ride updates use `booking:{bookingId}`.
 
-Public routes, when implemented: OTP request, OTP verify, health, and the Paystack webhook. The webhook is authorized by its signature, not by a JWT.
+Public routes: OTP request, OTP verify, refresh, health, and (when payments land) the Paystack webhook. Logout and `/users/me` require a Bearer access token. The webhook is authorized by its signature, not by a JWT.
 
 ## Naming, time, and location
 
@@ -77,9 +79,7 @@ Allowed booking moves:
 
 `REJECTED`, `CANCELLED`, and `COMPLETED` offers or bookings do not move again. Acceptance of an offer and the booking move `REQUESTED -> ACCEPTED` commit in one transaction, with the token debit.
 
-## Planned HTTP routes
-
-These shapes are the contract. They are not mounted.
+## Implemented auth routes (Milestone 1)
 
 | Method | Path | Role | Body |
 | --- | --- | --- | --- |
@@ -88,8 +88,43 @@ These shapes are the contract. They are not mounted.
 | POST | `/auth/refresh` | public | `{ "refreshToken" }` |
 | POST | `/auth/logout` | bearer | `{ "refreshToken" }` |
 | GET | `/users/me` | bearer | |
+
+## Implemented admin RBAC routes (Milestone 2)
+
+See `docs/architecture/ADMIN_RBAC_MILESTONE_2.md`.
+
+| Method | Path | Role | Body |
+| --- | --- | --- | --- |
+| POST | `/admin/bootstrap` | bootstrap secret | `{ "bootstrapSecret", "phoneNumber" }` |
+| POST | `/admin/invitations` | SUPER_ADMIN + MFA | `{ "phoneNumber", "staffRole" }` |
+| POST | `/admin/invitations/accept` | invite token | `{ "token" }` |
+| POST | `/admin/auth/otp` | public | `{ "phoneNumber" }` |
+| POST | `/admin/auth/otp/verify` | public | `{ "phoneNumber", "code" }` |
+| POST | `/admin/auth/mfa/verify` | MFA pending | `{ "mfaToken", "code" \| "recoveryCode" }` |
+| POST | `/admin/mfa/enroll/start` | enrollment Bearer | |
+| POST | `/admin/mfa/enroll/confirm` | enrollment Bearer | `{ "code" }` |
+| POST | `/admin/grants/revoke` | SUPER_ADMIN + MFA | `{ "userId", "reason" }` |
+| GET | `/admin/me` | staff MFA | |
+
+## Implemented rider onboarding (Milestone 3)
+
+See `docs/architecture/RIDER_ONBOARDING_MILESTONE_3.md`.
+
+| Method | Path | Role | Notes |
+| --- | --- | --- | --- |
+| POST/PATCH/GET | `/riders/onboarding` | PASSENGER or RIDER | Draft application; Ghana Card encrypted |
+| POST | `/riders/onboarding/submit` | PASSENGER or RIDER | → `PENDING_REVIEW` |
+| POST/PATCH | `/riders/vehicles` | PASSENGER or RIDER | `TRICYCLE` \| `CAR` only |
+| POST | `/riders/documents` | PASSENGER or RIDER | multipart upload to private R2 |
+| GET/POST | `/admin/riders/...` | Ops (+ MFA for identity) | Review / signed docs / Ghana Card reveal |
+
+## Planned HTTP routes
+
+These shapes are the contract. They are not mounted yet.
+
+| Method | Path | Role | Body |
+| --- | --- | --- | --- |
 | PATCH | `/users/me` | PASSENGER | `{ "fullName" }` |
-| POST | `/riders/onboarding` | RIDER | full name and vehicle fields |
 | POST | `/riders/availability` | RIDER | `{ "availability": "OFFLINE" \| "AVAILABLE" }` |
 | POST | `/bookings` | PASSENGER | pickup and destination coordinates only |
 | POST | `/bookings/{id}/cancel` | owner | optional reason |

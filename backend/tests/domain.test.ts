@@ -18,10 +18,12 @@ import { isInsideBoundingBox, isPointInRing } from '../src/modules/service-zones
 
 const baseEnv = {
   NODE_ENV: 'test',
-  DATABASE_URL: 'postgresql://cyrlo:cyrlo@127.0.0.1:5432/cyrlo_ride?schema=public',
+  DATABASE_URL: 'postgresql://cyrlo:cyrlo@127.0.0.1:5432/cyrlo_ride_app?schema=public',
   JWT_ACCESS_SECRET: 'test-only-access-secret-value-0123456789',
   JWT_REFRESH_SECRET: 'test-only-refresh-secret-value-0123456789',
   OTP_HASH_SECRET: 'test-only-otp-hash-secret-value-0123456789',
+  ADMIN_MFA_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
+  IDENTITY_ENCRYPTION_KEY: Buffer.alloc(32, 13).toString('base64'),
 };
 
 describe('environment', () => {
@@ -44,16 +46,20 @@ describe('environment', () => {
 
 describe('security helpers', () => {
   it('round-trips an access token and rejects another secret', () => {
+    const options = { issuer: env.JWT_ISSUER, audience: env.JWT_AUDIENCE };
     const token = signAccessToken(
       { sub: 'user-1', role: 'PASSENGER' },
       env.JWT_ACCESS_SECRET,
       60,
+      options,
     );
-    expect(verifyAccessToken(token, env.JWT_ACCESS_SECRET)).toMatchObject({
+    expect(verifyAccessToken(token, env.JWT_ACCESS_SECRET, options)).toMatchObject({
       sub: 'user-1',
       role: 'PASSENGER',
     });
-    expect(() => verifyAccessToken(token, env.JWT_REFRESH_SECRET)).toThrow(/invalid or expired/);
+    expect(() => verifyAccessToken(token, env.JWT_REFRESH_SECRET, options)).toThrow(
+      /invalid or expired/,
+    );
   });
 
   it('verifies a Paystack signature against the raw body', () => {
@@ -76,10 +82,14 @@ describe('security helpers', () => {
 });
 
 describe('booking rules', () => {
-  it('allows a rider to accept and complete, and keeps terminal states closed', () => {
-    expect(() => assertBookingTransition('REQUESTED', 'ACCEPTED', 'RIDER')).not.toThrow();
-    expect(() => assertBookingTransition('ACCEPTED', 'COMPLETED', 'RIDER')).not.toThrow();
-    expect(() => assertBookingTransition('REQUESTED', 'ACCEPTED', 'PASSENGER')).toThrow(/cannot move/);
+  it('allows approved lifecycle edges and keeps terminal states closed', () => {
+    expect(() => assertBookingTransition('AWAITING_PAYMENT', 'SEARCHING', 'SYSTEM')).not.toThrow();
+    expect(() => assertBookingTransition('SEARCHING', 'ACCEPTED', 'RIDER')).not.toThrow();
+    expect(() => assertBookingTransition('ACCEPTED', 'IN_PROGRESS', 'RIDER')).not.toThrow();
+    expect(() => assertBookingTransition('IN_PROGRESS', 'COMPLETED', 'RIDER')).not.toThrow();
+    expect(() => assertBookingTransition('AWAITING_PAYMENT', 'SEARCHING', 'PASSENGER')).toThrow(
+      /cannot move/,
+    );
     expect(() => assertBookingTransition('COMPLETED', 'CANCELLED', 'ADMIN')).toThrow(/cannot move/);
     expect(acceptanceTokenDelta).toBe(-1);
   });
@@ -89,13 +99,13 @@ describe('booking rules', () => {
     expect(() => assertOfferTransition('PENDING', 'ACCEPTED', 'RIDER')).not.toThrow();
   });
 
-  it('refunds the booking fee only before a rider accepts', () => {
+  it('refunds the booking fee only before a rider accepts (legacy helper)', () => {
     expect(shouldRefundBookingFee({ feeCaptured: true, nextStatus: 'EXPIRED', riderAccepted: false })).toBe(true);
     expect(shouldRefundBookingFee({ feeCaptured: true, nextStatus: 'CANCELLED', riderAccepted: true })).toBe(false);
     expect(shouldRefundBookingFee({ feeCaptured: false, nextStatus: 'EXPIRED', riderAccepted: false })).toBe(false);
   });
 
-  it('refunds a token unless the rider cancels or the ride completes', () => {
+  it('documents legacy token helper vs approved rider-cancel refund', () => {
     expect(shouldRefundToken({ tokenDebited: true, nextStatus: 'CANCELLED', cancelledBy: 'PASSENGER' })).toBe(true);
     expect(shouldRefundToken({ tokenDebited: true, nextStatus: 'CANCELLED', cancelledBy: 'RIDER' })).toBe(false);
     expect(shouldRefundToken({ tokenDebited: true, nextStatus: 'COMPLETED', cancelledBy: 'RIDER' })).toBe(false);

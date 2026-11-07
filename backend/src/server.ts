@@ -5,11 +5,13 @@ import { createApp } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { prisma } from './infrastructure/database/prisma.js';
+import { setRealtimeServer } from './infrastructure/realtime/publisher.js';
 import { createRealtimeServer } from './infrastructure/realtime/socket.js';
 
 const app = createApp();
 const httpServer = createServer(app);
-const io = createRealtimeServer(httpServer);
+const io = createRealtimeServer(httpServer, { prisma });
+setRealtimeServer(io);
 
 httpServer.listen(env.PORT, env.HOST, () => {
   logger.info({ host: env.HOST, port: env.PORT }, 'Cyrlo Ride API listening');

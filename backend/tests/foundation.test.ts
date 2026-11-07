@@ -23,7 +23,7 @@ describe('HTTP foundation', () => {
   });
 
   it('returns the standard error envelope for unknown routes', async () => {
-    const response = await request(createApp()).get('/api/v1/bookings');
+    const response = await request(createApp()).get('/api/v1/this-route-does-not-exist');
     expect(response.status).toBe(404);
     expect(response.body).toMatchObject({
       success: false,
@@ -73,6 +73,7 @@ describe('request contracts', () => {
     expect(Object.values(RealtimeEvent)).toEqual([
       'booking.requested',
       'booking.accepted',
+      'booking.started',
       'booking.rejected',
       'booking.cancelled',
       'booking.completed',

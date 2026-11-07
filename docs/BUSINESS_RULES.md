@@ -1,62 +1,66 @@
 # Business rules
 
-These rules are the product behaviour the modules must implement. Booking transitions, refund decisions, GPS freshness, and zone geometry already have tested functions. Creating a ride, taking payment, and moving tokens are not implemented yet.
+The approved target is `docs/architecture/CYRLO_RIDE_MASTER_SPEC.md`. This file is the short product statement. Where it and `booking-rules.ts` disagree, the master spec is the target and the TypeScript file is current code.
 
-## Accounts
+## Money
 
-One phone number has one user and one role: passenger or rider. The passenger app path and the rider app path are two experiences in the same install. Verify OTP creates the user on first success and rejects the attempt when the phone already belongs to the other role. Admin users are not created from the mobile OTP flow.
+The passenger pays Cyrlo GH₵1.00 (100 pesewas) to book. The passenger pays the rider the transport fare directly. Cyrlo does not collect that fare.
 
-OTP codes last 5 minutes, allow 5 attempts, and can be sent again after 60 seconds. Only a hash of the code is stored.
+One token is deducted only when assignment succeeds, in that same database transaction. A rejected or timed-out offer deducts nothing. Original payments and ledger rows are never edited to represent a refund.
 
-## Where rides can start
-
-A pickup must fall inside an active service zone. The check uses the zone bounding box and then the GeoJSON polygon. Destinations can be stored outside the zone; the pickup is what must be supported.
-
-## Who can be offered a ride
-
-A rider is eligible only when all of these are true:
-
-- verification status is `APPROVED`
-- availability is `AVAILABLE`
-- token balance is at least 1
-- location sharing is on
-- GPS `recordedAt` is no older than 30 seconds and is not in the future
-- the rider is not already on an `ACCEPTED` booking
-
-`BUSY` is assigned by the server when the rider accepts. The rider can set only `AVAILABLE` or `OFFLINE`. Offline stops precise location sharing.
+Provisional pack catalog, server-owned, client sends only the code: `STARTER` 20 tokens for GH₵10, `STANDARD` 50 for GH₵20, `PRO` 150 for GH₵50. The numbers may change.
 
 ## Booking
 
-The passenger sends pickup and destination coordinates. The server checks the zone, confirms the GHS 1.00 booking fee from Paystack, then offers the request to eligible riders.
+Target statuses: `AWAITING_PAYMENT`, `PAYMENT_FAILED`, `SEARCHING`, `ACCEPTED`, `IN_PROGRESS`, `COMPLETED`, `EXPIRED`, `CANCELLED`.
 
-The fare for the motorcycle ride is agreed and paid between the passenger and the rider. Cyrlo does not collect that fare.
+`REQUESTED` is the current database enum. It is not the target.
 
-Riders accept or reject an offer. Rejecting does not close the passenger's request. The booking stays `REQUESTED` until a rider accepts, the passenger or an operator cancels it, or the system expires it.
+An unpaid booking lasts 10 minutes, then becomes `PAYMENT_FAILED`. No search is started. The 5-minute search clock starts only at `SEARCHING`, after the fee is confirmed. Search expiry stops outstanding offers and sets `EXPIRED`.
 
-Status changes are checked with `assertBookingTransition` and `assertOfferTransition`. The client cannot set an arbitrary status.
+Only the assigned rider moves `ACCEPTED` to `IN_PROGRESS` and then to `COMPLETED`. A passenger completion tap is an acknowledgement, not a status change.
 
-Both sides hear the result over Socket.IO on the user room, and on `booking:{bookingId}` once a rider is assigned. Location updates go only to that booking room.
+## Matching
 
-## Booking fee
+Eligible riders are approved, active, approved for the pickup's active zone, online, with GPS no older than 30 seconds, at least one token, and within 5 km straight line of the pickup. Batches hold at most 3 riders. Further batches continue until assignment or search expiry. A rider who rejected or timed out on that booking is not offered it again. The first valid accept wins under a row lock.
 
-The passenger pays Cyrlo GHS 1.00 (`100` pesewas) through Paystack. The amount is fixed on the server.
+The per-offer timeout and the sort order inside the radius are not specified. See the master spec.
 
-The fee is kept when a rider has accepted. It is refunded when the passenger cancels before acceptance or the request expires with no acceptance. A failed or abandoned payment never creates an offer.
+## Refunds
 
-The Flutter app cannot mark the fee as paid. The Paystack webhook is verified with HMAC SHA-512 over the raw body. A bad signature is rejected.
+| Situation | Booking fee | Rider token |
+| --- | --- | --- |
+| No rider accepts before expiry | Refund | No deduction |
+| Passenger cancels during search | Refund | No deduction |
+| Rider cancels after acceptance | Refund | Refund |
+| Passenger cancels after acceptance | Support review; no automatic refund | No automatic refund |
+| Rider cannot complete the trip | Refund | Refund |
+| Trip completed | No refund | No refund |
 
-## Rider tokens
+Do not encode this table by adding flags to `shouldRefundBookingFee` or `shouldRefundToken`. Those booleans do not match the table. `shouldRefundToken` keeps the token when the rider cancels. The approved row refunds it.
 
-Riders buy token packs through Paystack. The pack code is sent by the app. The token count and price come from the server.
+## Riders
 
-One token is debited when the rider accepts, in the same transaction as the status change. The idempotency key is `token-debit:booking:{bookingId}`.
+Manual Ghana Card review is required. The rider submits documents, waits in `PENDING_REVIEW`, and an Operations Admin or Super Admin approves or rejects. Only approved riders go online. The card number is encrypted. Images are not stored in PostgreSQL. Ordinary rider APIs do not return identity data.
 
-The token is refunded when an accepted booking is cancelled by the passenger, an admin, or the system before completion. The key is `token-refund:booking:{bookingId}`.
+Launch vehicles are tricycle (primary) and car. Motorcycle is excluded. The current okada, pragya, and aboboyaa UI is not the launch catalog.
 
-The token is not refunded when the ride completes or when the rider cancels after accepting. Rejecting an offer costs nothing.
+Display availability is `OFFLINE`, `ONLINE`, `OFFER_PENDING`, `ON_TRIP`, or `SUSPENDED`. Only offline and online are rider intent. The others are derived. A rider cannot use the normal offline control during `ACCEPTED` or `IN_PROGRESS`. Suspension blocks offers and online availability, keeps the token balance, and requires a reason plus an audit row from Operations Admin or Super Admin.
 
-The balance cannot go negative. Every change writes a ledger row with the resulting balance.
+## Zones and pilot
 
-## Live location
+Administrative area: Atwima Kwanwoma District, Ashanti Region. Pilot operations: Ahenema Kokoben and selected covered subareas, about 20 verified tricycle riders, cars allowed, closed passenger list. Polygons must be sourced before activation. They are not in this repository. Each zone approval is separate. Deactivating a zone keeps historical bookings.
 
-Riders share location while online through an authenticated socket or the location route. Passengers receive the assigned rider's location only after acceptance. Readings older than 30 seconds are stale and are not shown as live. Offline riders are not shareable.
+## Staff
+
+`SUPER_ADMIN`, `OPERATIONS_ADMIN`, `FINANCE_ADMIN`, and `SUPPORT_ADMIN` are the dashboard roles. The single `ADMIN` token role is current code, not the final model. Refunds require an explicit finance permission. No one may grant themselves Super Admin. Staff MFA is required. The MFA method is not chosen.
+
+## Disputes and notifications
+
+Either party may open a dispute within 24 hours of completion or cancellation. Support reads history, trip GPS, and payments. Refunds still follow the matrix and are new records.
+
+Push is primary. In-app notifications persist. SMS is for OTP and critical fallback. Notification failure must not roll back a booking or a payment.
+
+## Current code that this replaces
+
+`assertBookingTransition` starts at `REQUESTED` and has no `SEARCHING` or `IN_PROGRESS`. Wallet, payment, and booking services throw `NOT_IMPLEMENTED`. The local app OTP is `123456`.

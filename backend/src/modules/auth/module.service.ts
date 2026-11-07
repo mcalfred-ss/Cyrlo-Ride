@@ -1,30 +1,187 @@
-import { notImplemented } from '../../common/errors/not-implemented.js';
-import type { RequestOtpInput, VerifyOtpInput, RefreshSessionInput, LogoutInput } from './module.schema.js';
-import type { AuthRepository } from './module.repository.js';
+import { randomUUID } from 'node:crypto';
+
+import { canExposeDevelopmentOtp, env } from '../../config/env.js';
+import { AppError } from '../../common/errors/app-error.js';
+import { generateOtpCode, hashOtpCode } from '../../common/security/otp.js';
+import {
+  createRefreshToken,
+  hashSecretValue,
+  signAccessToken,
+} from '../../common/security/tokens.js';
+import type { SmsProvider } from '../../infrastructure/sms/sms.provider.js';
+import type {
+  LogoutInput,
+  RefreshSessionInput,
+  RequestOtpInput,
+  VerifyOtpInput,
+} from './module.schema.js';
+import type { AuthStore, AuthUser } from './auth-store.js';
+
+export interface AuthSessionTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+export interface AuthUserView {
+  id: string;
+  phoneNumber: string;
+  role: AuthUser['role'];
+  status: AuthUser['status'];
+  displayName: string | null;
+}
+
+export interface RequestOtpResult {
+  expiresIn: number;
+  resendAfter: number;
+  developmentCode?: string;
+}
+
+export interface VerifyOtpResult extends AuthSessionTokens {
+  user: AuthUserView;
+}
+
+export interface AuthServiceDeps {
+  sms: SmsProvider;
+  now?: () => Date;
+  generateCode?: () => string;
+  createFamilyId?: () => string;
+}
 
 export interface AuthService {
-  requestOtp(input: RequestOtpInput): Promise<never>;
-  verifyOtp(input: VerifyOtpInput): Promise<never>;
-  refresh(input: RefreshSessionInput): Promise<never>;
-  logout(input: LogoutInput): Promise<never>;
+  requestOtp(input: RequestOtpInput): Promise<RequestOtpResult>;
+  verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpResult>;
+  refresh(input: RefreshSessionInput): Promise<AuthSessionTokens>;
+  logout(input: LogoutInput, userId: string): Promise<{ revoked: boolean }>;
 }
 
 export class AuthServiceImpl implements AuthService {
-  constructor(private readonly repository: AuthRepository) {}
+  private readonly now: () => Date;
+  private readonly generateCode: () => string;
+  private readonly createFamilyId: () => string;
 
-  async requestOtp(_input: RequestOtpInput): Promise<never> {
-    notImplemented('requestOtp');
+  constructor(
+    private readonly repository: AuthStore,
+    private readonly deps: AuthServiceDeps,
+  ) {
+    this.now = deps.now ?? (() => new Date());
+    this.generateCode = deps.generateCode ?? generateOtpCode;
+    this.createFamilyId = deps.createFamilyId ?? (() => randomUUID());
   }
 
-  async verifyOtp(_input: VerifyOtpInput): Promise<never> {
-    notImplemented('verifyOtp');
+  async requestOtp(input: RequestOtpInput): Promise<RequestOtpResult> {
+    const now = this.now();
+    const code = this.generateCode();
+    const codeHash = hashOtpCode(code, env.OTP_HASH_SECRET);
+    const expiresAt = new Date(now.getTime() + env.OTP_TTL_SECONDS * 1000);
+
+    await this.repository.createOtpChallenge({
+      phoneNumber: input.phoneNumber,
+      codeHash,
+      expiresAt,
+      maxAttempts: env.OTP_MAX_ATTEMPTS,
+      cooldownSeconds: env.OTP_RESEND_COOLDOWN_SECONDS,
+      now,
+    });
+
+    await this.deps.sms.send({
+      to: input.phoneNumber,
+      body: `Your Cyrlo Ride code is ${code}. It expires in ${env.OTP_TTL_SECONDS / 60} minutes.`,
+    });
+
+    const result: RequestOtpResult = {
+      expiresIn: env.OTP_TTL_SECONDS,
+      resendAfter: env.OTP_RESEND_COOLDOWN_SECONDS,
+    };
+
+    if (canExposeDevelopmentOtp(env)) {
+      result.developmentCode = code;
+    }
+
+    return result;
   }
 
-  async refresh(_input: RefreshSessionInput): Promise<never> {
-    notImplemented('refresh');
+  async verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpResult> {
+    const now = this.now();
+    const refreshToken = createRefreshToken();
+    const familyId = this.createFamilyId();
+    const refreshTokenHash = hashSecretValue(refreshToken, env.JWT_REFRESH_SECRET);
+    const refreshExpiresAt = new Date(now.getTime() + env.JWT_REFRESH_TTL_SECONDS * 1000);
+
+    const { user } = await this.repository.verifyOtpAndCreateSession({
+      phoneNumber: input.phoneNumber,
+      codeHash: hashOtpCode(input.code, env.OTP_HASH_SECRET),
+      role: input.role,
+      refreshTokenHash,
+      refreshExpiresAt,
+      familyId,
+      now,
+    });
+
+    return {
+      ...this.issueAccess(user),
+      refreshToken,
+      user: toUserView(user),
+    };
   }
 
-  async logout(_input: LogoutInput): Promise<never> {
-    notImplemented('logout');
+  async refresh(input: RefreshSessionInput): Promise<AuthSessionTokens> {
+    const now = this.now();
+    const presentedHash = hashSecretValue(input.refreshToken, env.JWT_REFRESH_SECRET);
+    const nextRefreshToken = createRefreshToken();
+    const nextHash = hashSecretValue(nextRefreshToken, env.JWT_REFRESH_SECRET);
+    const nextExpiresAt = new Date(now.getTime() + env.JWT_REFRESH_TTL_SECONDS * 1000);
+
+    const { user } = await this.repository.rotateRefreshSession({
+      presentedTokenHash: presentedHash,
+      nextTokenHash: nextHash,
+      nextExpiresAt,
+      now,
+    });
+
+    return {
+      ...this.issueAccess(user),
+      refreshToken: nextRefreshToken,
+    };
   }
+
+  async logout(input: LogoutInput, userId: string): Promise<{ revoked: boolean }> {
+    if (!userId) {
+      throw new AppError({
+        status: 401,
+        code: 'UNAUTHORIZED',
+        message: 'Authentication is required',
+      });
+    }
+
+    const revoked = await this.repository.revokeRefreshSession({
+      tokenHash: hashSecretValue(input.refreshToken, env.JWT_REFRESH_SECRET),
+      userId,
+      now: this.now(),
+    });
+
+    return { revoked };
+  }
+
+  private issueAccess(user: AuthUser): Omit<AuthSessionTokens, 'refreshToken'> {
+    return {
+      accessToken: signAccessToken(
+        { sub: user.id, role: user.role },
+        env.JWT_ACCESS_SECRET,
+        env.JWT_ACCESS_TTL_SECONDS,
+        { issuer: env.JWT_ISSUER, audience: env.JWT_AUDIENCE },
+      ),
+      expiresIn: env.JWT_ACCESS_TTL_SECONDS,
+    };
+  }
+}
+
+function toUserView(user: AuthUser): AuthUserView {
+  return {
+    id: user.id,
+    phoneNumber: user.phoneNumber,
+    role: user.role,
+    status: user.status,
+    displayName: user.displayName,
+  };
 }

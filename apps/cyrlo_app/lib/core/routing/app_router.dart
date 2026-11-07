@@ -10,6 +10,7 @@ import '../../features/auth/presentation/select_role_screen.dart';
 import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/auth/presentation/verify_otp_screen.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
+import '../../passenger_app/map/presentation/passenger_map_screen.dart';
 import '../../passenger_app/profile/presentation/passenger_details_screen.dart';
 import '../../rider_app/onboarding/presentation/driver_type_screen.dart';
 import '../../rider_app/onboarding/presentation/rider_application_screen.dart';
@@ -95,7 +96,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.passengerMap,
-                builder: (context, state) => const SectionPage(title: 'Map'),
+                builder: (context, state) => const PassengerMapScreen(),
               ),
             ],
           ),

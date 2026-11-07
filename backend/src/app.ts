@@ -14,6 +14,12 @@ import { requestId } from './common/middleware/request-id.js';
 import { createHealthRouter } from './common/routes/health.routes.js';
 import { openApiDocument } from './docs/openapi.js';
 import { prisma } from './infrastructure/database/prisma.js';
+import { startUnpaidBookingExpiryWorker } from './jobs/expire-unpaid-bookings.js';
+import { startMatchingWorkers } from './jobs/matching-workers.js';
+import { startNotificationOutboxWorker } from './jobs/notification-outbox-worker.js';
+import { startRefundWorkers } from './jobs/refund-workers.js';
+import { createPushProvider } from './infrastructure/push/push.provider.js';
+import { createSmsProvider } from './infrastructure/sms/sms.provider.js';
 import { createModules } from './composition.js';
 import './common/types/express.js';
 
@@ -21,7 +27,9 @@ const allowedOrigins = new Set(env.CORS_ORIGINS);
 
 export function createApp(): Express {
   const app = express();
-  if (env.TRUST_PROXY) app.set('trust proxy', 1);
+  if (env.trustProxySetting !== false) {
+    app.set('trust proxy', env.trustProxySetting);
+  }
   app.disable('x-powered-by');
 
   app.use(requestId);
@@ -82,15 +90,43 @@ export function createApp(): Express {
   api.use('/users', modules.users.router);
   api.use('/riders', modules.riders.router);
   api.use('/bookings', modules.bookings.router);
+  api.use('/bookings', modules.disputes.router);
   api.use('/matching', modules.matching.router);
+  api.use('/admin', modules.disputes.adminRouter);
   api.use('/locations', modules.locations.router);
   api.use('/payments', modules.payments.router);
+  api.use('/admin/payments', modules.payments.adminRouter);
   api.use('/wallet', modules.wallet.router);
+  api.use('/admin', modules.wallet.adminRouter);
   api.use('/notifications', modules.notifications.router);
   api.use('/admin', modules.admin.router);
+  api.use('/admin/riders', modules.riders.opsRouter);
+  api.use('/admin/riders', modules.serviceZones.riderZoneAdminRouter);
+  api.use('/admin/riders', modules.locations.adminRouter);
   api.use('/service-zones', modules.serviceZones.router);
   api.use('/audit', modules.audit.router);
   app.use(API_PREFIX, api);
+
+  if (env.NODE_ENV !== 'test') {
+    startUnpaidBookingExpiryWorker(modules.bookings.service);
+    startMatchingWorkers(modules.matching.service);
+    startRefundWorkers(modules.payments.service);
+    startNotificationOutboxWorker({
+      prisma,
+      push: createPushProvider({
+        provider: env.PUSH_PROVIDER,
+        apiKey: env.PUSH_API_KEY,
+        projectId: env.FCM_PROJECT_ID,
+        serviceAccountFile: env.FCM_SERVICE_ACCOUNT_FILE,
+        nodeEnv: env.NODE_ENV,
+      }),
+      sms: createSmsProvider({
+        provider: env.SMS_PROVIDER,
+        apiKey: env.SMS_API_KEY,
+        nodeEnv: env.NODE_ENV,
+      }),
+    });
+  }
 
   app.use((req, res) => {
     res.status(404).json({

@@ -1,10 +1,21 @@
 process.env.NODE_ENV = 'test';
 process.env.HOST = '127.0.0.1';
 process.env.PORT = '3000';
-process.env.DATABASE_URL = 'postgresql://cyrlo:cyrlo@127.0.0.1:5432/cyrlo_ride?schema=public';
+process.env.DATABASE_URL = 'postgresql://cyrlo:cyrlo@127.0.0.1:5432/cyrlo_ride_app?schema=public';
 process.env.CORS_ORIGINS = 'http://localhost:3000';
 process.env.JWT_ACCESS_SECRET = 'test-only-access-secret-value-0123456789';
 process.env.JWT_REFRESH_SECRET = 'test-only-refresh-secret-value-0123456789';
+process.env.JWT_ISSUER = 'cyrlo-ride-test';
+process.env.JWT_AUDIENCE = 'cyrlo-ride-test-clients';
 process.env.OTP_HASH_SECRET = 'test-only-otp-hash-secret-value-0123456789';
+process.env.OTP_DEV_EXPOSE_CODE = 'false';
+process.env.ADMIN_BOOTSTRAP_SECRET = 'test-only-admin-bootstrap-secret-0123456789ab';
+process.env.ADMIN_MFA_ENCRYPTION_KEY = Buffer.alloc(32, 9).toString('base64');
+process.env.IDENTITY_ENCRYPTION_KEY = Buffer.alloc(32, 13).toString('base64');
+process.env.TOTP_ISSUER = 'Cyrlo Ride Test';
 process.env.LOG_LEVEL = 'silent';
 process.env.TRUST_PROXY = 'false';
+process.env.PAYSTACK_SECRET_KEY = 'test-paystack-secret-key';
+process.env.PAYSTACK_PUBLIC_KEY = 'test-paystack-public-key';
+/** Explicit product-configured offer timeout for tests (not GPS freshness). */
+process.env.RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS = '15';

@@ -1,3 +1,4 @@
+import { AppError } from '../../common/errors/app-error.js';
 import type { Coordinates } from '../../common/schemas/coordinates.js';
 
 export interface BoundingBox {
@@ -6,6 +7,20 @@ export interface BoundingBox {
   minLongitude: number;
   maxLongitude: number;
 }
+
+export type GeoJsonPosition = readonly [number, number];
+
+export interface GeoJsonPolygon {
+  type: 'Polygon';
+  coordinates: GeoJsonPosition[][];
+}
+
+export interface GeoJsonMultiPolygon {
+  type: 'MultiPolygon';
+  coordinates: GeoJsonPosition[][][];
+}
+
+export type ZoneBoundary = GeoJsonPolygon | GeoJsonMultiPolygon;
 
 /** GeoJSON positions are [longitude, latitude]. */
 export function isPointInRing(
@@ -41,4 +56,130 @@ export function isInsideBoundingBox(point: Coordinates, box: BoundingBox): boole
     point.longitude >= box.minLongitude &&
     point.longitude <= box.maxLongitude
   );
+}
+
+export function isPointInBoundary(
+  latitude: number,
+  longitude: number,
+  boundary: ZoneBoundary,
+): boolean {
+  if (boundary.type === 'Polygon') {
+    return isPointInPolygon(latitude, longitude, boundary.coordinates);
+  }
+  return boundary.coordinates.some((polygon) => isPointInPolygon(latitude, longitude, polygon));
+}
+
+function isPointInPolygon(
+  latitude: number,
+  longitude: number,
+  polygon: readonly (readonly GeoJsonPosition[])[],
+): boolean {
+  const outer = polygon[0];
+  if (!outer || !isPointInRing(latitude, longitude, outer)) return false;
+  for (let i = 1; i < polygon.length; i += 1) {
+    const hole = polygon[i];
+    if (hole && isPointInRing(latitude, longitude, hole)) return false;
+  }
+  return true;
+}
+
+/**
+ * Validates GeoJSON Polygon/MultiPolygon for zone storage.
+ * Does not invent coordinates — callers must supply verified boundaries.
+ */
+export function validateAndNormalizeBoundary(input: unknown): {
+  boundary: ZoneBoundary;
+  boundingBox: BoundingBox;
+} {
+  if (!input || typeof input !== 'object') {
+    throw geometryError('Boundary must be a GeoJSON object');
+  }
+  const candidate = input as { type?: unknown; coordinates?: unknown };
+  if (candidate.type !== 'Polygon' && candidate.type !== 'MultiPolygon') {
+    throw geometryError('Boundary type must be Polygon or MultiPolygon');
+  }
+
+  if (candidate.type === 'Polygon') {
+    const coordinates = assertPolygonCoordinates(candidate.coordinates);
+    return {
+      boundary: { type: 'Polygon', coordinates },
+      boundingBox: boundingBoxFromPolygons([coordinates]),
+    };
+  }
+
+  if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
+    throw geometryError('MultiPolygon must include at least one polygon');
+  }
+  const coordinates = candidate.coordinates.map((polygon) => assertPolygonCoordinates(polygon));
+  return {
+    boundary: { type: 'MultiPolygon', coordinates },
+    boundingBox: boundingBoxFromPolygons(coordinates),
+  };
+}
+
+function assertPolygonCoordinates(value: unknown): GeoJsonPosition[][] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw geometryError('Polygon must include an exterior ring');
+  }
+  return value.map((ring, ringIndex) => assertRing(ring, ringIndex === 0 ? 'exterior' : 'hole'));
+}
+
+function assertRing(value: unknown, label: string): GeoJsonPosition[] {
+  if (!Array.isArray(value) || value.length < 4) {
+    throw geometryError(`Polygon ${label} ring must contain at least 4 positions`);
+  }
+  const positions: GeoJsonPosition[] = value.map((position, index) =>
+    assertPosition(position, `${label}[${index}]`),
+  );
+  const first = positions[0]!;
+  const last = positions[positions.length - 1]!;
+  if (first[0] !== last[0] || first[1] !== last[1]) {
+    throw geometryError(`Polygon ${label} ring must be closed (first point equals last point)`);
+  }
+  const unique = new Set(positions.slice(0, -1).map((point) => `${point[0]},${point[1]}`));
+  if (unique.size < 3) {
+    throw geometryError(`Polygon ${label} ring must contain at least 3 distinct positions`);
+  }
+  return positions;
+}
+
+function assertPosition(value: unknown, label: string): GeoJsonPosition {
+  if (!Array.isArray(value) || value.length < 2) {
+    throw geometryError(`Position ${label} must be [longitude, latitude]`);
+  }
+  const longitude = value[0];
+  const latitude = value[1];
+  if (typeof longitude !== 'number' || Number.isNaN(longitude) || longitude < -180 || longitude > 180) {
+    throw geometryError(`Longitude at ${label} must be a number between -180 and 180`);
+  }
+  if (typeof latitude !== 'number' || Number.isNaN(latitude) || latitude < -90 || latitude > 90) {
+    throw geometryError(`Latitude at ${label} must be a number between -90 and 90`);
+  }
+  return [longitude, latitude];
+}
+
+function boundingBoxFromPolygons(polygons: GeoJsonPosition[][][]): BoundingBox {
+  let minLatitude = 90;
+  let maxLatitude = -90;
+  let minLongitude = 180;
+  let maxLongitude = -180;
+  for (const polygon of polygons) {
+    for (const ring of polygon) {
+      for (const [longitude, latitude] of ring) {
+        minLatitude = Math.min(minLatitude, latitude);
+        maxLatitude = Math.max(maxLatitude, latitude);
+        minLongitude = Math.min(minLongitude, longitude);
+        maxLongitude = Math.max(maxLongitude, longitude);
+      }
+    }
+  }
+  return { minLatitude, maxLatitude, minLongitude, maxLongitude };
+}
+
+function geometryError(message: string): AppError {
+  return new AppError({
+    status: 400,
+    code: 'VALIDATION_ERROR',
+    message,
+  });
 }

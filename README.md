@@ -21,7 +21,15 @@ flutter pub get
 flutter run --dart-define=API_BASE_URL=http://localhost:3000/api/v1 --dart-define=SOCKET_URL=http://localhost:3000
 ```
 
-On the Android emulator, point the defines at `http://10.0.2.2:3000` instead of `localhost`.
+Optional map defines:
+
+- `MAPBOX_ACCESS_TOKEN` — public `pk.` token for Mapbox tiles and device Directions. Empty uses the Cyrlo Maps CARTO fallback.
+- `CYRLO_MAPS_API_BASE_URL` — leave empty until the hosted Maps OpenAPI contract is published. Do not invent endpoints.
+- `CYRLO_MAPS_API_TOKEN` — reserved for that future contract.
+
+On the Android emulator, point the API defines at `http://10.0.2.2:3000` instead of `localhost`.
+
+Cyrlo Maps is a git dependency pinned to commit `d299ede80fb63ccaa3f8d8b2135f757897317dfd`. See `docs/architecture/CYRLO_MAPS_INTEGRATION_REPORT.md`.
 
 The opening screen previews the passenger or rider experience. After sign-in exists, the API role replaces that choice.
 

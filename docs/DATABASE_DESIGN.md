@@ -1,5 +1,7 @@
 # Database design
 
+The approved target design is in [docs/architecture/CYRLO_RIDE_MASTER_SPEC.md](architecture/CYRLO_RIDE_MASTER_SPEC.md) and [docs/architecture/DATABASE_DESIGN.md](architecture/DATABASE_DESIGN.md). `REQUESTED` in the status list below is the migrated enum, not the approved lifecycle.
+
 One PostgreSQL database. One Prisma schema at `backend/prisma/schema.prisma`. One migration history. Modules do not get separate databases.
 
 Prisma models use camelCase fields and snake_case table names. Identifiers are UUIDs. Money is an integer number of pesewas. `GHS 1.00` is `100`.

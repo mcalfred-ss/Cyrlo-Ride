@@ -1,4 +1,10 @@
+import { randomInt } from 'node:crypto';
+
 import { hashSecretValue } from './tokens.js';
+
+export function generateOtpCode(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, '0');
+}
 
 export function hashOtpCode(code: string, secret: string): string {
   return hashSecretValue(code, secret);

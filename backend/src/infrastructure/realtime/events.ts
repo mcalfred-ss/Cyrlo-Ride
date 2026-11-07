@@ -3,6 +3,7 @@ import type { Coordinates } from '../../common/schemas/coordinates.js';
 export const RealtimeEvent = {
   BookingRequested: 'booking.requested',
   BookingAccepted: 'booking.accepted',
+  BookingStarted: 'booking.started',
   BookingRejected: 'booking.rejected',
   BookingCancelled: 'booking.cancelled',
   BookingCompleted: 'booking.completed',
@@ -25,6 +26,12 @@ export interface BookingAcceptedPayload {
   bookingId: string;
   riderId: string;
   acceptedAt: string;
+}
+
+export interface BookingStartedPayload {
+  bookingId: string;
+  riderId: string;
+  startedAt: string;
 }
 
 export interface BookingRejectedPayload {

@@ -1,19 +1,33 @@
 import { Router } from 'express';
 
 import type { ModuleDeps } from '../../common/types/module-deps.js';
+import type { AuditService } from '../audit/module.service.js';
+import type { PaystackClient } from '../../infrastructure/payments/paystack-client.js';
 import { BookingsController } from './module.controller.js';
 import { BookingsRepository } from './module.repository.js';
 import { createBookingsRouter } from './module.routes.js';
-import { BookingsServiceImpl, type BookingsService } from './module.service.js';
+import {
+  BookingsServiceImpl,
+  type BookingsService,
+  type BookingsServiceDeps,
+} from './module.service.js';
 
 export interface BookingsModule {
   service: BookingsService;
   router: Router;
 }
 
-export function createBookingsModule(deps: ModuleDeps): BookingsModule {
+export function createBookingsModule(
+  deps: ModuleDeps & { audit: AuditService },
+  options?: { paystack?: PaystackClient; serviceDeps?: Partial<BookingsServiceDeps> },
+): BookingsModule {
   const repository = new BookingsRepository(deps.prisma);
-  const service = new BookingsServiceImpl(repository);
+  const service = new BookingsServiceImpl(repository, {
+    audit: deps.audit,
+    prisma: deps.prisma,
+    paystack: options?.paystack,
+    ...options?.serviceDeps,
+  });
   const controller = new BookingsController(service);
   return { service, router: createBookingsRouter(controller) };
 }

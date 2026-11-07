@@ -3,6 +3,7 @@ import { createAdminModule } from './modules/admin/index.js';
 import { createAuditModule } from './modules/audit/index.js';
 import { createAuthModule } from './modules/auth/index.js';
 import { createBookingsModule } from './modules/bookings/index.js';
+import { createDisputesModule } from './modules/disputes/index.js';
 import { createLocationsModule } from './modules/locations/index.js';
 import { createMatchingModule } from './modules/matching/index.js';
 import { createNotificationsModule } from './modules/notifications/index.js';
@@ -13,18 +14,38 @@ import { createUsersModule } from './modules/users/index.js';
 import { createWalletModule } from './modules/wallet/index.js';
 
 export function createModules(deps: ModuleDeps) {
+  const audit = createAuditModule(deps);
+  const bookings = createBookingsModule({ ...deps, audit: audit.service });
+  const matching = createMatchingModule({
+    ...deps,
+    audit: audit.service,
+    bookings: bookings.service,
+  });
+  const disputes = createDisputesModule({
+    ...deps,
+    audit: audit.service,
+    bookings: bookings.service,
+  });
+  const wallet = createWalletModule({ ...deps, audit: audit.service });
   return {
     auth: createAuthModule(deps),
     users: createUsersModule(deps),
-    riders: createRidersModule(deps),
-    bookings: createBookingsModule(deps),
-    matching: createMatchingModule(deps),
-    locations: createLocationsModule(deps),
-    payments: createPaymentsModule(deps),
-    wallet: createWalletModule(deps),
+    riders: createRidersModule({ ...deps, audit: audit.service }),
+    bookings,
+    matching,
+    disputes,
+    locations: createLocationsModule({ ...deps, audit: audit.service }),
+    payments: createPaymentsModule({
+      ...deps,
+      audit: audit.service,
+      bookings: bookings.service,
+      matching: matching.service,
+      wallet: wallet.service,
+    }),
+    wallet,
     notifications: createNotificationsModule(deps),
-    admin: createAdminModule(deps),
-    serviceZones: createServiceZonesModule(deps),
-    audit: createAuditModule(deps),
+    admin: createAdminModule({ ...deps, audit: audit.service }),
+    serviceZones: createServiceZonesModule({ ...deps, audit: audit.service }),
+    audit,
   };
 }
