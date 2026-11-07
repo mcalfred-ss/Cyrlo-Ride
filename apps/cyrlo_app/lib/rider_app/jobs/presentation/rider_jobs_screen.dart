@@ -1,33 +1,94 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/ride_session/active_ride_request.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/active_contact_card.dart';
+import '../../../shared/widgets/cyrlo_button.dart';
+import '../../../shared/widgets/profile_avatar.dart';
+import 'rider_job_card.dart';
 
-class RiderJobsScreen extends ConsumerStatefulWidget {
+class RiderJobsScreen extends ConsumerWidget {
   const RiderJobsScreen({super.key});
 
-  @override
-  ConsumerState<RiderJobsScreen> createState() => _RiderJobsScreenState();
-}
+  Future<void> _confirmCancel(
+    BuildContext context,
+    WidgetRef ref,
+    ActiveRideRequest job,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text('Cancel this request?'),
+        content: Text(
+          'Decline ${job.displayFirstName}’s pickup request?',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            key: const Key('confirm-cancel-job'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Yes, cancel'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    ref.read(riderJobOffersProvider.notifier).decline(job.id);
+  }
 
-class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(activeRideRequestProvider.notifier).seedDemoRiderJobIfNeeded();
-    });
+  Future<void> _confirmAccept(
+    BuildContext context,
+    WidgetRef ref,
+    ActiveRideRequest job,
+  ) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surface,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: Text('Accept ${job.displayFirstName}?'),
+        content: Text(
+          '${job.etaLabel}. You’ll open the map and head to their pickup.',
+          style: const TextStyle(height: 1.4),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            key: const Key('confirm-accept-job'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Yes, accept'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !context.mounted) return;
+
+    final accepted = ref.read(riderJobOffersProvider.notifier).accept(job.id);
+    if (accepted == null || !context.mounted) return;
+    context.go(AppRoutes.riderMap);
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final offers = ref.watch(riderJobOffersProvider);
     final active = ref.watch(activeRideRequestProvider);
     final theme = Theme.of(context);
-    final live = active?.sharesContact == true;
+    final accepted = active?.isAccepted == true;
 
     return SizedBox.expand(
       child: Padding(
@@ -46,7 +107,9 @@ class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Pickup requests near you. Call the passenger to confirm where to meet.',
+              accepted
+                  ? 'You’re on a pickup. Open the map if you need directions.'
+                  : 'Nearby pickup requests. Preview the map before you accept.',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -57,7 +120,11 @@ class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
             Row(
               children: [
                 Text(
-                  live ? 'Active pickup' : 'No active pickup',
+                  accepted
+                      ? 'Active job'
+                      : offers.isEmpty
+                          ? 'No requests'
+                          : 'Incoming',
                   style: theme.textTheme.titleSmall?.copyWith(
                     color: AppColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -67,13 +134,21 @@ class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    color: live ? AppColors.brandLight : AppColors.field,
+                    color: accepted || offers.isNotEmpty
+                        ? AppColors.yellow
+                        : AppColors.field,
                     borderRadius: BorderRadius.circular(AppRadii.pill),
                   ),
                   child: Text(
-                    live ? 'Live' : 'Idle',
+                    accepted
+                        ? 'On job'
+                        : offers.isEmpty
+                            ? 'Idle'
+                            : '${offers.length} waiting',
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.darkGrey,
+                      color: accepted || offers.isNotEmpty
+                          ? AppColors.darkGrey
+                          : AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -82,40 +157,171 @@ class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
             ),
             const SizedBox(height: AppSpacing.sm),
             Expanded(
-              child: live
+              child: accepted
                   ? ListView(
                       children: [
+                        _AcceptedJobBanner(job: active!),
+                        const SizedBox(height: AppSpacing.sm),
                         ActiveContactCard(
-                          title: active!.passengerName == null
-                              ? 'Passenger waiting'
-                              : '${active.passengerName} is waiting',
-                          subtitle: active.etaMinutes == null
-                              ? 'Passenger number is shared for this pickup only. Destination is agreed when you arrive.'
-                              : 'About ${active.etaMinutes} mins to their area. Number is shared for this pickup only.',
+                          title: '${active.displayFirstName} is waiting',
+                          subtitle:
+                              'Call if you need help finding them. Destination stays off the app.',
                           phoneE164: active.passengerPhoneE164,
                           contactLabel: 'Passenger number',
-                          onCancel: () {
-                            ref
-                                .read(activeRideRequestProvider.notifier)
-                                .markCancelled();
+                          onCancel: () async {
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: AppColors.surface,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                title: const Text('Cancel this job?'),
+                                content: const Text(
+                                  'End the active pickup with this passenger?',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('No'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text('Yes, cancel'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true) {
+                              ref
+                                  .read(activeRideRequestProvider.notifier)
+                                  .markCancelled();
+                            }
                           },
-                          onComplete: () {
-                            ref
-                                .read(activeRideRequestProvider.notifier)
-                                .markCompleted();
+                          onComplete: () async {
+                            final ok = await showDialog<bool>(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                backgroundColor: AppColors.surface,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(24),
+                                ),
+                                title: const Text('Mark as arrived?'),
+                                content: const Text(
+                                  'Finish this pickup job once you’ve met the passenger.',
+                                ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text('No'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text('Yes, done'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (ok == true) {
+                              ref
+                                  .read(activeRideRequestProvider.notifier)
+                                  .markCompleted();
+                            }
                           },
                         ),
                         const SizedBox(height: AppSpacing.md),
-                        Text(
-                          'After you arrive, ask where they’re going. Trip fare stays between you two.',
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                            height: 1.4,
-                          ),
+                        CyrloButton(
+                          key: const Key('open-rider-map'),
+                          label: 'Open pickup map',
+                          onPressed: () => context.go(AppRoutes.riderMap),
                         ),
                       ],
                     )
-                  : const _EmptyJobs(),
+                  : offers.isEmpty
+                      ? const _EmptyJobs()
+                      : ListView.separated(
+                          key: const Key('rider-jobs-list'),
+                          itemCount: offers.length,
+                          separatorBuilder: (context, index) =>
+                              const SizedBox(height: AppSpacing.sm),
+                          itemBuilder: (context, index) {
+                            final job = offers[index];
+                            return RiderJobCard(
+                              key: Key('rider-job-${job.id}'),
+                              job: job,
+                              onAccept: () => _confirmAccept(context, ref, job),
+                              onCancel: () => _confirmCancel(context, ref, job),
+                              onOpenMap: () {
+                                ref
+                                    .read(previewRiderJobProvider.notifier)
+                                    .select(job);
+                                context.go(AppRoutes.riderMap);
+                              },
+                            );
+                          },
+                        ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AcceptedJobBanner extends StatelessWidget {
+  const _AcceptedJobBanner({required this.job});
+
+  final ActiveRideRequest job;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final avatar = ProfileAvatars.assetFor(
+      gender: job.passengerGender,
+      seed: job.id,
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: AppColors.brandLight,
+        borderRadius: BorderRadius.circular(AppRadii.lg),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(AppSpacing.sm),
+        child: Row(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(AppRadii.md),
+              child: Image.asset(
+                avatar,
+                width: 56,
+                height: 56,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(width: AppSpacing.sm),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Heading to ${job.displayFirstName}',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.onBrandLight,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    job.etaLabel,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -143,9 +349,9 @@ class _EmptyJobs extends StatelessWidget {
                 color: AppColors.brandLight,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.work_outline_rounded,
-                color: AppColors.darkGrey,
+                color: AppColors.onBrandLight,
                 size: 30,
               ),
             ),
@@ -159,7 +365,7 @@ class _EmptyJobs extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'When a passenger requests you, their number will show here for the pickup.',
+              'When passengers request a ride, their cards will show up here.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: AppColors.textSecondary,

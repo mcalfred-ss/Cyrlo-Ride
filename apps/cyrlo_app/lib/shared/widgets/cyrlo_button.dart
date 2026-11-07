@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_spacing.dart';
 
 enum CyrloButtonVariant { primary, outlined }
@@ -24,22 +25,32 @@ class CyrloButton extends StatelessWidget {
       expand ? double.infinity : AppSpacing.touchTarget,
       AppSpacing.buttonHeight,
     );
+    final isPrimary = variant == CyrloButtonVariant.primary;
     final child = Text(
       label,
-      style: Theme.of(context).textTheme.labelLarge?.copyWith(
+      style: TextStyle(
         fontWeight: FontWeight.w800,
+        color: isPrimary ? AppColors.darkGrey : AppColors.textPrimary,
       ),
     );
 
     final button = switch (variant) {
       CyrloButtonVariant.primary => FilledButton(
         onPressed: onPressed,
-        style: FilledButton.styleFrom(minimumSize: size),
+        style: FilledButton.styleFrom(
+          minimumSize: size,
+          backgroundColor: AppColors.yellow,
+          foregroundColor: AppColors.darkGrey,
+        ),
         child: child,
       ),
       CyrloButtonVariant.outlined => OutlinedButton(
         onPressed: onPressed,
-        style: OutlinedButton.styleFrom(minimumSize: size),
+        style: OutlinedButton.styleFrom(
+          minimumSize: size,
+          foregroundColor: AppColors.textPrimary,
+          side: BorderSide(color: AppColors.border),
+        ),
         child: child,
       ),
     };

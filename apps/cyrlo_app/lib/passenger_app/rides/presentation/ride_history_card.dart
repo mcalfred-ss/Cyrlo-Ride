@@ -21,7 +21,7 @@ class RideHistoryCard extends StatelessWidget {
   Color get _statusColor => switch (ride.status) {
         PassengerRideStatus.completed => const Color(0xFF1F8A4C),
         PassengerRideStatus.cancelled => AppColors.tomato,
-        PassengerRideStatus.ongoing => AppColors.brandDark,
+        PassengerRideStatus.ongoing => AppColors.onBrandLight,
       };
 
   Color get _statusBg => switch (ride.status) {
@@ -71,13 +71,14 @@ class RideHistoryCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(AppRadii.md),
               child: ColoredBox(
-                color: AppColors.field,
-                child: Image.asset(
-                  _asset,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.transparent
+                    : AppColors.illustrationNest,
+                child: ThemedIllustrationImage(
+                  asset: _asset,
                   width: 78,
                   height: 78,
                   fit: BoxFit.cover,
-                  filterQuality: FilterQuality.high,
                   semanticLabel: '${ride.kindLabel} ride',
                 ),
               ),

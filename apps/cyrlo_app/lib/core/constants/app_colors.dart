@@ -19,7 +19,8 @@ abstract final class AppColors {
   static const brandForeground = darkGrey;
   static const brandDark = Color(0xFFC9A000);
   static const brandLightLight = Color(0xFFFFF4C2);
-  static const brandLightDark = Color(0xFF3A3420);
+  /// Soft yellow nest in dark mode — stays bright enough for badges/pills.
+  static const brandLightDark = Color(0xFF5C4E14);
   static const mango = yellow;
   static const mangoForeground = darkGrey;
   static const tomato = Color(0xFFEF4343);
@@ -50,6 +51,13 @@ abstract final class AppColors {
   static Color get textSecondary => inkDim;
   static const primary = brand;
   static const error = tomato;
+
+  /// Text/icons sitting on [brandLight] or yellow chips.
+  static Color get onBrandLight => isDark ? _inkDark : darkGrey;
+
+  /// Light nest for JPG illustrations that ship with a baked white board.
+  /// Keeps art from flashing as a harsh white block on dark surfaces.
+  static const illustrationNest = Color(0xFFF7F7F7);
 
   static Color get disabled =>
       isDark ? const Color(0xFF4A4A4A) : const Color(0xFFD6D6D6);

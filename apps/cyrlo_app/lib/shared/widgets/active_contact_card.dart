@@ -119,7 +119,7 @@ class ActiveContactCard extends StatelessWidget {
                             display,
                             key: const Key('shared-contact-number'),
                             style: theme.textTheme.titleSmall?.copyWith(
-                              color: AppColors.darkGrey,
+                              color: AppColors.onBrandLight,
                               fontWeight: FontWeight.w800,
                             ),
                           ),
@@ -131,7 +131,7 @@ class ActiveContactCard extends StatelessWidget {
                       tooltip: 'Copy number',
                       onPressed: () => _copyNumber(context),
                       icon: const Icon(Icons.copy_rounded),
-                      color: AppColors.darkGrey,
+                      color: AppColors.onBrandLight,
                     ),
                   ],
                 ),

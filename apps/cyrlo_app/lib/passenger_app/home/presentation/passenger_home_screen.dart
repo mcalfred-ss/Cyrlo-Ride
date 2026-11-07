@@ -29,7 +29,7 @@ class PassengerHomeScreen extends ConsumerWidget {
     final firstName = draft.passengerFirstName?.trim();
     final greetingName =
         (firstName == null || firstName.isEmpty) ? 'there' : firstName;
-    final availableCount = riders.where((rider) => rider.available).length;
+    final availableCount = riders.where((rider) => rider.canRequest).length;
     final theme = Theme.of(context);
 
     return SizedBox.expand(
@@ -93,7 +93,7 @@ class PassengerHomeScreen extends ConsumerWidget {
                   child: Text(
                     '$availableCount online',
                     style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.darkGrey,
+                      color: AppColors.onBrandLight,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
@@ -139,6 +139,11 @@ class PassengerHomeScreen extends ConsumerWidget {
                               .read(selectedNearbyRiderProvider.notifier)
                               .select(riders[i]);
                           context.go(AppRoutes.passengerMap);
+                        },
+                        onOpenProfile: () {
+                          context.push(
+                            AppRoutes.passengerRiderDetailPath(riders[i].id),
+                          );
                         },
                       ),
                       if (i != riders.length - 1)

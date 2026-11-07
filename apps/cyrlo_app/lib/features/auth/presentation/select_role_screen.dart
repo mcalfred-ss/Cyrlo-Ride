@@ -208,12 +208,13 @@ class _RolePortraitCard extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                   child: ColoredBox(
-                    color: AppColors.field,
-                    child: Image.asset(
-                      asset,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.transparent
+                        : AppColors.illustrationNest,
+                    child: ThemedIllustrationImage(
+                      asset: asset,
                       fit: BoxFit.cover,
                       alignment: Alignment.center,
-                      filterQuality: FilterQuality.high,
                     ),
                   ),
                 ),

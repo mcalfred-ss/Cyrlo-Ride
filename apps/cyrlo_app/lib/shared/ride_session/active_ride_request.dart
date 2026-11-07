@@ -1,4 +1,5 @@
 import '../../features/auth/application/signup_draft.dart';
+import '../models/geo_point.dart';
 
 enum ActiveRideStatus { requested, ongoing, completed, cancelled }
 
@@ -13,7 +14,10 @@ class ActiveRideRequest {
     required this.status,
     required this.createdAt,
     this.passengerName,
+    this.passengerFirstName,
+    this.passengerGender,
     this.etaMinutes,
+    this.pickupPoint,
   });
 
   final String id;
@@ -24,7 +28,10 @@ class ActiveRideRequest {
   final ActiveRideStatus status;
   final DateTime createdAt;
   final String? passengerName;
+  final String? passengerFirstName;
+  final PassengerGender? passengerGender;
   final int? etaMinutes;
+  final GeoPoint? pickupPoint;
 
   String get kindLabel => switch (kind) {
         DriverKind.okada => 'Okada',
@@ -32,10 +39,32 @@ class ActiveRideRequest {
         DriverKind.aboboyaa => 'Aboboyaa',
       };
 
+  String get displayFirstName {
+    final first = passengerFirstName?.trim();
+    if (first != null && first.isNotEmpty) return first;
+    final full = passengerName?.trim();
+    if (full == null || full.isEmpty) return 'Passenger';
+    return full.split(RegExp(r'\s+')).first;
+  }
+
+  String get etaLabel {
+    final mins = etaMinutes;
+    if (mins == null) return 'Nearby';
+    if (mins <= 1) return '1 min away';
+    return '$mins mins away';
+  }
+
   bool get sharesContact =>
       status == ActiveRideStatus.requested || status == ActiveRideStatus.ongoing;
 
-  ActiveRideRequest copyWith({ActiveRideStatus? status}) {
+  bool get isPending => status == ActiveRideStatus.requested;
+
+  bool get isAccepted => status == ActiveRideStatus.ongoing;
+
+  ActiveRideRequest copyWith({
+    ActiveRideStatus? status,
+    GeoPoint? pickupPoint,
+  }) {
     return ActiveRideRequest(
       id: id,
       kind: kind,
@@ -45,7 +74,10 @@ class ActiveRideRequest {
       status: status ?? this.status,
       createdAt: createdAt,
       passengerName: passengerName,
+      passengerFirstName: passengerFirstName,
+      passengerGender: passengerGender,
       etaMinutes: etaMinutes,
+      pickupPoint: pickupPoint ?? this.pickupPoint,
     );
   }
 }

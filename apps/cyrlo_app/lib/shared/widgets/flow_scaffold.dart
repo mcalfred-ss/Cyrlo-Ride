@@ -10,11 +10,13 @@ class FlowScaffold extends StatelessWidget {
     super.key,
     required this.child,
     this.footer,
+    this.onBack,
     this.scrollable = true,
   });
 
   final Widget child;
   final Widget? footer;
+  final VoidCallback? onBack;
   final bool scrollable;
 
   @override
@@ -36,10 +38,26 @@ class FlowScaffold extends StatelessWidget {
             );
           },
           child: CyrloCard(
-            padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (onBack != null) ...[
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      key: const Key('flow-back'),
+                      onPressed: onBack,
+                      tooltip: 'Back',
+                      style: IconButton.styleFrom(
+                        foregroundColor: AppColors.textPrimary,
+                        backgroundColor: AppColors.field,
+                      ),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
                 Expanded(
                   child: scrollable
                       ? LayoutBuilder(

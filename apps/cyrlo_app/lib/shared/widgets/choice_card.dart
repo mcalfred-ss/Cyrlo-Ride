@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/theme/app_motion.dart';
+import 'illustration_view.dart';
 
 class ChoiceCard extends StatelessWidget {
   const ChoiceCard({
@@ -9,6 +10,7 @@ class ChoiceCard extends StatelessWidget {
     required this.title,
     required this.subtitle,
     this.icon,
+    this.illustrationAsset,
     this.onTap,
     this.enabled = true,
   });
@@ -16,6 +18,7 @@ class ChoiceCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData? icon;
+  final String? illustrationAsset;
   final VoidCallback? onTap;
   final bool enabled;
 
@@ -38,7 +41,24 @@ class ChoiceCard extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               child: Row(
                 children: [
-                  if (icon != null) ...[
+                  if (illustrationAsset != null) ...[
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: ColoredBox(
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.transparent
+                            : AppColors.illustrationNest,
+                        child: ThemedIllustrationImage(
+                          asset: illustrationAsset!,
+                          width: 64,
+                          height: 64,
+                          fit: BoxFit.cover,
+                          semanticLabel: '$title illustration',
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                  ] else if (icon != null) ...[
                     Container(
                       width: 48,
                       height: 48,
@@ -46,7 +66,7 @@ class ChoiceCard extends StatelessWidget {
                         color: AppColors.surface,
                         borderRadius: BorderRadius.circular(16),
                       ),
-                      child: Icon(icon, color: AppColors.darkGrey),
+                      child: Icon(icon, color: AppColors.textPrimary),
                     ),
                     const SizedBox(width: 14),
                   ],
@@ -64,7 +84,7 @@ class ChoiceCard extends StatelessWidget {
                         Text(
                           subtitle,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: enabled ? AppColors.textSecondary : AppColors.darkGrey,
+                            color: AppColors.textSecondary,
                             fontWeight: enabled ? FontWeight.w600 : FontWeight.w800,
                           ),
                         ),
@@ -72,7 +92,7 @@ class ChoiceCard extends StatelessWidget {
                     ),
                   ),
                   if (enabled)
-                    const Icon(Icons.chevron_right_rounded, color: AppColors.darkGrey),
+                    Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
                 ],
               ),
             ),
@@ -102,7 +122,7 @@ class IconBadge extends StatelessWidget {
           color: AppColors.brandLight,
           borderRadius: BorderRadius.circular(28),
         ),
-        child: Icon(icon, size: 40, color: AppColors.darkGrey),
+        child: Icon(icon, size: 40, color: AppColors.onBrandLight),
       ),
     );
   }

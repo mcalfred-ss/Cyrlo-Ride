@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
-import '../../../features/auth/application/signup_draft.dart';
-import '../../../shared/widgets/illustration_view.dart';
+import '../../../shared/widgets/profile_avatar.dart';
 import '../domain/nearby_rider.dart';
 
 class NearbyRiderCard extends StatelessWidget {
@@ -13,22 +12,22 @@ class NearbyRiderCard extends StatelessWidget {
     required this.rider,
     required this.onRequest,
     required this.onOpenMap,
+    required this.onOpenProfile,
   });
 
   final NearbyRider rider;
   final VoidCallback onRequest;
   final VoidCallback onOpenMap;
-
-  String get _asset => switch (rider.kind) {
-        DriverKind.okada => AppIllustrations.vehicleOkada,
-        DriverKind.pragya => AppIllustrations.vehiclePragya,
-        DriverKind.aboboyaa => AppIllustrations.vehicleAboboyaa,
-      };
+  final VoidCallback onOpenProfile;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final muted = !rider.available;
+    final muted = !rider.canRequest;
+    final avatar = ProfileAvatars.assetFor(
+      gender: rider.gender,
+      seed: rider.id,
+    );
 
     return Opacity(
       opacity: muted ? 0.72 : 1,
@@ -37,7 +36,7 @@ class NearbyRiderCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(AppRadii.lg),
         child: InkWell(
           key: Key('request-rider-${rider.id}'),
-          onTap: rider.available ? onRequest : null,
+          onTap: rider.canRequest ? onRequest : null,
           borderRadius: BorderRadius.circular(AppRadii.lg),
           child: Ink(
             decoration: BoxDecoration(
@@ -56,17 +55,22 @@ class NearbyRiderCard extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(AppRadii.md),
-                    child: ColoredBox(
-                      color: AppColors.field,
-                      child: Image.asset(
-                        _asset,
-                        width: 84,
-                        height: 84,
-                        fit: BoxFit.cover,
-                        filterQuality: FilterQuality.high,
-                        semanticLabel: '${rider.kindLabel} illustration',
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      key: Key('rider-avatar-${rider.id}'),
+                      onTap: onOpenProfile,
+                      borderRadius: BorderRadius.circular(AppRadii.md),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(AppRadii.md),
+                        child: Image.asset(
+                          avatar,
+                          width: 84,
+                          height: 84,
+                          fit: BoxFit.cover,
+                          filterQuality: FilterQuality.high,
+                          semanticLabel: '${rider.displayName} avatar',
+                        ),
                       ),
                     ),
                   ),
@@ -76,27 +80,66 @@ class NearbyRiderCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          rider.kindLabel,
+                          rider.displayName,
                           style: theme.textTheme.titleMedium?.copyWith(
                             color: AppColors.textPrimary,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                         Text(
-                          rider.etaLabel,
+                          rider.kindRiderLabel,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: AppColors.textSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                         const SizedBox(height: 6),
+                        Row(
+                          children: [
+                            const Icon(
+                              Icons.star_rounded,
+                              size: 16,
+                              color: AppColors.brandDark,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              rider.ratingLabel,
+                              style: theme.textTheme.labelLarge?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                '(${rider.reviewCount})',
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
                         Text(
-                          rider.available ? 'Available nearby' : 'Coming soon',
+                          rider.etaLabel,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          rider.statusLabel,
                           style: theme.textTheme.labelLarge?.copyWith(
-                            color: rider.available
-                                ? AppColors.brandDark
-                                : AppColors.textSecondary,
+                            color: rider.busy
+                                ? AppColors.tomato
+                                : rider.canRequest
+                                    ? AppColors.brandDark
+                                    : AppColors.textSecondary,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -110,7 +153,7 @@ class NearbyRiderCard extends StatelessWidget {
                     child: InkWell(
                       key: Key('open-map-${rider.id}'),
                       customBorder: const CircleBorder(),
-                      onTap: rider.available ? onOpenMap : null,
+                      onTap: rider.canRequest ? onOpenMap : null,
                       child: const SizedBox(
                         width: 44,
                         height: 44,

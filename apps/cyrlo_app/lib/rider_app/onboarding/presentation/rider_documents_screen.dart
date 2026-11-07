@@ -90,6 +90,7 @@ class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
     };
 
     return FlowScaffold(
+      onBack: () => ref.read(signupProvider.notifier).clearRiderProfile(),
       footer: CyrloButton(
         key: const Key('rider-submit'),
         label: 'Submit for approval',
@@ -207,7 +208,7 @@ class _IdTypeChip extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: AppColors.darkGrey,
+              color: selected ? AppColors.darkGrey : AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
@@ -264,7 +265,7 @@ class _UploadTile extends StatelessWidget {
                       ? _Preview(path: path!)
                       : ColoredBox(
                           color: AppColors.surface,
-                          child: Icon(icon, color: AppColors.darkGrey),
+                          child: Icon(icon, color: AppColors.textPrimary),
                         ),
                 ),
               ),
@@ -293,7 +294,7 @@ class _UploadTile extends StatelessWidget {
               ),
               Icon(
                 hasFile ? Icons.check_circle_rounded : Icons.upload_rounded,
-                color: AppColors.darkGrey,
+                color: hasFile ? AppColors.yellow : AppColors.textSecondary,
               ),
             ],
           ),
@@ -315,7 +316,7 @@ class _Preview extends StatelessWidget {
         color: AppColors.brandLight,
         child: Icon(
           path.contains('selfie') ? Icons.person_rounded : Icons.badge_rounded,
-          color: AppColors.darkGrey,
+          color: AppColors.onBrandLight,
         ),
       );
     }
@@ -325,7 +326,7 @@ class _Preview extends StatelessWidget {
       fit: BoxFit.cover,
       errorBuilder: (context, error, stackTrace) => ColoredBox(
         color: AppColors.brandLight,
-        child: const Icon(Icons.image_rounded, color: AppColors.darkGrey),
+        child: Icon(Icons.image_rounded, color: AppColors.onBrandLight),
       ),
     );
   }

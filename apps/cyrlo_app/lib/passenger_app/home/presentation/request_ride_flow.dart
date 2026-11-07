@@ -22,7 +22,7 @@ Future<void> startRequestRideFlow({
   required WidgetRef ref,
   required NearbyRider rider,
 }) async {
-  if (!rider.available) return;
+  if (!rider.canRequest) return;
 
   final wantsRequest = await showDialog<bool>(
     context: context,
@@ -103,9 +103,11 @@ class _RequestRideConfirmDialog extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(AppRadii.md),
               child: ColoredBox(
-                color: AppColors.field,
-                child: Image.asset(
-                  _asset,
+                color: Theme.of(context).brightness == Brightness.dark
+                    ? Colors.transparent
+                    : AppColors.illustrationNest,
+                child: ThemedIllustrationImage(
+                  asset: _asset,
                   width: 88,
                   height: 88,
                   fit: BoxFit.cover,
@@ -114,11 +116,20 @@ class _RequestRideConfirmDialog extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              'Request this ${rider.kindLabel}?',
+              'Request ${rider.displayName}?',
               textAlign: TextAlign.center,
               style: theme.textTheme.titleLarge?.copyWith(
                 color: AppColors.textPrimary,
                 fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              rider.kindRiderLabel,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: AppColors.textSecondary,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
@@ -368,7 +379,11 @@ class _ContactChoiceTile extends StatelessWidget {
                   color: selected ? AppColors.yellow : AppColors.surface,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(icon, color: AppColors.darkGrey, size: 20),
+                child: Icon(
+                  icon,
+                  color: selected ? AppColors.darkGrey : AppColors.textPrimary,
+                  size: 20,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -395,7 +410,7 @@ class _ContactChoiceTile extends StatelessWidget {
               ),
               Icon(
                 selected ? Icons.check_circle_rounded : Icons.circle_outlined,
-                color: selected ? AppColors.darkGrey : AppColors.textSecondary,
+                color: selected ? AppColors.onBrandLight : AppColors.textSecondary,
               ),
             ],
           ),
@@ -522,7 +537,7 @@ class _RequestFeeSheetState extends State<_RequestFeeSheet> {
                           Text(
                             RideRequestFee.label,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              color: AppColors.darkGrey,
+                              color: AppColors.onBrandLight,
                               fontWeight: FontWeight.w800,
                             ),
                           ),

@@ -12,6 +12,8 @@ Future<void> showPassengerNotificationsSheet(BuildContext context) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
+    isDismissible: true,
+    enableDrag: true,
     backgroundColor: Colors.transparent,
     barrierColor: Colors.black.withValues(alpha: 0.35),
     builder: (context) => const PassengerNotificationsSheet(),
@@ -28,58 +30,64 @@ class PassengerNotificationsSheet extends ConsumerWidget {
     final theme = Theme.of(context);
     final height = MediaQuery.sizeOf(context).height * 0.72;
 
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: height, maxWidth: 520),
-        child: Material(
-          color: AppColors.surface,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
-          clipBehavior: Clip.antiAlias,
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const SizedBox(height: 10),
-                Container(
-                  width: 42,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: AppColors.border,
-                    borderRadius: BorderRadius.circular(AppRadii.pill),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Notifications',
-                              style: theme.textTheme.titleLarge?.copyWith(
-                                fontWeight: FontWeight.w800,
-                                color: AppColors.textPrimary,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              unread == 0
-                                  ? 'You’re all caught up'
-                                  : unread == 1
-                                      ? '1 new update'
-                                      : '$unread new updates',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: AppColors.textSecondary,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pop(),
+      behavior: HitTestBehavior.opaque,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: GestureDetector(
+          // Keep taps on the sheet from dismissing it.
+          onTap: () {},
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: height, maxWidth: 520),
+            child: Material(
+              color: AppColors.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+              clipBehavior: Clip.antiAlias,
+              child: SafeArea(
+                top: false,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 10),
+                    Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
                       ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Notifications',
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  unread == 0
+                                      ? 'You’re all caught up'
+                                      : unread == 1
+                                          ? '1 new update'
+                                          : '$unread new updates',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                       if (unread > 0)
                         TextButton(
                           key: const Key('mark-notifications-read'),
@@ -117,6 +125,8 @@ class PassengerNotificationsSheet extends ConsumerWidget {
             ),
           ),
         ),
+          ),
+        ),
       ),
     );
   }
@@ -144,9 +154,9 @@ class _NotificationTile extends StatelessWidget {
       };
 
   Color get _iconColor => switch (notification.kind) {
-        PassengerNotificationKind.riderNearby => AppColors.darkGrey,
+        PassengerNotificationKind.riderNearby => AppColors.onBrandLight,
         PassengerNotificationKind.rideUpdate => AppColors.yellow,
-        PassengerNotificationKind.promo => AppColors.darkGrey,
+        PassengerNotificationKind.promo => AppColors.onBrandLight,
       };
 
   String get _timeLabel {

@@ -4,7 +4,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:cyrlo_app/app.dart';
 import 'package:cyrlo_app/core/media/document_pick_gateway.dart';
-import 'package:cyrlo_app/features/auth/application/signup_controller.dart';
+
+Future<void> verifyOtpAndContinue(WidgetTester tester) async {
+  await tester.enterText(find.byKey(const Key('otp-input')), '123456');
+  await tester.tap(find.byKey(const Key('verify-otp')));
+  await tester.pump();
+  expect(find.byKey(const Key('otp-success-check')), findsOneWidget);
+  await tester.pump(const Duration(milliseconds: 1300));
+  await tester.pumpAndSettle();
+}
 
 void main() {
   testWidgets('passenger reaches home with the four tabs', (tester) async {
@@ -24,9 +32,7 @@ void main() {
     await tester.tap(find.byKey(const Key('create-account')));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byKey(const Key('otp-input')), '123456');
-    await tester.tap(find.byKey(const Key('verify-otp')));
-    await tester.pumpAndSettle();
+    await verifyOtpAndContinue(tester);
 
     await tester.tap(find.byKey(const Key('continue-role')));
     await tester.pumpAndSettle();
@@ -56,7 +62,7 @@ void main() {
     expect(find.text('Rides'), findsWidgets);
   });
 
-  testWidgets('rider waits on approval until accepted', (tester) async {
+  testWidgets('rider reaches jobs after submitting documents', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
@@ -78,9 +84,7 @@ void main() {
     await tester.enterText(find.byKey(const Key('ghana-phone-input')), '201234567');
     await tester.tap(find.byKey(const Key('create-account')));
     await tester.pumpAndSettle();
-    await tester.enterText(find.byKey(const Key('otp-input')), '123456');
-    await tester.tap(find.byKey(const Key('verify-otp')));
-    await tester.pumpAndSettle();
+    await verifyOtpAndContinue(tester);
 
     await tester.drag(find.byType(PageView), const Offset(-420, 0));
     await tester.pumpAndSettle();
@@ -120,13 +124,6 @@ void main() {
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const Key('rider-submit')));
     await tester.tap(find.byKey(const Key('rider-submit')));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Waiting for approval'), findsOneWidget);
-    expect(find.text('Jobs'), findsNothing);
-
-    final context = tester.element(find.text('Waiting for approval'));
-    ProviderScope.containerOf(context).read(signupProvider.notifier).markRiderApproved();
     await tester.pumpAndSettle();
 
     expect(find.text('Jobs'), findsWidgets);

@@ -49,6 +49,11 @@ class SignupController extends Notifier<SignupDraft> {
     state = state.copyWith(role: role);
   }
 
+  /// Go back from vehicle type to role selection.
+  void clearRole() {
+    state = state.copyWith(clearRole: true, clearDriverKind: true);
+  }
+
   bool savePassengerDetails({
     required String firstName,
     required String lastName,
@@ -81,6 +86,16 @@ class SignupController extends Notifier<SignupDraft> {
   void chooseDriver(DriverKind kind) {
     if (kind == DriverKind.aboboyaa) return;
     state = state.copyWith(driverKind: kind);
+  }
+
+  /// Go back from rider details to vehicle type.
+  void clearDriverKind() {
+    state = state.copyWith(clearDriverKind: true);
+  }
+
+  /// Go back from documents to rider personal details.
+  void clearRiderProfile() {
+    state = state.copyWith(clearRiderProfile: true);
   }
 
   bool saveRiderDetails({
@@ -132,6 +147,8 @@ class SignupController extends Notifier<SignupDraft> {
       riderVehicleNumber: plate,
       riderSelfiePath: selfiePath,
       applicationSubmitted: true,
+      // Local testing: skip the waiting-for-approval gate.
+      riderApproved: true,
     );
     return true;
   }
@@ -142,6 +159,15 @@ class SignupController extends Notifier<SignupDraft> {
   }
 
   void signOut() {
+    state = SignupDraft(
+      splashDone: state.splashDone,
+      onboardingDone: state.onboardingDone,
+      welcomeDone: state.welcomeDone,
+    );
+  }
+
+  /// Clears all profile data on this device (local stand-in until API delete).
+  void deleteAccount() {
     state = SignupDraft(
       splashDone: state.splashDone,
       onboardingDone: state.onboardingDone,

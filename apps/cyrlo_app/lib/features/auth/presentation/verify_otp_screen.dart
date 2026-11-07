@@ -11,6 +11,7 @@ import '../../../core/utils/phone_numbers.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
 import '../../../shared/widgets/screen_header.dart';
+import '../../../shared/widgets/success_check_animation.dart';
 import '../application/signup_controller.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
@@ -25,6 +26,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   Timer? _timer;
   var _secondsLeft = 60;
   String? _error;
+  var _verified = false;
 
   @override
   void initState() {
@@ -54,9 +56,26 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     });
   }
 
-  void _verify() {
-    final ok = ref.read(signupProvider.notifier).verifyOtp(_codeController.text);
-    setState(() => _error = ok ? null : 'Enter the test code ${SignupController.testOtp}.');
+  Future<void> _verify() async {
+    if (_verified) return;
+    final code = _codeController.text;
+    final ok = code.trim() == SignupController.testOtp;
+    if (!ok) {
+      setState(
+        () => _error = 'Enter the test code ${SignupController.testOtp}.',
+      );
+      return;
+    }
+
+    setState(() {
+      _error = null;
+      _verified = true;
+    });
+
+    // Let the check animation play, then continue the signup flow.
+    await Future<void>.delayed(const Duration(milliseconds: 1200));
+    if (!mounted) return;
+    ref.read(signupProvider.notifier).verifyOtp(code);
   }
 
   @override
@@ -67,78 +86,99 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     final waiting = _secondsLeft > 0;
 
     return FlowScaffold(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: IconButton(
-              onPressed: () => ref.read(signupProvider.notifier).editPhone(),
-              icon: const Icon(Icons.arrow_back_rounded),
-              color: AppColors.textPrimary,
-            ),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          ScreenHeader(
-            title: 'Verify code',
-            subtitle: 'Enter the code sent to ${PhoneNumbers.formatGhanaDisplay(phone)}.',
-          ),
-          const SizedBox(height: AppSpacing.xl),
-          _OtpBoxes(controller: _codeController),
-          const SizedBox(height: AppSpacing.sm),
-          Text(
-            'Test code ${SignupController.testOtp}',
-            textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: AppColors.darkGrey,
-              fontWeight: FontWeight.w800,
-              letterSpacing: 1.2,
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              _error!,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: AppColors.error,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-          const SizedBox(height: AppSpacing.lg),
-          Center(
-            child: TextButton(
-              key: const Key('resend-otp'),
-              onPressed: waiting ? null : _startTimer,
-              child: Text.rich(
-                TextSpan(
-                  text: "Didn't receive the code? ",
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: AppColors.textSecondary,
-                    fontWeight: FontWeight.w600,
+      child: AnimatedSwitcher(
+        duration: AppMotion.normal,
+        switchInCurve: AppMotion.standard,
+        switchOutCurve: AppMotion.exit,
+        child: _verified
+            ? const Padding(
+                key: ValueKey('otp-success'),
+                padding: EdgeInsets.symmetric(vertical: 48),
+                child: SuccessCheckAnimation(
+                  key: Key('otp-success-check'),
+                  label: 'Number verified',
+                ),
+              )
+            : Column(
+                key: const ValueKey('otp-form'),
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      onPressed: () =>
+                          ref.read(signupProvider.notifier).editPhone(),
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                  children: [
-                    TextSpan(
-                      text: waiting ? 'Resend in $minutes:$seconds' : 'Resend code',
-                      style: TextStyle(
-                        color: waiting ? AppColors.textSecondary : AppColors.yellow,
-                        fontWeight: FontWeight.w800,
+                  const SizedBox(height: AppSpacing.sm),
+                  ScreenHeader(
+                    title: 'Verify code',
+                    subtitle:
+                        'Enter the code sent to ${PhoneNumbers.formatGhanaDisplay(phone)}.',
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  _OtpBoxes(controller: _codeController),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Test code ${SignupController.testOtp}',
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      _error!,
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: AppColors.error,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
-                ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Center(
+                    child: TextButton(
+                      key: const Key('resend-otp'),
+                      onPressed: waiting ? null : _startTimer,
+                      child: Text.rich(
+                        TextSpan(
+                          text: "Didn't receive the code? ",
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: waiting
+                                  ? 'Resend in $minutes:$seconds'
+                                  : 'Resend code',
+                              style: TextStyle(
+                                color: waiting
+                                    ? AppColors.textSecondary
+                                    : AppColors.yellow,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  CyrloButton(
+                    key: const Key('verify-otp'),
+                    label: 'Verify',
+                    onPressed: _verify,
+                  ),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          CyrloButton(
-            key: const Key('verify-otp'),
-            label: 'Verify',
-            onPressed: _verify,
-          ),
-        ],
       ),
     );
   }
@@ -171,7 +211,9 @@ class _OtpBoxes extends StatelessWidget {
                     color: AppColors.field,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: active || filled ? AppColors.yellow : AppColors.border,
+                      color: active || filled
+                          ? AppColors.yellow
+                          : AppColors.border,
                       width: active ? 1.6 : 1,
                     ),
                   ),

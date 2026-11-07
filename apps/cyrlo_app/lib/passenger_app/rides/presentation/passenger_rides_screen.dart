@@ -96,7 +96,7 @@ class PassengerRidesScreen extends ConsumerWidget {
                               child: Text(
                                 '$completed completed',
                                 style: theme.textTheme.labelMedium?.copyWith(
-                                  color: AppColors.darkGrey,
+                                  color: AppColors.onBrandLight,
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
@@ -148,9 +148,9 @@ class _EmptyRides extends StatelessWidget {
                 color: AppColors.brandLight,
                 borderRadius: BorderRadius.circular(20),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.history_rounded,
-                color: AppColors.darkGrey,
+                color: AppColors.onBrandLight,
                 size: 30,
               ),
             ),

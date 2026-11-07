@@ -123,12 +123,20 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                                       ? Icons.place_outlined
                                       : Icons.check_circle_rounded,
                                   size: 18,
-                                  color: AppColors.darkGrey,
+                                  color: pins.pickup == null
+                                      ? AppColors.textPrimary
+                                      : AppColors.onBrandLight,
                                 ),
                                 label: Text(
                                   pins.pickup == null
                                       ? 'Pickup needed'
                                       : 'Pickup set',
+                                  style: TextStyle(
+                                    color: pins.pickup == null
+                                        ? AppColors.textPrimary
+                                        : AppColors.onBrandLight,
+                                    fontWeight: FontWeight.w700,
+                                  ),
                                 ),
                                 backgroundColor: pins.pickup == null
                                     ? AppColors.field

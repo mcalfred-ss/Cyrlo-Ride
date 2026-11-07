@@ -12,14 +12,18 @@ import '../../features/auth/presentation/verify_otp_screen.dart';
 import '../../features/auth/presentation/welcome_screen.dart';
 import '../../passenger_app/account/presentation/passenger_account_screen.dart';
 import '../../passenger_app/home/presentation/passenger_home_screen.dart';
+import '../../passenger_app/home/presentation/passenger_rider_detail_screen.dart';
 import '../../passenger_app/map/presentation/passenger_map_screen.dart';
 import '../../passenger_app/profile/presentation/passenger_details_screen.dart';
 import '../../passenger_app/rides/presentation/passenger_rides_screen.dart';
+import '../../rider_app/account/presentation/rider_account_screen.dart';
 import '../../rider_app/jobs/presentation/rider_jobs_screen.dart';
+import '../../rider_app/map/presentation/rider_map_screen.dart';
 import '../../rider_app/onboarding/presentation/driver_type_screen.dart';
 import '../../rider_app/onboarding/presentation/rider_details_screen.dart';
 import '../../rider_app/onboarding/presentation/rider_documents_screen.dart';
 import '../../rider_app/onboarding/presentation/rider_approval_screen.dart';
+import '../../rider_app/token/presentation/rider_token_screen.dart';
 import '../../shared/widgets/cyrlo_page.dart';
 import '../../shared/widgets/role_shell.dart';
 import 'app_routes.dart';
@@ -95,6 +99,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: AppRoutes.passengerHome,
                 builder: (context, state) => const PassengerHomeScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'rider/:riderId',
+                    builder: (context, state) => PassengerRiderDetailScreen(
+                      riderId: state.pathParameters['riderId']!,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -135,6 +147,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 label: 'Jobs',
               ),
               NavigationDestination(
+                icon: Icon(Icons.map_outlined),
+                selectedIcon: Icon(Icons.map_rounded),
+                label: 'Map',
+              ),
+              NavigationDestination(
                 icon: Icon(Icons.toll_outlined),
                 selectedIcon: Icon(Icons.toll_rounded),
                 label: 'Token',
@@ -159,11 +176,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           StatefulShellBranch(
             routes: [
               GoRoute(
+                path: AppRoutes.riderMap,
+                builder: (context, state) => const RiderMapScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
                 path: AppRoutes.riderToken,
-                builder: (context, state) => const SectionPage(
-                  title: 'Token',
-                  subtitle: 'Your rider token balance will show here.',
-                ),
+                builder: (context, state) => const RiderTokenScreen(),
               ),
             ],
           ),
@@ -171,7 +193,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             routes: [
               GoRoute(
                 path: AppRoutes.riderAccount,
-                builder: (context, state) => const AccountPage(role: RideRole.rider),
+                builder: (context, state) => const RiderAccountScreen(),
               ),
             ],
           ),
@@ -203,6 +225,7 @@ String? _requiredLocation(SignupDraft draft) {
 
 bool _isRiderHome(String location) {
   return location == AppRoutes.riderJobs ||
+      location == AppRoutes.riderMap ||
       location == AppRoutes.riderToken ||
       location == AppRoutes.riderAccount;
 }

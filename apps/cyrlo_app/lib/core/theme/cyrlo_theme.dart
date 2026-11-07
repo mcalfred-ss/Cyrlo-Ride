@@ -79,7 +79,10 @@ abstract final class CyrloTheme {
         ),
         shape: WidgetStatePropertyAll(AppRadii.buttonShape),
         textStyle: WidgetStatePropertyAll(
-          textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: foreground,
+          ),
         ),
         backgroundColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.disabled)) return AppColors.disabled;
@@ -121,10 +124,18 @@ abstract final class CyrloTheme {
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: filledStyle(
           background: Colors.transparent,
-          foreground: AppColors.brand,
+          foreground: isDark ? AppColors.brand : AppColors.brandDark,
         ).copyWith(
           backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
-          side: const WidgetStatePropertyAll(BorderSide(color: AppColors.brand)),
+          side: WidgetStatePropertyAll(
+            BorderSide(color: isDark ? AppColors.brand : AppColors.brandDark),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          foregroundColor: AppColors.onBrandSoft,
+          textStyle: textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(

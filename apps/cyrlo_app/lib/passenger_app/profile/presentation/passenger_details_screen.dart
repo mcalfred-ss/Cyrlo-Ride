@@ -153,6 +153,7 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
   @override
   Widget build(BuildContext context) {
     return FlowScaffold(
+      onBack: () => ref.read(signupProvider.notifier).clearRole(),
       footer: CyrloButton(
         key: const Key('passenger-continue'),
         label: 'Continue',
@@ -205,7 +206,7 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
                   : const Icon(Icons.my_location_rounded, size: 18),
               label: Text(_locating ? 'Getting location...' : 'Use my location'),
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.darkGrey,
+                foregroundColor: AppColors.onBrandSoft,
                 textStyle: const TextStyle(fontWeight: FontWeight.w800),
               ),
             ),
@@ -245,7 +246,7 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
                         ),
                       ),
                     ),
-                    const Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.darkGrey),
+                    Icon(Icons.calendar_today_rounded, size: 18, color: AppColors.textSecondary),
                   ],
                 ),
               ),
@@ -323,7 +324,7 @@ class _GenderChip extends StatelessWidget {
           child: Text(
             label,
             style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: AppColors.darkGrey,
+              color: selected ? AppColors.darkGrey : AppColors.textPrimary,
               fontWeight: FontWeight.w800,
             ),
           ),
