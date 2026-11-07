@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { BOOKING_FEE_PESEWAS } from '../../config/constants.js';
 import { MemoryPaystackClient } from '../../infrastructure/payments/paystack-client.js';
 import { createBookingSchema } from './module.schema.js';
-import { decideRefunds } from './booking-rules.js';
+import { decideRefunds, situationForMissingFeeRefund } from './booking-rules.js';
 import {
   isInsideBoundingBox,
   isPointInBoundary,
@@ -128,6 +128,66 @@ describe('refund policy', () => {
         situation: 'PASSENGER_CANCEL_AFTER_ACCEPT',
       }),
     ).toEqual({ fee: 'NONE', token: 'NONE' });
+    expect(
+      decideRefunds({
+        feeCaptured: true,
+        tokenDebited: false,
+        situation: 'COMPLETED',
+      }),
+    ).toEqual({ fee: 'NONE', token: 'NONE' });
+    expect(
+      decideRefunds({
+        feeCaptured: true,
+        tokenDebited: false,
+        situation: 'PAYMENT_FAILED',
+      }),
+    ).toEqual({ fee: 'NONE', token: 'NONE' });
+  });
+
+  it('maps terminal bookings to matrix situations for sweeper recovery', () => {
+    expect(
+      situationForMissingFeeRefund({
+        status: 'EXPIRED',
+        acceptedAt: null,
+        cancellationActorType: null,
+      }),
+    ).toBe('SEARCH_EXPIRED');
+    expect(
+      situationForMissingFeeRefund({
+        status: 'CANCELLED',
+        acceptedAt: null,
+        cancellationActorType: 'PASSENGER',
+      }),
+    ).toBe('PASSENGER_CANCEL_BEFORE_ACCEPT');
+    expect(
+      situationForMissingFeeRefund({
+        status: 'CANCELLED',
+        acceptedAt: new Date(),
+        cancellationActorType: 'PASSENGER',
+      }),
+    ).toBe('PASSENGER_CANCEL_AFTER_ACCEPT');
+    expect(
+      situationForMissingFeeRefund({
+        status: 'CANCELLED',
+        acceptedAt: new Date(),
+        cancellationActorType: 'RIDER',
+        statusHistoryReasons: [{ toStatus: 'CANCELLED', reason: 'rider_unable_to_complete' }],
+      }),
+    ).toBe('RIDER_UNABLE_TO_COMPLETE');
+    expect(
+      situationForMissingFeeRefund({
+        status: 'CANCELLED',
+        acceptedAt: new Date(),
+        cancellationActorType: 'ADMIN',
+      }),
+    ).toBeNull();
+    expect(
+      situationForMissingFeeRefund({
+        status: 'PAYMENT_FAILED',
+        acceptedAt: null,
+        cancellationActorType: null,
+      }),
+    ).toBe('PAYMENT_FAILED');
   });
 });
 

@@ -254,6 +254,8 @@ export class PaymentsServiceImpl implements PaymentsService {
       maxAttempts: row.maxAttempts,
       providerRefundId: row.providerRefundId,
       providerStatus: row.providerStatus,
+      authorizedAt: row.authorizedAt?.toISOString() ?? null,
+      authorizedById: row.authorizedById,
       submittedAt: row.submittedAt?.toISOString() ?? null,
       confirmedAt: row.confirmedAt?.toISOString() ?? null,
       nextAttemptAt: row.nextAttemptAt?.toISOString() ?? null,
@@ -265,6 +267,7 @@ export class PaymentsServiceImpl implements PaymentsService {
   }
 
   async executeRefund(actorId: string, refundId: string, ip?: string) {
+    await this.refunds.authorizeRefundExecution({ refundId, actorId, ip });
     return this.refunds.submitRefund({ refundId, actorId, ip });
   }
 
@@ -592,6 +595,7 @@ export class PaymentsServiceImpl implements PaymentsService {
       amountPesewas: payment.amountPesewas,
       requestedById: null,
       reason: 'late_payment_after_deadline',
+      authorizeForExecution: true,
     });
     enqueueInAppNotification(this.deps.prisma, {
       userId: latest?.passengerId ?? booking.passengerId,

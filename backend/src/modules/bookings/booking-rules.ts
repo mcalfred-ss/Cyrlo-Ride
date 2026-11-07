@@ -133,19 +133,21 @@ export type TokenRefundDecision = 'NONE' | 'REQUEST_REFUND';
  * Approved cancellation/refund matrix (fee and token decided independently).
  * Replaces the legacy boolean helpers for new code paths.
  */
+export type RefundSituation =
+  | 'PASSENGER_CANCEL_BEFORE_ACCEPT'
+  | 'SEARCH_EXPIRED'
+  | 'UNPAID_TIMEOUT'
+  | 'PAYMENT_FAILED'
+  | 'LATE_PAYMENT_AFTER_DEADLINE'
+  | 'PASSENGER_CANCEL_AFTER_ACCEPT'
+  | 'RIDER_CANCEL_AFTER_ACCEPT'
+  | 'RIDER_UNABLE_TO_COMPLETE'
+  | 'COMPLETED';
+
 export function decideRefunds(input: {
   feeCaptured: boolean;
   tokenDebited: boolean;
-  situation:
-    | 'PASSENGER_CANCEL_BEFORE_ACCEPT'
-    | 'SEARCH_EXPIRED'
-    | 'UNPAID_TIMEOUT'
-    | 'PAYMENT_FAILED'
-    | 'LATE_PAYMENT_AFTER_DEADLINE'
-    | 'PASSENGER_CANCEL_AFTER_ACCEPT'
-    | 'RIDER_CANCEL_AFTER_ACCEPT'
-    | 'RIDER_UNABLE_TO_COMPLETE'
-    | 'COMPLETED';
+  situation: RefundSituation;
 }): { fee: FeeRefundDecision; token: TokenRefundDecision } {
   switch (input.situation) {
     case 'PASSENGER_CANCEL_BEFORE_ACCEPT':
@@ -175,6 +177,58 @@ export function decideRefunds(input: {
     default:
       return { fee: 'NONE', token: 'NONE' };
   }
+}
+
+/** Stable reason strings stored on payment_refunds for matrix-authorized rows. */
+export function feeRefundReasonForSituation(situation: RefundSituation): string {
+  switch (situation) {
+    case 'PASSENGER_CANCEL_BEFORE_ACCEPT':
+      return 'passenger_cancel_before_accept';
+    case 'SEARCH_EXPIRED':
+      return 'search_expired';
+    case 'LATE_PAYMENT_AFTER_DEADLINE':
+      return 'late_payment_after_deadline';
+    case 'RIDER_CANCEL_AFTER_ACCEPT':
+      return 'rider_cancel_after_accept';
+    case 'RIDER_UNABLE_TO_COMPLETE':
+      return 'rider_unable_to_complete';
+    default:
+      return `matrix:${situation}`;
+  }
+}
+
+/**
+ * Map a terminal booking onto the approved refund-matrix situation for sweeper recovery.
+ * Returns null when the sweeper must not invent an automatic fee refund
+ * (e.g. Support/Admin cancellation without a matrix path).
+ */
+export function situationForMissingFeeRefund(booking: {
+  status: string;
+  acceptedAt: Date | null;
+  cancellationActorType: string | null;
+  statusHistoryReasons?: Array<{ toStatus: string; reason: string | null }>;
+}): RefundSituation | null {
+  if (booking.status === 'COMPLETED') return 'COMPLETED';
+  if (booking.status === 'PAYMENT_FAILED') return 'PAYMENT_FAILED';
+  if (booking.status === 'EXPIRED') return 'SEARCH_EXPIRED';
+  if (booking.status === 'CANCELLED') {
+    const actor = booking.cancellationActorType;
+    if (actor === 'RIDER') {
+      const cancelHist = booking.statusHistoryReasons?.find((h) => h.toStatus === 'CANCELLED');
+      if (cancelHist?.reason === 'rider_unable_to_complete') {
+        return 'RIDER_UNABLE_TO_COMPLETE';
+      }
+      return 'RIDER_CANCEL_AFTER_ACCEPT';
+    }
+    if (actor === 'ADMIN') {
+      // Support/Admin path — Finance/Support recommendation only; no sweeper auto-auth.
+      return null;
+    }
+    // PASSENGER or unset actor on cancel.
+    if (booking.acceptedAt) return 'PASSENGER_CANCEL_AFTER_ACCEPT';
+    return 'PASSENGER_CANCEL_BEFORE_ACCEPT';
+  }
+  return null;
 }
 
 /**

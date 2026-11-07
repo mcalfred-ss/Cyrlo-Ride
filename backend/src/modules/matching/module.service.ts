@@ -500,6 +500,7 @@ export class MatchingServiceImpl implements MatchingService {
         bookingId,
         amountPesewas: fee.amountPesewas,
         reason: 'search_expired',
+        authorizeForExecution: true,
       });
     }
     enqueueInAppNotification(this.deps.prisma, {

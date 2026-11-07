@@ -4,6 +4,7 @@ import type { ModuleDeps } from '../../common/types/module-deps.js';
 import { env } from '../../config/env.js';
 import {
   createSmsProvider,
+  smsOptionsFromEnv,
   type SmsProvider,
 } from '../../infrastructure/sms/sms.provider.js';
 import { AuthController } from './module.controller.js';
@@ -21,13 +22,7 @@ export function createAuthModule(
   options?: { sms?: SmsProvider; serviceDeps?: Partial<AuthServiceDeps> },
 ): AuthModule {
   const repository = new AuthRepository(deps.prisma);
-  const sms =
-    options?.sms ??
-    createSmsProvider({
-      provider: env.SMS_PROVIDER,
-      apiKey: env.SMS_API_KEY,
-      nodeEnv: env.NODE_ENV,
-    });
+  const sms = options?.sms ?? createSmsProvider(smsOptionsFromEnv(env));
   const service = new AuthServiceImpl(repository, {
     sms,
     ...options?.serviceDeps,

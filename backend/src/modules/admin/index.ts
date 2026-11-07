@@ -4,6 +4,7 @@ import type { ModuleDeps } from '../../common/types/module-deps.js';
 import { env } from '../../config/env.js';
 import {
   createSmsProvider,
+  smsOptionsFromEnv,
   type SmsProvider,
 } from '../../infrastructure/sms/sms.provider.js';
 import type { AuditService } from '../audit/module.service.js';
@@ -22,13 +23,7 @@ export function createAdminModule(
   options?: { sms?: SmsProvider; serviceDeps?: Partial<AdminServiceDeps> },
 ): AdminModule {
   const repository = new AdminRepository(deps.prisma);
-  const sms =
-    options?.sms ??
-    createSmsProvider({
-      provider: env.SMS_PROVIDER,
-      apiKey: env.SMS_API_KEY,
-      nodeEnv: env.NODE_ENV,
-    });
+  const sms = options?.sms ?? createSmsProvider(smsOptionsFromEnv(env));
   const service = new AdminServiceImpl(repository, {
     sms,
     audit: deps.audit,

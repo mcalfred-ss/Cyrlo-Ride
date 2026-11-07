@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Permission } from '../../common/authz/permissions.js';
 import { authenticate, requireActiveAccount, requireRole } from '../../common/middleware/authenticate.js';
 import { requirePermission, requireRecentMfa } from '../../common/middleware/authorize.js';
+import { paystackWebhookRateLimiter } from '../../common/middleware/rate-limit.js';
 import { validate } from '../../common/middleware/validate.js';
 import type { PaymentsController } from './module.controller.js';
 import { initiateBookingFeeSchema } from './module.schema.js';
@@ -28,8 +29,8 @@ export function createPaymentsRouter(controller: PaymentsController): Router {
     controller.initiateBookingFee,
   );
 
-  // Public: Paystack signature is the authorization.
-  router.post('/paystack/webhook', controller.paystackWebhook);
+  // Public: Paystack signature is the authorization. Dedicated limiter (not general API).
+  router.post('/paystack/webhook', paystackWebhookRateLimiter, controller.paystackWebhook);
 
   return router;
 }

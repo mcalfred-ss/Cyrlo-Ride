@@ -765,6 +765,10 @@ model PaymentRefund {
   maxAttempts         Int                 @default(5) @map("max_attempts")
   requestedById       String?             @map("requested_by_id") @db.Uuid
   reviewedById        String?             @map("reviewed_by_id") @db.Uuid
+  /// Set when Finance authorizes execution, or at create for matrix-policy auto-auth.
+  /// Worker claim requires this non-null. Support REQUESTED rows leave this null.
+  authorizedAt        DateTime?           @map("authorized_at")
+  authorizedById      String?             @map("authorized_by_id") @db.Uuid
   failureReason       String?             @map("failure_reason")
   lockedBy            String?             @map("locked_by")
   lockedAt            DateTime?           @map("locked_at")
@@ -784,6 +788,7 @@ model PaymentRefund {
   @@index([bookingId, createdAt])
   @@index([status, nextAttemptAt])
   @@index([status, lockedAt])
+  @@index([status, authorizedAt, nextAttemptAt], map: "payment_refunds_authorized_status_idx")
   @@map("payment_refunds")
 }
 

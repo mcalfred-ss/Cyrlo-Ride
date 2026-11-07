@@ -4,6 +4,7 @@ import {
   createSmsProvider,
   describeSmsProvider,
   DevelopmentSmsProvider,
+  SUPPORTED_SMS_PROVIDERS,
   UnconfiguredSmsProvider,
   UnsupportedSmsProvider,
 } from './sms.provider.js';
@@ -57,6 +58,10 @@ describe('SMS provider factory', () => {
       status: 503,
       code: 'SERVICE_UNAVAILABLE',
     });
+  });
+
+  it('registers vynfy as a supported adapter', () => {
+    expect(SUPPORTED_SMS_PROVIDERS).toContain('vynfy');
   });
 
   it('never stores OTP body in the development send record', async () => {

@@ -30,9 +30,20 @@ export function isTerminalRefundStatus(status: PaymentRefundStatus): boolean {
   return status === 'SUCCEEDED' || status === 'MANUAL_RECONCILIATION';
 }
 
-/** Whether an automatic worker may claim this refund for provider submit. */
+/** Whether status alone allows a submit attempt (authorization is separate). */
 export function isRefundEligibleForSubmit(status: PaymentRefundStatus): boolean {
   return status === 'REQUESTED' || status === 'FAILED';
+}
+
+/**
+ * Worker / claim boundary: Paystack submit requires both an executable status
+ * and an explicit authorization timestamp (Finance MFA path or matrix policy).
+ */
+export function isRefundAuthorizedForExecution(refund: {
+  status: PaymentRefundStatus;
+  authorizedAt: Date | null;
+}): boolean {
+  return isRefundEligibleForSubmit(refund.status) && refund.authorizedAt != null;
 }
 
 export const RECON_CASE_TYPES = {

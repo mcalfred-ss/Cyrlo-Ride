@@ -2,6 +2,10 @@ import { randomBytes } from 'node:crypto';
 
 import { z } from 'zod';
 
+import {
+  encryptionKeyErrorMessage,
+  inspectEncryptionKey,
+} from './encryption-keys.js';
 import { parseTrustProxyEnv, type TrustProxySetting } from './trust-proxy.js';
 
 const placeholderPattern = /change-me|development-only/;
@@ -65,9 +69,19 @@ const envSchema = z
       (value) => (value === '' || value === undefined || value === null ? undefined : value),
       z.coerce.number().int().positive().optional(),
     ),
+    /**
+     * SMS adapter selection. Use `vynfy` for production OTP delivery.
+     * Empty → development no-op outside production; fail-closed in production.
+     * Do not confuse with PUSH_PROVIDER.
+     */
     SMS_PROVIDER: z.string().default(''),
+    /** Generic vendor key placeholder for non-Vynfy adapters (unused when SMS_PROVIDER=vynfy). */
     SMS_API_KEY: z.string().default(''),
     SMS_SENDER_ID: z.string().default('Cyrlo'),
+    /** Vynfy SMS API key — never commit; required when SMS_PROVIDER=vynfy. */
+    VYNFY_API_KEY: z.string().default(''),
+    /** Vynfy registered sender / brand ID — required when SMS_PROVIDER=vynfy. */
+    VYNFY_SENDER_ID: z.string().default(''),
     /**
      * Push adapter: `fcm` (HTTP v1) | `fcm-legacy` (deprecated server key) | empty (dev memory / prod fail-closed).
      */
@@ -93,10 +107,25 @@ const envSchema = z
      * Proxy trust for Express req.ip / rate limits.
      * `false` | hop count 1–5 | comma-separated IPs/CIDRs.
      * Bare `true` is rejected (see parseTrustProxyEnv).
+     * Production behind a reverse proxy must set an explicit hop count or CIDR list.
      */
     TRUST_PROXY: z.string().default('false'),
+    /**
+     * Escape hatch: allow TRUST_PROXY=false in production only when the process is
+     * intentionally exposed without a reverse proxy (not the VPS Nginx topology).
+     */
+    TRUST_PROXY_DIRECT: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
     RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
     RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+    /** Isolated Paystack webhook limiter (does not share the general API bucket). */
+    PAYSTACK_WEBHOOK_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+    PAYSTACK_WEBHOOK_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
+    /** Isolated rider GPS update limiter (per authenticated user). */
+    RIDER_GPS_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+    RIDER_GPS_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(120),
   })
   .superRefine((value, ctx) => {
     if (value.JWT_ACCESS_SECRET === value.JWT_REFRESH_SECRET) {
@@ -107,20 +136,22 @@ const envSchema = z
       });
     }
     for (const key of ['ADMIN_MFA_ENCRYPTION_KEY', 'IDENTITY_ENCRYPTION_KEY'] as const) {
-      try {
-        if (Buffer.from(value[key], 'base64').length !== 32) {
+      const inspected = inspectEncryptionKey(value[key]);
+      if (!inspected.ok && inspected.issue) {
+        // Length/format always enforced; example/weak keys only fail closed in production
+        // so local .env.example workflows keep working.
+        const enforceAlways =
+          inspected.issue === 'missing' ||
+          inspected.issue === 'invalid_base64' ||
+          inspected.issue === 'wrong_length' ||
+          value.NODE_ENV === 'production';
+        if (enforceAlways) {
           ctx.addIssue({
             code: z.ZodIssueCode.custom,
             path: [key],
-            message: `${key} must decode to exactly 32 bytes`,
+            message: encryptionKeyErrorMessage(key, inspected.issue),
           });
         }
-      } catch {
-        ctx.addIssue({
-          code: z.ZodIssueCode.custom,
-          path: [key],
-          message: `${key} must be valid base64`,
-        });
       }
     }
     if (value.ADMIN_MFA_ENCRYPTION_KEY === value.IDENTITY_ENCRYPTION_KEY) {
@@ -129,6 +160,24 @@ const envSchema = z
         path: ['IDENTITY_ENCRYPTION_KEY'],
         message: 'IDENTITY_ENCRYPTION_KEY must differ from ADMIN_MFA_ENCRYPTION_KEY',
       });
+    }
+    // Vynfy credentials are required whenever that adapter is selected (any NODE_ENV).
+    const smsProvider = value.SMS_PROVIDER.trim().toLowerCase();
+    if (smsProvider === 'vynfy') {
+      if (!value.VYNFY_API_KEY.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['VYNFY_API_KEY'],
+          message: 'VYNFY_API_KEY is required when SMS_PROVIDER=vynfy',
+        });
+      }
+      if (!value.VYNFY_SENDER_ID.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['VYNFY_SENDER_ID'],
+          message: 'VYNFY_SENDER_ID is required when SMS_PROVIDER=vynfy',
+        });
+      }
     }
     if (value.NODE_ENV !== 'production') return;
     for (const key of [
@@ -159,6 +208,25 @@ const envSchema = z
         path: ['RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS'],
         message:
           'RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS must be set explicitly before production matching dispatch',
+      });
+    }
+    if (smsProvider === 'vynfy' && placeholderPattern.test(value.VYNFY_API_KEY)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['VYNFY_API_KEY'],
+        message: 'VYNFY_API_KEY still uses a development placeholder',
+      });
+    }
+    // Production behind Nginx (typical VPS) must set an explicit hop/CIDR trust policy.
+    // TRUST_PROXY=false is only allowed with TRUST_PROXY_DIRECT=true (intentional direct exposure).
+    const trustRaw = value.TRUST_PROXY.trim().toLowerCase();
+    const trustIsOff = trustRaw.length === 0 || trustRaw === 'false' || trustRaw === '0';
+    if (trustIsOff && !value.TRUST_PROXY_DIRECT) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['TRUST_PROXY'],
+        message:
+          'Production requires an explicit TRUST_PROXY hop count (e.g. 1) or trusted CIDR list when behind a reverse proxy. Set TRUST_PROXY_DIRECT=true only if the process is intentionally exposed without a proxy.',
       });
     }
   });

@@ -352,8 +352,31 @@ describe('Phase 11A refund reliability postgres', () => {
     expect(cases[0]?.caseType).toBe('ABANDONED_TOKEN_PURCHASE_SUCCESS');
   });
 
-  it('worker queues missing booking-fee refund for SUCCESS on terminal booking', async () => {
+  it('worker queues missing booking-fee refund only when decideRefunds authorizes', async () => {
     const now = new Date('2026-11-07T16:40:00.000Z');
+    const paystack = new MemoryPaystackClient();
+    const { payments, created } = await setupBookingFee(now, paystack);
+    await prisma.payment.updateMany({
+      where: { bookingId: created.id },
+      data: { status: 'SUCCESS' },
+    });
+    await prisma.booking.update({
+      where: { id: created.id },
+      data: { status: 'EXPIRED', acceptedAt: null },
+    });
+
+    const tick = await payments.processRefundWorkerTick!();
+    expect(tick.missingRefundsQueued).toBeGreaterThanOrEqual(1);
+    const refund = await prisma.paymentRefund.findFirst({
+      where: { bookingId: created.id },
+    });
+    expect(refund?.status).toBe('REQUESTED');
+    expect(refund?.reason).toBe('search_expired');
+    expect(refund?.authorizedAt).not.toBeNull();
+  });
+
+  it('worker does not queue fee refund for PAYMENT_FAILED (decideRefunds NONE)', async () => {
+    const now = new Date('2026-11-07T16:45:00.000Z');
     const paystack = new MemoryPaystackClient();
     const { payments, created } = await setupBookingFee(now, paystack);
     await prisma.payment.updateMany({
@@ -366,11 +389,10 @@ describe('Phase 11A refund reliability postgres', () => {
     });
 
     const tick = await payments.processRefundWorkerTick!();
-    expect(tick.missingRefundsQueued).toBeGreaterThanOrEqual(1);
     const refund = await prisma.paymentRefund.findFirst({
       where: { bookingId: created.id },
     });
-    expect(refund?.status).toBe('REQUESTED');
-    expect(refund?.reason).toBe('late_payment_after_deadline');
+    expect(refund).toBeNull();
+    expect(tick.missingRefundsQueued).toBe(0);
   });
 });

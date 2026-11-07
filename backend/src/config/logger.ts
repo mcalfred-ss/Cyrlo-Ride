@@ -7,6 +7,7 @@ export const logger = pino({
   redact: {
     paths: [
       'req.headers.authorization',
+      'req.headers["x-api-key"]',
       'req.headers.cookie',
       'res.headers["set-cookie"]',
       '*.password',
@@ -16,6 +17,9 @@ export const logger = pino({
       '*.refreshToken',
       '*.accessToken',
       '*.authorization',
+      '*.apiKey',
+      '*.VYNFY_API_KEY',
+      '*.SMS_API_KEY',
       '*.latitude',
       '*.longitude',
       'req.body.latitude',

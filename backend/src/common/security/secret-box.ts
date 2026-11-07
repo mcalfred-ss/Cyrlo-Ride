@@ -46,7 +46,7 @@ function decodeKey(keyBase64: string): Buffer {
     throw new AppError({
       status: 500,
       code: 'INTERNAL_ERROR',
-      message: 'ADMIN_MFA_ENCRYPTION_KEY must be 32 bytes encoded as base64',
+      message: 'Encryption key must be 32 bytes encoded as base64',
     });
   }
   return key;
