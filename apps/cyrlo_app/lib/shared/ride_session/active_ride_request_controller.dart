@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../features/auth/application/signup_controller.dart';
 import '../../features/auth/application/signup_draft.dart';
 import '../../passenger_app/home/domain/nearby_rider.dart';
+import '../../rider_app/availability/application/rider_availability_provider.dart';
 import '../models/geo_point.dart';
 import 'active_ride_request.dart';
 
@@ -72,7 +73,8 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
   @override
   List<ActiveRideRequest> build() {
     final draft = ref.watch(signupProvider);
-    if (draft.role != RideRole.rider) return const [];
+    final online = ref.watch(riderOnlineProvider);
+    if (draft.role != RideRole.rider || !online) return const [];
     return _demoOffers(draft);
   }
 

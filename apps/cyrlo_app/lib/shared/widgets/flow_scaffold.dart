@@ -38,7 +38,7 @@ class FlowScaffold extends StatelessWidget {
             );
           },
           child: CyrloCard(
-            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            padding: EdgeInsets.fromLTRB(24, onBack != null ? 16 : 28, 24, 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

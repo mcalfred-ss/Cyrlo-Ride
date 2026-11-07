@@ -69,11 +69,12 @@ class _SelectRoleScreenState extends ConsumerState<SelectRoleScreen> {
       ),
       child: Column(
         children: [
+          const SizedBox(height: AppSpacing.lg),
           const ScreenHeader(
             title: 'How will you ride?',
             subtitle: 'Slide left or right, then continue.',
           ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
           Expanded(
             child: PageView.builder(
               controller: _controller,

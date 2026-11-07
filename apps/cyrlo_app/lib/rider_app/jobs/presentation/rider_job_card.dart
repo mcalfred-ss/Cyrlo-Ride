@@ -123,13 +123,14 @@ class _RiderJobCardState extends State<RiderJobCard>
                               vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: AppColors.yellow,
+                              color: AppColors.field,
                               borderRadius: BorderRadius.circular(AppRadii.pill),
+                              border: Border.all(color: AppColors.border),
                             ),
                             child: Text(
                               'Pickup request',
                               style: theme.textTheme.labelMedium?.copyWith(
-                                color: AppColors.darkGrey,
+                                color: AppColors.textSecondary,
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
