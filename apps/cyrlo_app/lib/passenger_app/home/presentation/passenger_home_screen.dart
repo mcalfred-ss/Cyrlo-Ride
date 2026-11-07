@@ -8,6 +8,7 @@ import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../features/auth/application/signup_controller.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
+import '../../../shared/ride_session/show_passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
@@ -31,6 +32,8 @@ class PassengerHomeScreen extends ConsumerWidget {
         (firstName == null || firstName.isEmpty) ? 'there' : firstName;
     final availableCount = riders.where((rider) => rider.canRequest).length;
     final theme = Theme.of(context);
+
+    listenForPassengerCancelNotice(ref, context);
 
     return SizedBox.expand(
       child: Padding(

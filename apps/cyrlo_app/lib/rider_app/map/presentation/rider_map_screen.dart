@@ -10,6 +10,8 @@ import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/ride_session/active_ride_request.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
+import '../../../shared/ride_session/rider_accept_job.dart';
+import '../../../shared/ride_session/rider_cancel_accepted_ride.dart';
 import '../../../shared/widgets/active_contact_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/profile_avatar.dart';
@@ -43,6 +45,8 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
   }
 
   Future<void> _confirmAccept(ActiveRideRequest job) async {
+    final waitingOthers =
+        ref.read(riderJobOffersProvider).where((item) => item.id != job.id).length;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -50,7 +54,10 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text('Accept ${job.displayFirstName}?'),
         content: Text(
-          '${job.etaLabel}. You’ll head to their pickup from here.',
+          waitingOthers > 0
+              ? '${job.etaLabel}. You’ll head to this pickup. '
+                  'Other waiting passengers will be told you’re busy (in-app + SMS).'
+              : '${job.etaLabel}. You’ll head to their pickup from here.',
           style: const TextStyle(height: 1.4),
         ),
         actions: [
@@ -67,7 +74,26 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
       ),
     );
     if (ok != true || !mounted) return;
-    ref.read(riderJobOffersProvider.notifier).accept(job.id);
+    final messenger = ScaffoldMessenger.of(context);
+    final result = await acceptJobAndReleaseSiblings(ref, job.id);
+    if (!mounted || result == null) return;
+    if (result.bumpedCount > 0) {
+      messenger.showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            result.bumpedCount == 1
+                ? 'Accepted. The other waiting passenger was told you’re busy.'
+                : 'Accepted. ${result.bumpedCount} other waiting passengers were told you’re busy.',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -240,6 +266,56 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
                       subtitle: 'Shared only while this pickup is active.',
                       phoneE164: job.passengerPhoneE164,
                       contactLabel: job.displayFirstName,
+                      onCancel: () async {
+                        final messenger = ScaffoldMessenger.of(context);
+                        final router = GoRouter.of(context);
+                        final ok = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            backgroundColor: AppColors.surface,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
+                            title: const Text('Cancel this job?'),
+                            content: const Text(
+                              'End this pickup? The passenger will get an in-app notice and an SMS.',
+                              style: TextStyle(height: 1.4),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () =>
+                                    Navigator.of(context).pop(false),
+                                child: const Text('No'),
+                              ),
+                              FilledButton(
+                                key: const Key('confirm-cancel-accepted-job-map'),
+                                onPressed: () =>
+                                    Navigator.of(context).pop(true),
+                                child: const Text('Yes, cancel'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (ok != true || !mounted) return;
+                        final result = await cancelAcceptedRideByRider(ref);
+                        if (!mounted || !result.cancelled) return;
+                        messenger.showSnackBar(
+                          SnackBar(
+                            behavior: SnackBarBehavior.floating,
+                            backgroundColor: AppColors.darkGrey,
+                            content: Text(
+                              result.smsSent
+                                  ? 'Job cancelled. Passenger notified in-app and by SMS.'
+                                  : 'Job cancelled. In-app notice sent; SMS could not be sent.',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        );
+                        router.go(AppRoutes.riderJobs);
+                      },
                       onComplete: () async {
                         final ok = await showDialog<bool>(
                           context: context,

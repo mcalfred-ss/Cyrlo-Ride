@@ -45,6 +45,10 @@ class TripPinController extends Notifier<TripPinState> {
     state = const TripPinState();
   }
 
+  void forceClear() {
+    state = const TripPinState();
+  }
+
   Future<void> useCurrentLocationAsPickup() async {
     state = state.copyWith(
       isResolvingLocation: true,

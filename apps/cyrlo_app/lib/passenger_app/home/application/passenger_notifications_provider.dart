@@ -41,6 +41,10 @@ class PassengerNotificationsController
 
   int get unreadCount => state.where((item) => !item.read).length;
 
+  void prepend(PassengerNotification notification) {
+    state = [notification, ...state];
+  }
+
   void markAllRead() {
     state = [
       for (final item in state) item.copyWith(read: true),

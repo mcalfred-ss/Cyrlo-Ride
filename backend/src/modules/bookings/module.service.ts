@@ -741,6 +741,10 @@ export class BookingsServiceImpl implements BookingsService {
           ? 'The rider cancelled. A booking-fee refund was queued for finance processing.'
           : 'The rider cancelled the booking.',
       data: { bookingId: input.bookingId, status: 'CANCELLED', refundId },
+      channels: ['IN_APP', 'PUSH', 'SMS'],
+      eventType: 'booking.rider_cancelled',
+      category: 'TRIP',
+      dedupeKey: `booking.rider_cancelled:${input.bookingId}`,
     });
     await this.notifySupportStaff(
       'Rider cancellation',

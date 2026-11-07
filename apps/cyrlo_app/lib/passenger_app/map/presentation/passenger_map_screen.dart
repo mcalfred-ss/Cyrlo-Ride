@@ -3,13 +3,16 @@ import 'dart:async';
 import 'package:cyrlo_maps/cyrlo_maps.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/mapping/mapping_providers.dart';
+import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/models/geo_point.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
+import '../../../shared/ride_session/passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
 import '../../home/application/nearby_riders_provider.dart';
 import '../../home/domain/nearby_rider.dart';
@@ -67,6 +70,29 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
 
     ref.listen(selectedNearbyRiderProvider, (previous, next) {
       _focusNearbyRider(next);
+    });
+    ref.listen<PassengerCancelNotice?>(passengerCancelNoticeProvider, (
+      previous,
+      next,
+    ) {
+      if (next == null) return;
+      final notice = next;
+      ref.read(passengerCancelNoticeProvider.notifier).clear();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          duration: const Duration(seconds: 5),
+          content: Text(
+            '${notice.title}. ${notice.body}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+      context.go(AppRoutes.passengerHome);
     });
     if (sharedPickup != null) {
       _focusPickup(sharedPickup);

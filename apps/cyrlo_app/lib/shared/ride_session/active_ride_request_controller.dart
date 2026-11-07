@@ -149,22 +149,34 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
     ];
   }
 
-  ActiveRideRequest? accept(String id) {
+  /// Accepts [id], clears every other waiting offer, and returns those bumped
+  /// siblings so the caller can SMS / notify them that the rider is busy.
+  AcceptJobOutcome? accept(String id) {
     ActiveRideRequest? accepted;
-    final next = <ActiveRideRequest>[];
+    final bumped = <ActiveRideRequest>[];
     for (final job in state) {
       if (job.id == id) {
         accepted = job.copyWith(status: ActiveRideStatus.ongoing);
       } else {
-        next.add(job);
+        bumped.add(job);
       }
     }
     if (accepted == null) return null;
-    state = next;
+    state = const [];
     ref.read(previewRiderJobProvider.notifier).clear();
     ref.read(activeRideRequestProvider.notifier).accept(accepted);
-    return accepted;
+    return AcceptJobOutcome(accepted: accepted, bumped: bumped);
   }
+}
+
+class AcceptJobOutcome {
+  const AcceptJobOutcome({
+    required this.accepted,
+    required this.bumped,
+  });
+
+  final ActiveRideRequest accepted;
+  final List<ActiveRideRequest> bumped;
 }
 
 /// Pending job the rider opened on the map before accepting.
