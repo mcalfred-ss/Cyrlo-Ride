@@ -15,19 +15,32 @@ docs/                    architecture and the frontend/backend contract
 
 ## Run the app
 
+By default the Flutter app talks to the hosted API at `https://cyrloride.eqostack.com` and saves accounts in the live Postgres database via OTP SMS.
+
 ```bash
 cd apps/cyrlo_app
 flutter pub get
+flutter run
+```
+
+Signup order: phone → role → SMS OTP. Tokens are stored on device; demo riders/jobs/history are removed.
+
+Optional overrides:
+
+```bash
+# Local backend instead of hosted
 flutter run --dart-define=API_BASE_URL=http://localhost:3000/api/v1 --dart-define=SOCKET_URL=http://localhost:3000
+
+# Android emulator → machine localhost
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1 --dart-define=SOCKET_URL=http://10.0.2.2:3000
 ```
 
 Optional map defines:
 
-- `MAPBOX_ACCESS_TOKEN` — public `pk.` token for Mapbox tiles and device Directions. Empty uses the Cyrlo Maps CARTO fallback.
-- `CYRLO_MAPS_API_BASE_URL` — leave empty until the hosted Maps OpenAPI contract is published. Do not invent endpoints.
-- `CYRLO_MAPS_API_TOKEN` — reserved for that future contract.
+- `MAPBOX_ACCESS_TOKEN` — public `pk.` token for Mapbox **tiles** / device Directions only. Empty uses CARTO fallback. Never use as the Maps HTTP API key.
+- `USE_RIDE_MAPS_PROXY` — default `true`; Flutter geocode/places/routes go through Ride `/maps/*` (Maps key stays server-side).
 
-On the Android emulator, point the API defines at `http://10.0.2.2:3000` instead of `localhost`.
+Server Maps secrets (never in Flutter): `CYRLO_MAPS_BASE_URL`, `CYRLO_MAPS_API_KEY`.
 
 Cyrlo Maps is a git dependency pinned to commit `d299ede80fb63ccaa3f8d8b2135f757897317dfd`. See `docs/architecture/CYRLO_MAPS_INTEGRATION_REPORT.md`.
 
@@ -56,4 +69,6 @@ cd apps/cyrlo_app && flutter analyze && flutter test
 cd backend && npm test && npm run typecheck && npx prisma validate
 ```
 
-Business endpoints are specified in [docs/API_DOCUMENTATION.md](docs/API_DOCUMENTATION.md) and are not implemented yet. Do not treat a 404 or an unwired module as a finished feature.
+Staging ops status (host, systemd, SMS, Maps): [docs/deployment/STAGING_LIVE_STATUS.md](docs/deployment/STAGING_LIVE_STATUS.md).
+
+Auth OTP against staging is live. Prefer Android/iOS over Flutter Web unless `CORS_ORIGINS` includes your web origin. Bookings / nearby / matching client wiring is still in progress — see the API docs and architecture notes.

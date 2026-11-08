@@ -1,8 +1,8 @@
 # Flutter app UI progress
 
-Session notes for `apps/cyrlo_app` — passenger + rider flows built and polished in the local Flutter client. Auth is **phone + OTP only** (no password / forgot-password). Much of this is still demo/local state until backend APIs are wired.
+Session notes for `apps/cyrlo_app` — passenger + rider flows. Auth is **phone + OTP only** (no password / forgot-password).
 
-**Test OTP:** `123456`
+**Updated 2026-11-08:** app defaults to staging `https://cyrloride.eqostack.com`. Live OTP creates users in Postgres. Signup order is **phone → role → SMS OTP**. Demo nearby riders / ride history / job offers removed. Prefer Android/iOS over Flutter Web (CORS). See `docs/deployment/STAGING_LIVE_STATUS.md`.
 
 ---
 
@@ -10,11 +10,11 @@ Session notes for `apps/cyrlo_app` — passenger + rider flows built and polishe
 
 | Topic | Decision |
 | --- | --- |
-| Auth | Ghana phone → OTP verify → choose role. No password. |
+| Auth | Ghana phone → choose role → live SMS OTP. No password. No test code. |
 | Trip model | Pickup-only. Destination / fare stay off-app (agreed in person). |
 | Request fee | GHS 1 request fee before a live request. |
 | Contact sharing | Passenger and rider numbers are shared only while a request is live. |
-| Rider approval | Auto-approved after documents for local testing. |
+| Rider approval | Waiting-for-approval after documents until ops/onboarding API is wired. |
 | Tokens | Rider packs: Starter 20 / GHS 10, Standard 50 / GHS 20, Pro 150 / GHS 50 (demo wallet). |
 | Theme | Dark is the default. User can switch Light / Dark / System on Account. |
 
@@ -36,8 +36,9 @@ Session notes for `apps/cyrlo_app` — passenger + rider flows built and polishe
 
 1. Splash → onboarding → welcome  
 2. Create account (Ghana phone)  
-3. Verify OTP (test `123456`) → short “Number verified” check animation  
-4. Select role (Passenger / Rider)  
+3. Select role (Passenger / Rider)  
+4. Verify live SMS OTP → “Number verified” check animation  
+
 5. **Passenger:** details (name, DOB, gender, location / use my location) → home  
 6. **Rider:** vehicle type (Okada / Pragya; Aboboyaa coming soon) → details → documents (ID type, front photo, plate, selfie) → home (approval skipped for testing)  
 

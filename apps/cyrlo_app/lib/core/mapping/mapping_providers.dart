@@ -4,14 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/app_config.dart';
 import '../../shared/providers/core_providers.dart';
 import 'device_location_gateway.dart';
-import 'maps_api/deferred_maps_api_client.dart';
 import 'maps_api/maps_api_client.dart';
 import 'place_lookup_gateway.dart';
 import 'ride_map_projects.dart';
 import 'ride_maps_gateway.dart';
 import 'route_preview_gateway.dart';
 
-/// Public Mapbox token for the Cyrlo Maps SDK. Empty is allowed; tiles fall back.
+/// Public Mapbox token for the Cyrlo Maps SDK tiles. Empty is allowed; tiles fall back.
 final mapAccessTokenProvider = Provider<String>((ref) {
   return MapToken.resolve(
     environment: {
@@ -44,14 +43,17 @@ final placeLookupGatewayProvider = Provider<PlaceLookupGateway>((ref) {
   if (AppConfig.useRideMapsProxy) {
     return RideMapsPlaceLookupGateway(api: ref.watch(apiClientProvider));
   }
-  // Stock Cyrlo Maps geocoder/place search throw `unavailable` without a provider.
   return CyrloPlaceLookupGateway(
     geocoding: const UnavailableGeocodingClient(),
     places: const UnavailablePlaceSearchClient(),
   );
 });
 
-/// Direct Maps API client remains deferred — never embed CYRLO_MAPS_API_KEY here.
+/// Direct Maps HTTP client for diagnostics only — no Maps API key in the app.
+/// Privileged calls go through Ride `/maps/*` when [AppConfig.useRideMapsProxy].
 final cyrloMapsApiClientProvider = Provider<CyrloMapsApiClient>((ref) {
-  return DeferredCyrloMapsApiClient();
+  return CyrloMapsApiClient(
+    baseUrl: AppConfig.cyrloMapsApiBaseUrl,
+    apiKey: '',
+  );
 });

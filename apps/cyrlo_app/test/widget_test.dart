@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:cyrlo_app/app.dart';
 import 'package:cyrlo_app/core/media/document_pick_gateway.dart';
+import 'package:cyrlo_app/features/auth/data/auth_api.dart';
 
 Future<void> verifyOtpAndContinue(WidgetTester tester) async {
+  await tester.pump(); // allow requestOtp post-frame
+  await tester.pump(const Duration(milliseconds: 50));
   await tester.enterText(find.byKey(const Key('otp-input')), '123456');
   await tester.tap(find.byKey(const Key('verify-otp')));
   await tester.pump();
@@ -15,10 +19,21 @@ Future<void> verifyOtpAndContinue(WidgetTester tester) async {
 }
 
 void main() {
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   testWidgets('passenger reaches home with the four tabs', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: CyrloApp()));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          authApiProvider.overrideWithValue(FakeAuthApi()),
+        ],
+        child: const CyrloApp(),
+      ),
+    );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump(const Duration(milliseconds: 2200));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('skip-onboarding')));
@@ -32,10 +47,10 @@ void main() {
     await tester.tap(find.byKey(const Key('create-account')));
     await tester.pumpAndSettle();
 
-    await verifyOtpAndContinue(tester);
-
     await tester.tap(find.byKey(const Key('continue-role')));
     await tester.pumpAndSettle();
+
+    await verifyOtpAndContinue(tester);
 
     await tester.enterText(find.byKey(const Key('passenger-first-name')), 'Ama');
     await tester.enterText(find.byKey(const Key('passenger-last-name')), 'Mensah');
@@ -62,10 +77,11 @@ void main() {
     expect(find.text('Rides'), findsWidgets);
   });
 
-  testWidgets('rider reaches jobs after submitting documents', (tester) async {
+  testWidgets('rider reaches approval after submitting documents', (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
+          authApiProvider.overrideWithValue(FakeAuthApi()),
           documentPickGatewayProvider.overrideWithValue(
             FakeDocumentPickGateway(),
           ),
@@ -74,7 +90,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 800));
+    await tester.pump(const Duration(milliseconds: 2200));
     await tester.pumpAndSettle();
 
     await tester.tap(find.byKey(const Key('skip-onboarding')));
@@ -84,13 +100,14 @@ void main() {
     await tester.enterText(find.byKey(const Key('ghana-phone-input')), '201234567');
     await tester.tap(find.byKey(const Key('create-account')));
     await tester.pumpAndSettle();
-    await verifyOtpAndContinue(tester);
 
     await tester.drag(find.byType(PageView), const Offset(-420, 0));
     await tester.pumpAndSettle();
     expect(find.text('Continue as Rider'), findsOneWidget);
     await tester.tap(find.byKey(const Key('continue-role')));
     await tester.pumpAndSettle();
+
+    await verifyOtpAndContinue(tester);
 
     await tester.tap(find.byKey(const Key('driver-aboboyaa')));
     await tester.pumpAndSettle();
@@ -126,8 +143,6 @@ void main() {
     await tester.tap(find.byKey(const Key('rider-submit')));
     await tester.pumpAndSettle();
 
-    expect(find.text('Jobs'), findsWidgets);
-    expect(find.text('Token'), findsOneWidget);
-    expect(find.text('Account'), findsOneWidget);
+    expect(find.text('Waiting for approval'), findsOneWidget);
   });
 }

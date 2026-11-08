@@ -45,6 +45,7 @@ dependencies:
       ref: d299ede80fb63ccaa3f8d8b2135f757897317dfd
       path: packages/cyrlo_maps
   image_picker: ^1.2.4
+  shared_preferences: ^2.5.6
 dev_dependencies:
   flutter_test:
     sdk: flutter

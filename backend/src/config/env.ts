@@ -103,12 +103,13 @@ const envSchema = z
      * Prefer CYRLO_MAPS_BASE_URL + CYRLO_MAPS_API_KEY.
      */
     MAPS_PROVIDER: z.string().default(''),
+    /** Legacy placeholder — prefer CYRLO_MAPS_API_KEY. */
     MAPS_API_KEY: z.string().default(''),
     /**
      * Hosted Cyrlo Maps API origin (no trailing slash), e.g. https://api.cyrlomap.eqostack.com
      * Empty → maps routes fail closed with NOT_IMPLEMENTED.
      */
-    CYRLO_MAPS_BASE_URL: z.string().default(''),
+    CYRLO_MAPS_BASE_URL: z.string().default('https://api.cyrlomap.eqostack.com'),
     /**
      * Maps API bearer secret only (not name:secret, not a Mapbox token).
      * Never commit; load from /etc/cyrlo-ride/providers.env on the VPS.

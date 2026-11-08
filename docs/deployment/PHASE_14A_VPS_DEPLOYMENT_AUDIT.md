@@ -323,17 +323,18 @@ Mocked CI tests do **not** replace these.
 
 | Criterion | Status |
 | --- | --- |
-| VPS inventory (ports, Nginx, Postgres) | **UNKNOWN** — not inspected |
-| DNS for proposed staging host | **UNKNOWN** |
-| Staging DB created | **UNKNOWN** |
-| Secrets mounted on server | **UNKNOWN** |
-| Non-disruption of Eqostack/Cirlo | **Requires careful Nginx change** — not yet evidenced |
+| VPS inventory (ports, Nginx, Postgres) | **UPDATED 2026-11-08** — Ride on `:3020` via systemd; Cirlo remains on PM2 |
+| DNS / host | **LIVE** — `cyrloride.eqostack.com` |
+| Staging DB created | **YES** — `cyrlo_ride_staging` |
+| Secrets mounted on server | **YES** — `/etc/cyrlo-ride/ride.env` + `providers.env` |
+| Non-disruption of Eqostack/Cirlo | **OK so far** — separate Nginx site + port; do not restart `cirlo-api` for Ride |
 
-### Verdict
+### Verdict (updated 2026-11-08)
 
-- **Repository:** ready to *prepare* a staging artifact and run it in an isolated environment **once** operator prerequisites are met.  
-- **VPS:** **NOT READY** to claim deployable. No evidence from live server inspection.  
-- **Staging deploy authorization:** **NO-GO** until §11 items are answered and a separate deployment change request covers DNS/Nginx/Postgres without touching existing sites.
+- **Staging API:** **LIVE** at `https://cyrloride.eqostack.com` (`cyrlo-ride-api.service`, Nginx → `127.0.0.1:3020`).  
+- **OTP SMS (Vynfy):** **WORKING** after correct `providers.env` + `systemctl restart cyrlo-ride-api`.  
+- **Maps HTTP:** host up; Ride readiness reports Maps configured.  
+- See `docs/deployment/STAGING_LIVE_STATUS.md` for current ops detail.
 
 ---
 

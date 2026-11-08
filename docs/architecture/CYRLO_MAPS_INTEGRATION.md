@@ -6,7 +6,9 @@ Published commit: `d299ede80fb63ccaa3f8d8b2135f757897317dfd`
 
 Commit subject: `Extract reusable mapping into Cyrlo Maps.` (2026-11-06).
 
-Cyrlo Maps is a Flutter library. It renders tiles with `flutter_map`. It can call Mapbox Directions from the device. The separate hosted HTTP API is planned at `https://api.cyrlomap.eqostack.com/v1`. That OpenAPI contract is not published. Ride must not invent endpoints or call the host until the contract exists.
+Cyrlo Maps is a Flutter library. It renders tiles with `flutter_map`. The hosted HTTP API is at `https://api.cyrlomap.eqostack.com` and requires a server-side API key. Ride keeps that key in `CYRLO_MAPS_API_KEY` and exposes geocode / places / routes to Flutter via authenticated Ride `/maps/*` proxy routes. Never put the Maps key or a Mapbox `sk.` token in the Flutter app.
+
+`GET /health` on the Maps host is public. Map tiles may still use a public Mapbox `pk.` token or CARTO fallback.
 
 Ride consumes the SDK as a git dependency in `apps/cyrlo_app`. Source is not copied. Implementation status is in `CYRLO_MAPS_INTEGRATION_REPORT.md`.
 

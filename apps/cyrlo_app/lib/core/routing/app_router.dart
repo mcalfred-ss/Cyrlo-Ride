@@ -210,8 +210,8 @@ String? _requiredLocation(SignupDraft draft) {
   if (!draft.onboardingDone) return AppRoutes.onboarding;
   if (!draft.welcomeDone) return AppRoutes.welcome;
   if (draft.phoneE164 == null) return AppRoutes.createAccount;
-  if (!draft.otpVerified) return AppRoutes.verifyOtp;
   if (draft.role == null) return AppRoutes.selectRole;
+  if (!draft.otpVerified) return AppRoutes.verifyOtp;
   if (draft.role == RideRole.passenger) {
     if (!draft.hasPassengerProfile) return AppRoutes.passengerDetails;
     return null;

@@ -1,5 +1,4 @@
 /// Paths relative to [AppConfig.apiBaseUrl].
-/// Business paths are the contract. They are not implemented on the server yet.
 abstract final class ApiPaths {
   static const health = '/health';
   static const requestOtp = '/auth/otp';

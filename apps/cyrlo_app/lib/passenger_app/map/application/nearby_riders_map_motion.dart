@@ -18,8 +18,7 @@ class MapRiderPose {
   final double headingRadians;
 }
 
-/// Demo live motion so nearby vehicles drift like Bolt riders on the map.
-/// Replace with realtime GPS when matching/live location is wired.
+/// Smooths nearby rider marker motion. Poses follow live GPS when riders exist.
 final nearbyRidersMapMotionProvider =
     NotifierProvider<NearbyRidersMapMotionController, Map<String, MapRiderPose>>(
   NearbyRidersMapMotionController.new,

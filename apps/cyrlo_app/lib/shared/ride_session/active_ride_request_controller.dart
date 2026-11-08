@@ -7,6 +7,7 @@ import '../../rider_app/availability/application/rider_availability_provider.dar
 import '../models/geo_point.dart';
 import 'active_ride_request.dart';
 
+
 final activeRideRequestProvider =
     NotifierProvider<ActiveRideRequestController, ActiveRideRequest?>(
   ActiveRideRequestController.new,
@@ -85,64 +86,9 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
   List<ActiveRideRequest> build() {
     final draft = ref.watch(signupProvider);
     final online = ref.watch(riderOnlineProvider);
+    // Live offers come from matching / Socket.IO — no demo jobs.
     if (draft.role != RideRole.rider || !online) return const [];
-    return _demoOffers(draft);
-  }
-
-  List<ActiveRideRequest> _demoOffers(SignupDraft draft) {
-    final now = DateTime.now();
-    final kind = draft.driverKind ?? DriverKind.pragya;
-    final riderPhone = draft.phoneE164 ?? '+233244000111';
-    final riderName = draft.riderName?.trim().isNotEmpty == true
-        ? draft.riderName!.trim()
-        : 'Your rider';
-    return [
-      ActiveRideRequest(
-        id: 'job-ama',
-        kind: kind,
-        riderId: 'self',
-        riderPhoneE164: riderPhone,
-        passengerPhoneE164: '+233201234567',
-        status: ActiveRideStatus.requested,
-        createdAt: now.subtract(const Duration(minutes: 1)),
-        riderDisplayName: riderName,
-        passengerName: 'Ama Mensah',
-        passengerFirstName: 'Ama',
-        passengerGender: PassengerGender.female,
-        etaMinutes: 3,
-        pickupPoint: const GeoPoint(latitude: 6.6902, longitude: -1.6218),
-      ),
-      ActiveRideRequest(
-        id: 'job-kwesi',
-        kind: kind,
-        riderId: 'self',
-        riderPhoneE164: riderPhone,
-        passengerPhoneE164: '+233244998877',
-        status: ActiveRideStatus.requested,
-        createdAt: now.subtract(const Duration(minutes: 4)),
-        riderDisplayName: riderName,
-        passengerName: 'Kwesi Owusu',
-        passengerFirstName: 'Kwesi',
-        passengerGender: PassengerGender.male,
-        etaMinutes: 6,
-        pickupPoint: const GeoPoint(latitude: 6.6861, longitude: -1.6279),
-      ),
-      ActiveRideRequest(
-        id: 'job-akosua',
-        kind: kind,
-        riderId: 'self',
-        riderPhoneE164: riderPhone,
-        passengerPhoneE164: '+233275551122',
-        status: ActiveRideStatus.requested,
-        createdAt: now.subtract(const Duration(minutes: 7)),
-        riderDisplayName: riderName,
-        passengerName: 'Akosua Boateng',
-        passengerFirstName: 'Akosua',
-        passengerGender: PassengerGender.female,
-        etaMinutes: 9,
-        pickupPoint: const GeoPoint(latitude: 6.6938, longitude: -1.6184),
-      ),
-    ];
+    return const [];
   }
 
   void decline(String id) {

@@ -1,10 +1,12 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/api_exception.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/utils/phone_numbers.dart';
@@ -27,12 +29,14 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   var _secondsLeft = 60;
   String? _error;
   var _verified = false;
+  var _busy = false;
+  var _sending = false;
 
   @override
   void initState() {
     super.initState();
     _codeController.addListener(() => setState(() {}));
-    _startTimer();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _requestCode());
   }
 
   @override
@@ -42,9 +46,9 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     super.dispose();
   }
 
-  void _startTimer() {
+  void _startTimer([int seconds = 60]) {
     _timer?.cancel();
-    setState(() => _secondsLeft = 60);
+    setState(() => _secondsLeft = seconds);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_secondsLeft <= 1) {
@@ -56,26 +60,74 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     });
   }
 
+  Future<void> _requestCode() async {
+    if (_sending || _verified) return;
+    setState(() {
+      _sending = true;
+      _error = null;
+    });
+    try {
+      final result = await ref.read(signupProvider.notifier).requestOtp();
+      if (!mounted) return;
+      _startTimer(result.resendAfter.clamp(15, 300));
+    } catch (error) {
+      if (!mounted) return;
+      final api = _asApi(error);
+      final wait = api?.resendAfterSeconds;
+      if (wait != null && wait > 0) {
+        _startTimer(wait.clamp(1, 300));
+      }
+      setState(() => _error = _messageFor(error));
+    } finally {
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
   Future<void> _verify() async {
-    if (_verified) return;
-    final code = _codeController.text;
-    final ok = code.trim() == SignupController.testOtp;
-    if (!ok) {
-      setState(
-        () => _error = 'Enter the test code ${SignupController.testOtp}.',
-      );
+    if (_verified || _busy) return;
+    final code = _codeController.text.trim();
+    if (code.length != 6) {
+      setState(() => _error = 'Enter the 6-digit code from SMS.');
       return;
     }
 
     setState(() {
+      _busy = true;
       _error = null;
-      _verified = true;
     });
 
-    // Let the check animation play, then continue the signup flow.
-    await Future<void>.delayed(const Duration(milliseconds: 1200));
-    if (!mounted) return;
-    ref.read(signupProvider.notifier).verifyOtp(code);
+    try {
+      await ref.read(signupProvider.notifier).verifyOtp(code);
+      if (!mounted) return;
+      setState(() => _verified = true);
+      await Future<void>.delayed(const Duration(milliseconds: 1200));
+      if (!mounted) return;
+      // Router reacts to otpVerified on signupProvider.
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = _messageFor(error));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  ApiException? _asApi(Object error) {
+    if (error is ApiException) return error;
+    if (error is DioException && error.error is ApiException) {
+      return error.error! as ApiException;
+    }
+    if (error is DioException) {
+      return ApiException.fromJson(
+        error.response?.data,
+        statusCode: error.response?.statusCode,
+      );
+    }
+    return null;
+  }
+
+  String _messageFor(Object error) {
+    return _asApi(error)?.message ??
+        'Could not reach Cyrlo Ride. Check your connection.';
   }
 
   @override
@@ -83,7 +135,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     final phone = ref.watch(signupProvider).phoneE164;
     final minutes = (_secondsLeft ~/ 60).toString();
     final seconds = (_secondsLeft % 60).toString().padLeft(2, '0');
-    final waiting = _secondsLeft > 0;
+    final waiting = _secondsLeft > 0 || _sending;
 
     return FlowScaffold(
       child: AnimatedSwitcher(
@@ -107,8 +159,9 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                   Align(
                     alignment: Alignment.centerLeft,
                     child: IconButton(
-                      onPressed: () =>
-                          ref.read(signupProvider.notifier).editPhone(),
+                      onPressed: _busy
+                          ? null
+                          : () => ref.read(signupProvider.notifier).clearRole(),
                       icon: const Icon(Icons.arrow_back_rounded),
                       color: AppColors.textPrimary,
                     ),
@@ -121,43 +174,46 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   _OtpBoxes(controller: _codeController),
-                  const SizedBox(height: AppSpacing.sm),
-                  Text(
-                    'Test code ${SignupController.testOtp}',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
+                  if (_sending) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Sending code…',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
                     ),
-                  ),
+                  ],
                   if (_error != null) ...[
                     const SizedBox(height: AppSpacing.sm),
                     Text(
                       _error!,
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: AppColors.error,
-                        fontWeight: FontWeight.w700,
-                      ),
+                            color: AppColors.error,
+                            fontWeight: FontWeight.w700,
+                          ),
                     ),
                   ],
                   const SizedBox(height: AppSpacing.lg),
                   Center(
                     child: TextButton(
                       key: const Key('resend-otp'),
-                      onPressed: waiting ? null : _startTimer,
+                      onPressed: waiting ? null : _requestCode,
                       child: Text.rich(
                         TextSpan(
                           text: "Didn't receive the code? ",
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
                           children: [
                             TextSpan(
                               text: waiting
-                                  ? 'Resend in $minutes:$seconds'
+                                  ? (_sending
+                                      ? 'Sending…'
+                                      : 'Resend in $minutes:$seconds')
                                   : 'Resend code',
                               style: TextStyle(
                                 color: waiting
@@ -174,8 +230,8 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                   const SizedBox(height: AppSpacing.md),
                   CyrloButton(
                     key: const Key('verify-otp'),
-                    label: 'Verify',
-                    onPressed: _verify,
+                    label: _busy ? 'Verifying…' : 'Verify',
+                    onPressed: _busy || _sending ? null : _verify,
                   ),
                 ],
               ),
@@ -220,9 +276,9 @@ class _OtpBoxes extends StatelessWidget {
                   child: Text(
                     filled ? code[index] : '',
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      color: AppColors.textPrimary,
-                    ),
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                        ),
                   ),
                 ),
               );

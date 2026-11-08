@@ -1,13 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/api_exception.dart';
 import '../../../core/utils/phone_numbers.dart';
 import '../../../shared/models/geo_point.dart';
+import '../data/auth_api.dart';
+import '../data/auth_models.dart';
+import 'auth_session.dart';
 import 'signup_draft.dart';
 
 class SignupController extends Notifier<SignupDraft> {
-  /// Local stand-in until SMS OTP is connected.
-  static const testOtp = '123456';
-
   @override
   SignupDraft build() => const SignupDraft();
 
@@ -35,18 +36,52 @@ class SignupController extends Notifier<SignupDraft> {
   bool submitPhone(String raw) {
     final phone = PhoneNumbers.normalizeGhanaToE164(raw);
     if (phone == null) return false;
-    state = state.copyWith(phoneE164: phone, otpVerified: false);
-    return true;
-  }
-
-  bool verifyOtp(String code) {
-    if (code.trim() != testOtp) return false;
-    state = state.copyWith(otpVerified: true);
+    state = state.copyWith(
+      phoneE164: phone,
+      otpVerified: false,
+      clearRole: true,
+    );
     return true;
   }
 
   void chooseRole(RideRole role) {
-    state = state.copyWith(role: role);
+    state = state.copyWith(role: role, otpVerified: false);
+  }
+
+  /// Sends an SMS OTP through the live API.
+  Future<RequestOtpResult> requestOtp() async {
+    final phone = state.phoneE164;
+    if (phone == null) {
+      throw const ApiException(
+        code: 'PHONE_REQUIRED',
+        message: 'Enter your phone number first.',
+      );
+    }
+    return ref.read(authApiProvider).requestOtp(phone);
+  }
+
+  /// Verifies the SMS code against the live API and persists the DB session.
+  Future<AuthUser> verifyOtp(String code) async {
+    final phone = state.phoneE164;
+    final role = state.role;
+    if (phone == null || role == null) {
+      throw const ApiException(
+        code: 'SIGNUP_INCOMPLETE',
+        message: 'Choose a role before verifying.',
+      );
+    }
+    final tokens = await ref.read(authApiProvider).verifyOtp(
+          phoneNumber: phone,
+          code: code.trim(),
+          role: role,
+        );
+    await ref.read(authSessionProvider.notifier).save(tokens);
+    state = state.copyWith(
+      otpVerified: true,
+      phoneE164: tokens.user.phoneNumber,
+      role: tokens.user.role,
+    );
+    return tokens.user;
   }
 
   /// Go back from vehicle type to role selection.
@@ -147,8 +182,8 @@ class SignupController extends Notifier<SignupDraft> {
       riderVehicleNumber: plate,
       riderSelfiePath: selfiePath,
       applicationSubmitted: true,
-      // Local testing: skip the waiting-for-approval gate.
-      riderApproved: true,
+      // Approval comes from ops once onboarding API is wired.
+      riderApproved: false,
     );
     return true;
   }
@@ -158,7 +193,8 @@ class SignupController extends Notifier<SignupDraft> {
     state = state.copyWith(riderApproved: true);
   }
 
-  void signOut() {
+  Future<void> signOut() async {
+    await ref.read(authSessionProvider.notifier).clear();
     state = SignupDraft(
       splashDone: state.splashDone,
       onboardingDone: state.onboardingDone,
@@ -166,8 +202,9 @@ class SignupController extends Notifier<SignupDraft> {
     );
   }
 
-  /// Clears all profile data on this device (local stand-in until API delete).
-  void deleteAccount() {
+  /// Clears local profile data and remote session.
+  Future<void> deleteAccount() async {
+    await ref.read(authSessionProvider.notifier).clear();
     state = SignupDraft(
       splashDone: state.splashDone,
       onboardingDone: state.onboardingDone,
