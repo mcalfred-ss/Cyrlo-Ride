@@ -9,7 +9,10 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { AppError } from './common/errors/app-error.js';
 import { errorHandler } from './common/errors/error-handler.js';
-import { apiRateLimiter } from './common/middleware/rate-limit.js';
+import {
+  apiRateLimiter,
+  usesDedicatedRateLimiter,
+} from './common/middleware/rate-limit.js';
 import { requestId } from './common/middleware/request-id.js';
 import { createHealthRouter } from './common/routes/health.routes.js';
 import { openApiDocument } from './docs/openapi.js';
@@ -19,7 +22,7 @@ import { startMatchingWorkers } from './jobs/matching-workers.js';
 import { startNotificationOutboxWorker } from './jobs/notification-outbox-worker.js';
 import { startRefundWorkers } from './jobs/refund-workers.js';
 import { createPushProvider } from './infrastructure/push/push.provider.js';
-import { createSmsProvider } from './infrastructure/sms/sms.provider.js';
+import { createSmsProvider, smsOptionsFromEnv } from './infrastructure/sms/sms.provider.js';
 import { createModules } from './composition.js';
 import './common/types/express.js';
 
@@ -76,6 +79,11 @@ export function createApp(): Express {
       next();
       return;
     }
+    // Webhook + rider GPS POST use dedicated limiters mounted on those routes.
+    if (usesDedicatedRateLimiter(req.path, req.method)) {
+      next();
+      return;
+    }
     apiRateLimiter(req, res, next);
   });
   api.use(
@@ -120,11 +128,7 @@ export function createApp(): Express {
         serviceAccountFile: env.FCM_SERVICE_ACCOUNT_FILE,
         nodeEnv: env.NODE_ENV,
       }),
-      sms: createSmsProvider({
-        provider: env.SMS_PROVIDER,
-        apiKey: env.SMS_API_KEY,
-        nodeEnv: env.NODE_ENV,
-      }),
+      sms: createSmsProvider(smsOptionsFromEnv(env)),
     });
   }
 

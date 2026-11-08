@@ -12,6 +12,7 @@ import {
 } from '../../common/security/tokens.js';
 import { env } from '../../config/env.js';
 import { DevelopmentSmsProvider } from '../../infrastructure/sms/sms.provider.js';
+import { VynfySmsProvider } from '../../infrastructure/sms/vynfy-sms.provider.js';
 import { MemoryAuthStore } from './memory-auth-store.js';
 import { AuthServiceImpl } from './module.service.js';
 
@@ -395,5 +396,46 @@ describe('auth middleware helpers', () => {
       code: 'FORBIDDEN',
       message: 'Account is suspended',
     });
+  });
+
+  it('still owns OTP generation/verification when SMS transport is Vynfy (mocked HTTP)', async () => {
+    const otpStore = new MemoryAuthStore();
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ accepted: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+    );
+    const sms = new VynfySmsProvider({
+      apiKey: 'test-vynfy-key-not-real',
+      senderId: 'Cyrlo',
+      fetchImpl,
+    });
+    const service = new AuthServiceImpl(otpStore, {
+      sms,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
+      generateCode: () => '654321',
+    });
+
+    await service.requestOtp({ phoneNumber: phone });
+    expect(fetchImpl).toHaveBeenCalledOnce();
+    const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
+    const payload = JSON.parse(String(init.body)) as {
+      recipients: string[];
+      message: string;
+    };
+    expect(payload.recipients).toEqual(['233244123456']);
+    expect(payload.message).toContain('654321');
+
+    const session = await service.verifyOtp({
+      phoneNumber: phone,
+      code: '654321',
+      role: 'PASSENGER',
+    });
+    expect(session.accessToken).toBeTruthy();
+    await expect(
+      service.verifyOtp({ phoneNumber: phone, code: '654321', role: 'PASSENGER' }),
+    ).rejects.toMatchObject({ message: 'OTP is invalid' });
   });
 });

@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { Permission } from '../../common/authz/permissions.js';
 import { authenticate, requireActiveAccount, requireRole } from '../../common/middleware/authenticate.js';
 import { requireAnyPermission } from '../../common/middleware/authorize.js';
+import { riderGpsRateLimiter } from '../../common/middleware/rate-limit.js';
 import { validate } from '../../common/middleware/validate.js';
 import type { LocationsController } from './module.controller.js';
 import { updateLocationSchema } from './module.schema.js';
@@ -28,6 +29,8 @@ export function createLocationsRouter(controller: LocationsController): Router {
   router.post(
     '/rider',
     ...riderAuth,
+    // After auth: per-user GPS bucket, isolated from general API limits.
+    riderGpsRateLimiter,
     validate({ body: updateLocationSchema }),
     controller.updateOwn,
   );

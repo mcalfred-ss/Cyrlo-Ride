@@ -77,6 +77,11 @@ export interface BookingsService {
     amountPesewas: number;
     requestedById?: string | null;
     reason: string;
+    /**
+     * When true, marks the refund authorized for worker Paystack execution
+     * (approved matrix policy). Support recommendations leave this false.
+     */
+    authorizeForExecution?: boolean;
   }): Promise<string>;
   /**
    * Passenger completion acknowledgement. Does not change booking status
@@ -289,6 +294,7 @@ export class BookingsServiceImpl implements BookingsService {
         amountPesewas: fee.amountPesewas,
         requestedById: passengerId,
         reason: 'passenger_cancel_before_accept',
+        authorizeForExecution: true,
       });
     } else if (booking.status === 'AWAITING_PAYMENT') {
       await this.deps.prisma.payment.updateMany({
@@ -707,6 +713,7 @@ export class BookingsServiceImpl implements BookingsService {
         amountPesewas: fee.amountPesewas,
         requestedById: input.riderId,
         reason: input.historyReason,
+        authorizeForExecution: true,
       });
     }
 
@@ -869,8 +876,11 @@ export class BookingsServiceImpl implements BookingsService {
     amountPesewas: number;
     requestedById?: string | null;
     reason: string;
+    authorizeForExecution?: boolean;
   }): Promise<string> {
     const key = IdempotencyKey.bookingFeeRefund(input.paymentId);
+    const authorizeForExecution = input.authorizeForExecution === true;
+    const now = this.now();
     try {
       const refund = await this.deps.prisma.paymentRefund.create({
         data: {
@@ -882,6 +892,8 @@ export class BookingsServiceImpl implements BookingsService {
           reason: input.reason,
           idempotencyKey: key,
           requestedById: input.requestedById ?? null,
+          authorizedAt: authorizeForExecution ? now : null,
+          authorizedById: null,
         },
       });
       await this.deps.audit.record({
@@ -893,12 +905,15 @@ export class BookingsServiceImpl implements BookingsService {
           paymentId: input.paymentId,
           bookingId: input.bookingId,
           reason: input.reason,
+          authorizeForExecution,
         },
       });
       enqueueInAppNotification(this.deps.prisma, {
         userId: input.requestedById ?? (await this.lookupPassenger(input.bookingId)),
-        title: 'Refund requested',
-        body: 'A booking-fee refund was queued for finance review.',
+        title: authorizeForExecution ? 'Refund queued' : 'Refund requested',
+        body: authorizeForExecution
+          ? 'A booking-fee refund was queued for automatic processing.'
+          : 'A booking-fee refund was queued for finance review.',
         data: { bookingId: input.bookingId, refundId: refund.id, status: 'REQUESTED' },
       });
       return refund.id;

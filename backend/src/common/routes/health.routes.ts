@@ -10,17 +10,13 @@ import {
 import {
   createSmsProvider,
   describeSmsProvider,
+  smsOptionsFromEnv,
 } from '../../infrastructure/sms/sms.provider.js';
 import { AppError } from '../errors/app-error.js';
 
 export function createHealthRouter(deps: { checkDatabase: () => Promise<void> }): Router {
   const router = Router();
-  const sms = createSmsProvider({
-    provider: env.SMS_PROVIDER,
-    apiKey: env.SMS_API_KEY,
-    nodeEnv: env.NODE_ENV,
-    senderId: env.SMS_SENDER_ID,
-  });
+  const sms = createSmsProvider(smsOptionsFromEnv(env));
   const push = createPushProvider({
     provider: env.PUSH_PROVIDER,
     apiKey: env.PUSH_API_KEY,

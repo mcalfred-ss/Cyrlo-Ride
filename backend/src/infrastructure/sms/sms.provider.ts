@@ -1,5 +1,6 @@
 import { AppError } from '../../common/errors/app-error.js';
 import { logger } from '../../config/logger.js';
+import { VynfySmsProvider } from './vynfy-sms.provider.js';
 
 export interface SmsMessage {
   to: string;
@@ -19,7 +20,7 @@ export class UnconfiguredSmsProvider implements SmsProvider {
       status: 503,
       code: 'SERVICE_UNAVAILABLE',
       message:
-        'SMS provider is not configured. Set SMS_PROVIDER and SMS_API_KEY when a supported vendor adapter is available.',
+        'SMS provider is not configured. Set SMS_PROVIDER=vynfy with VYNFY_API_KEY and VYNFY_SENDER_ID for production OTP delivery.',
     });
   }
 
@@ -70,8 +71,22 @@ export function maskPhone(phone: string): string {
   return `${phone.slice(0, 4)}****${phone.slice(-2)}`;
 }
 
-/** Known adapter registry. Empty until a verified vendor contract is wired. */
-export const SUPPORTED_SMS_PROVIDERS: readonly string[] = [];
+/** Registered production SMS adapters. */
+export const SUPPORTED_SMS_PROVIDERS: readonly string[] = ['vynfy'];
+
+export interface CreateSmsProviderOptions {
+  provider: string;
+  /**
+   * API key for the selected provider.
+   * For `vynfy`, pass `VYNFY_API_KEY` (never log or return this value).
+   */
+  apiKey: string;
+  nodeEnv: string;
+  /** Sender ID / brand. For `vynfy`, pass `VYNFY_SENDER_ID`. */
+  senderId?: string;
+  fetchImpl?: typeof fetch;
+  timeoutMs?: number;
+}
 
 /**
  * Resolves the SMS adapter.
@@ -79,17 +94,11 @@ export const SUPPORTED_SMS_PROVIDERS: readonly string[] = [];
  * - Production without credentials → UnconfiguredSmsProvider (fail closed on send).
  * - Non-production without credentials → DevelopmentSmsProvider.
  * - Credentials with unsupported/unknown SMS_PROVIDER → UnsupportedSmsProvider (fail closed).
- * - Credentials with a supported adapter → that adapter (none registered yet).
+ * - SMS_PROVIDER=vynfy with key + sender → VynfySmsProvider.
  *
- * Do not invent vendor endpoints. Phase 11B documents this as a deployment blocker
- * until the existing SMS vendor contract is supplied for adapter wiring.
+ * Never silently falls back from a selected production provider to development.
  */
-export function createSmsProvider(options: {
-  provider: string;
-  apiKey: string;
-  nodeEnv: string;
-  senderId?: string;
-}): SmsProvider {
+export function createSmsProvider(options: CreateSmsProviderOptions): SmsProvider {
   const providerName = options.provider.trim().toLowerCase();
   const hasCredentials = providerName.length > 0 && options.apiKey.trim().length > 0;
 
@@ -108,7 +117,20 @@ export function createSmsProvider(options: {
     return new UnsupportedSmsProvider(providerName);
   }
 
-  // Future: return the registered adapter for providerName.
+  if (providerName === 'vynfy') {
+    const senderId = (options.senderId ?? '').trim();
+    if (!senderId) {
+      logger.warn({ smsProvider: 'vynfy' }, 'VYNFY_SENDER_ID missing; SMS adapter not ready');
+      return new UnconfiguredSmsProvider();
+    }
+    return new VynfySmsProvider({
+      apiKey: options.apiKey,
+      senderId,
+      fetchImpl: options.fetchImpl,
+      timeoutMs: options.timeoutMs,
+    });
+  }
+
   return new UnsupportedSmsProvider(providerName);
 }
 
@@ -121,4 +143,33 @@ export function describeSmsProvider(provider: SmsProvider): {
     return provider.describe();
   }
   return { configured: false, adapter: 'unknown', ready: false };
+}
+
+/**
+ * Map env into createSmsProvider options.
+ * Vynfy uses dedicated VYNFY_* credentials; other providers keep SMS_API_KEY / SMS_SENDER_ID.
+ */
+export function smsOptionsFromEnv(envValue: {
+  SMS_PROVIDER: string;
+  SMS_API_KEY: string;
+  SMS_SENDER_ID: string;
+  VYNFY_API_KEY: string;
+  VYNFY_SENDER_ID: string;
+  NODE_ENV: string;
+}): CreateSmsProviderOptions {
+  const provider = envValue.SMS_PROVIDER.trim();
+  if (provider.toLowerCase() === 'vynfy') {
+    return {
+      provider: 'vynfy',
+      apiKey: envValue.VYNFY_API_KEY,
+      senderId: envValue.VYNFY_SENDER_ID,
+      nodeEnv: envValue.NODE_ENV,
+    };
+  }
+  return {
+    provider,
+    apiKey: envValue.SMS_API_KEY,
+    senderId: envValue.SMS_SENDER_ID,
+    nodeEnv: envValue.NODE_ENV,
+  };
 }

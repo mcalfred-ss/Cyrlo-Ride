@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { PaymentRefundStatus, PrismaClient } from '@prisma/client';
 
 import { AppError } from '../../common/errors/app-error.js';
+import { IdempotencyKey } from '../../common/utils/idempotency.js';
 import { logger } from '../../config/logger.js';
 import { enqueueInAppNotification } from '../../infrastructure/notifications/notify.js';
 import type { PaystackClient } from '../../infrastructure/payments/paystack-client.js';
@@ -12,7 +13,13 @@ import {
 } from '../../infrastructure/payments/paystack-refunds.js';
 import type { AuditService } from '../audit/module.service.js';
 import {
+  decideRefunds,
+  feeRefundReasonForSituation,
+  situationForMissingFeeRefund,
+} from '../bookings/booking-rules.js';
+import {
   computeRefundBackoffMs,
+  isRefundAuthorizedForExecution,
   isRefundEligibleForSubmit,
   localStatusFromProvider,
   RECON_CASE_TYPES,
@@ -39,7 +46,71 @@ export class RefundProcessor {
     this.now = deps.now ?? (() => new Date());
   }
 
-  /** Finance-triggered or worker-triggered submit. */
+  /**
+   * Finance authorization for Paystack execution. Concurrency-safe: only the first
+   * writer sets authorized_at. Does not submit to Paystack.
+   */
+  async authorizeRefundExecution(input: {
+    refundId: string;
+    actorId: string;
+    ip?: string;
+  }): Promise<{ id: string; authorizedAt: Date }> {
+    const existing = await this.deps.prisma.paymentRefund.findUnique({
+      where: { id: input.refundId },
+    });
+    if (!existing) {
+      throw new AppError({ status: 404, code: 'NOT_FOUND', message: 'Refund not found' });
+    }
+    if (existing.authorizedAt) {
+      return { id: existing.id, authorizedAt: existing.authorizedAt };
+    }
+    if (!isRefundEligibleForSubmit(existing.status)) {
+      throw new AppError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Refund cannot be authorized in its current status',
+      });
+    }
+
+    const now = this.now();
+    const updated = await this.deps.prisma.paymentRefund.updateMany({
+      where: {
+        id: input.refundId,
+        authorizedAt: null,
+        status: { in: ['REQUESTED', 'FAILED'] },
+      },
+      data: {
+        authorizedAt: now,
+        authorizedById: input.actorId,
+      },
+    });
+    if (updated.count !== 1) {
+      const raced = await this.deps.prisma.paymentRefund.findUnique({
+        where: { id: input.refundId },
+      });
+      if (raced?.authorizedAt) {
+        return { id: raced.id, authorizedAt: raced.authorizedAt };
+      }
+      throw new AppError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Refund could not be authorized',
+      });
+    }
+
+    await this.deps.audit.record({
+      actorId: input.actorId,
+      action: 'payment.refund.authorized',
+      entityType: 'payment_refund',
+      entityId: input.refundId,
+      metadata: { paymentId: existing.paymentId, previousStatus: existing.status },
+      ipAddress: input.ip,
+    });
+
+    return { id: input.refundId, authorizedAt: now };
+  }
+
+  /** Finance-triggered or worker-triggered submit. Requires authorizedAt at claim. */
   async submitRefund(input: {
     refundId: string;
     actorId: string | null;
@@ -68,6 +139,13 @@ export class RefundProcessor {
         status: 409,
         code: 'CONFLICT',
         message: 'Refund is not executable in its current status',
+      });
+    }
+    if (!isRefundAuthorizedForExecution(refund)) {
+      throw new AppError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Refund is not authorized for Paystack execution',
       });
     }
     if (refund.payment.status !== 'SUCCESS' || !refund.payment.providerReference) {
@@ -106,11 +184,13 @@ export class RefundProcessor {
       input.actorId && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.actorId)
         ? input.actorId
         : undefined;
+    // Authorization enforced at the claim boundary (authorized_at IS NOT NULL).
     const claimed = await this.deps.prisma.paymentRefund.updateMany({
       where: {
         id: refund.id,
         status: { in: ['REQUESTED', 'FAILED'] },
         providerRefundId: null,
+        authorizedAt: { not: null },
       },
       data: {
         status: 'PROCESSING',
@@ -525,6 +605,7 @@ export class RefundProcessor {
 
     const due = await this.deps.prisma.paymentRefund.findMany({
       where: {
+        authorizedAt: { not: null },
         OR: [
           {
             status: 'REQUESTED',
@@ -583,6 +664,10 @@ export class RefundProcessor {
     return { submitted, reconciled, missingRefundsQueued };
   }
 
+  /**
+   * Recovery only: queue fee refunds missing after a matrix-eligible terminal booking.
+   * Eligibility is derived solely from `decideRefunds` — no independent policy.
+   */
   async queueMissingBookingFeeRefunds(limit = 20): Promise<number> {
     const payments = await this.deps.prisma.payment.findMany({
       where: {
@@ -591,39 +676,88 @@ export class RefundProcessor {
         bookingId: { not: null },
         refunds: { none: {} },
         booking: {
-          status: { in: ['PAYMENT_FAILED', 'EXPIRED', 'CANCELLED'] },
+          status: { in: ['PAYMENT_FAILED', 'EXPIRED', 'CANCELLED', 'COMPLETED'] },
         },
       },
       take: limit,
-      include: { booking: { select: { id: true, status: true } } },
+      include: {
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            acceptedAt: true,
+            cancellationActorType: true,
+            statusHistory: {
+              where: { toStatus: 'CANCELLED' },
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { toStatus: true, reason: true },
+            },
+          },
+        },
+      },
     });
 
     let queued = 0;
+    const now = this.now();
     for (const payment of payments) {
-      if (!payment.bookingId) continue;
+      if (!payment.bookingId || !payment.booking) continue;
+      const booking = payment.booking;
+      const situation = situationForMissingFeeRefund({
+        status: booking.status,
+        acceptedAt: booking.acceptedAt,
+        cancellationActorType: booking.cancellationActorType,
+        statusHistoryReasons: booking.statusHistory,
+      });
+      if (!situation) continue;
+
+      const tokenDebited = Boolean(
+        await this.deps.prisma.tokenLedgerEntry.findFirst({
+          where: {
+            bookingId: payment.bookingId,
+            type: 'DEDUCTION',
+          },
+          select: { id: true },
+        }),
+      );
+      const decisions = decideRefunds({
+        feeCaptured: true,
+        tokenDebited,
+        situation,
+      });
+      if (decisions.fee !== 'REQUEST_REFUND') {
+        continue;
+      }
+
       try {
-        const { IdempotencyKey } = await import('../../common/utils/idempotency.js');
-        await this.deps.prisma.paymentRefund.create({
+        const created = await this.deps.prisma.paymentRefund.create({
           data: {
             paymentId: payment.id,
             bookingId: payment.bookingId,
             amountPesewas: payment.amountPesewas,
             currency: payment.currency,
             status: 'REQUESTED',
-            reason: 'late_payment_after_deadline',
+            reason: feeRefundReasonForSituation(situation),
             idempotencyKey: IdempotencyKey.bookingFeeRefund(payment.id),
+            // Matrix-derived recovery is authorized for worker execution.
+            authorizedAt: now,
+            authorizedById: null,
           },
         });
         queued += 1;
         await this.deps.audit.record({
           action: 'payment.refund.queued',
           entityType: 'payment_refund',
-          entityId: payment.id,
+          entityId: created.id,
           metadata: {
             paymentId: payment.id,
             bookingId: payment.bookingId,
-            bookingStatus: payment.booking?.status,
+            bookingStatus: booking.status,
+            situation,
+            feeDecision: decisions.fee,
+            tokenDecision: decisions.token,
             source: 'missing_refund_sweeper',
+            authorizeForExecution: true,
           },
         });
       } catch (error) {
