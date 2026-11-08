@@ -8,7 +8,11 @@ export type ErrorCode =
   | 'NOT_IMPLEMENTED'
   | 'PAYMENT_VERIFICATION_FAILED'
   | 'SERVICE_UNAVAILABLE'
-  | 'INTERNAL_ERROR';
+  | 'INTERNAL_ERROR'
+  | 'provider_unauthorized'
+  | 'provider_timeout'
+  | 'provider_unavailable'
+  | 'provider_error';
 
 export class AppError extends Error {
   readonly status: number;

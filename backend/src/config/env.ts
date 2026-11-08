@@ -98,8 +98,23 @@ const envSchema = z
     NOTIFICATION_OUTBOX_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
     NOTIFICATION_OUTBOX_POLL_MS: z.coerce.number().int().positive().default(3_000),
     NOTIFICATION_STALE_PROCESSING_MS: z.coerce.number().int().positive().default(120_000),
+    /**
+     * Legacy placeholders — unused by the hosted Cyrlo Maps client.
+     * Prefer CYRLO_MAPS_BASE_URL + CYRLO_MAPS_API_KEY.
+     */
     MAPS_PROVIDER: z.string().default(''),
     MAPS_API_KEY: z.string().default(''),
+    /**
+     * Hosted Cyrlo Maps API origin (no trailing slash), e.g. https://api.cyrlomap.eqostack.com
+     * Empty → maps routes fail closed with NOT_IMPLEMENTED.
+     */
+    CYRLO_MAPS_BASE_URL: z.string().default(''),
+    /**
+     * Maps API bearer secret only (not name:secret, not a Mapbox token).
+     * Never commit; load from /etc/cyrlo-ride/providers.env on the VPS.
+     */
+    CYRLO_MAPS_API_KEY: z.string().default(''),
+    CYRLO_MAPS_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
     LOG_LEVEL: z
       .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
       .default('info'),

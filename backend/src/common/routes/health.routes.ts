@@ -12,6 +12,7 @@ import {
   describeSmsProvider,
   smsOptionsFromEnv,
 } from '../../infrastructure/sms/sms.provider.js';
+import { createMapsProviderFromEnv } from '../../infrastructure/maps/maps.provider.js';
 import { AppError } from '../errors/app-error.js';
 
 export function createHealthRouter(deps: { checkDatabase: () => Promise<void> }): Router {
@@ -24,6 +25,7 @@ export function createHealthRouter(deps: { checkDatabase: () => Promise<void> })
     serviceAccountFile: env.FCM_SERVICE_ACCOUNT_FILE,
     nodeEnv: env.NODE_ENV,
   });
+  const maps = createMapsProviderFromEnv();
 
   router.get('/', (_req, res) => {
     res.json({
@@ -58,6 +60,11 @@ export function createHealthRouter(deps: { checkDatabase: () => Promise<void> })
             ready: pushStatus.ready,
             projectId: pushStatus.projectId ?? null,
             iosPath: pushStatus.iosPath ?? null,
+          },
+          maps: {
+            configured: maps.client != null,
+            adapter: maps.client != null ? 'cyrlo-maps-http' : 'none',
+            baseUrlConfigured: env.CYRLO_MAPS_BASE_URL.trim().length > 0,
           },
           trustProxy: env.trustProxySetting === false ? 'off' : env.trustProxySetting,
         },

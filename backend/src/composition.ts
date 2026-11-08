@@ -5,6 +5,7 @@ import { createAuthModule } from './modules/auth/index.js';
 import { createBookingsModule } from './modules/bookings/index.js';
 import { createDisputesModule } from './modules/disputes/index.js';
 import { createLocationsModule } from './modules/locations/index.js';
+import { createMapsModule } from './modules/maps/index.js';
 import { createMatchingModule } from './modules/matching/index.js';
 import { createNotificationsModule } from './modules/notifications/index.js';
 import { createPaymentsModule } from './modules/payments/index.js';
@@ -27,6 +28,7 @@ export function createModules(deps: ModuleDeps) {
     bookings: bookings.service,
   });
   const wallet = createWalletModule({ ...deps, audit: audit.service });
+  const maps = createMapsModule(deps);
   return {
     auth: createAuthModule(deps),
     users: createUsersModule(deps),
@@ -35,6 +37,7 @@ export function createModules(deps: ModuleDeps) {
     matching,
     disputes,
     locations: createLocationsModule({ ...deps, audit: audit.service }),
+    maps,
     payments: createPaymentsModule({
       ...deps,
       audit: audit.service,

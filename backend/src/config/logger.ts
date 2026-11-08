@@ -20,6 +20,8 @@ export const logger = pino({
       '*.apiKey',
       '*.VYNFY_API_KEY',
       '*.SMS_API_KEY',
+      '*.CYRLO_MAPS_API_KEY',
+      '*.MAPS_API_KEY',
       '*.latitude',
       '*.longitude',
       'req.body.latitude',

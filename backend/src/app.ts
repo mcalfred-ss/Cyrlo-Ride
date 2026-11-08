@@ -102,6 +102,7 @@ export function createApp(): Express {
   api.use('/matching', modules.matching.router);
   api.use('/admin', modules.disputes.adminRouter);
   api.use('/locations', modules.locations.router);
+  api.use('/maps', modules.maps.router);
   api.use('/payments', modules.payments.router);
   api.use('/admin/payments', modules.payments.adminRouter);
   api.use('/wallet', modules.wallet.router);

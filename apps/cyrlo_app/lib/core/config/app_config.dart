@@ -18,18 +18,23 @@ abstract final class AppConfig {
     defaultValue: '',
   );
 
-  /// Base URL for the future hosted Cyrlo Maps HTTP API.
-  /// Default is empty so the app does not call an undeployed service.
-  /// When the OpenAPI contract lands, pass
-  /// `--dart-define=CYRLO_MAPS_API_BASE_URL=https://api.cyrlomap.eqostack.com/v1`.
+  /// Direct hosted Cyrlo Maps HTTP API base (optional diagnostics only).
+  /// Privileged geocode/search/routes go through Ride (`API_BASE_URL`) so the
+  /// Maps API key never ships in the app. Leave empty in production builds.
   static const cyrloMapsApiBaseUrl = String.fromEnvironment(
     'CYRLO_MAPS_API_BASE_URL',
     defaultValue: '',
   );
 
-  /// Optional bearer for the future Maps API. Empty until the contract defines auth.
+  /// Must remain empty in Flutter builds. Maps auth is server-side only.
   static const cyrloMapsApiToken = String.fromEnvironment(
     'CYRLO_MAPS_API_TOKEN',
     defaultValue: '',
+  );
+
+  /// When true, place lookup / route preview call Ride's `/maps/*` proxy.
+  static const useRideMapsProxy = bool.fromEnvironment(
+    'USE_RIDE_MAPS_PROXY',
+    defaultValue: true,
   );
 }
