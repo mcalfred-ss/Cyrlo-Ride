@@ -102,7 +102,7 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
     final acceptedJob = ref.watch(activeRideRequestProvider);
     final previewJob = ref.watch(previewRiderJobProvider);
     final project = ref.watch(passengerMapProjectProvider);
-    final token = ref.watch(mapAccessTokenProvider).valueOrNull ?? '';
+    final token = ref.watch(mapAccessTokenProvider).value ?? '';
     final theme = Theme.of(context);
 
     final job = (acceptedJob?.isAccepted == true) ? acceptedJob : previewJob;

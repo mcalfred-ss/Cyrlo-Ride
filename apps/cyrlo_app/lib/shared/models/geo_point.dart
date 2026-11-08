@@ -27,6 +27,11 @@ class GeoPoint {
     'longitude': longitude,
   };
 
+  factory GeoPoint.fromJson(Map<String, dynamic> json) => GeoPoint(
+    latitude: (json['latitude'] as num).toDouble(),
+    longitude: (json['longitude'] as num).toDouble(),
+  );
+
   @override
   bool operator ==(Object other) =>
       other is GeoPoint &&

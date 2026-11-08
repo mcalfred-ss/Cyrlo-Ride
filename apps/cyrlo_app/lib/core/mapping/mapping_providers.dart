@@ -55,7 +55,7 @@ final routePreviewGatewayProvider = Provider<RoutePreviewGateway>((ref) {
   if (AppConfig.useRideMapsProxy) {
     return RideMapsRoutePreviewGateway(api: ref.watch(apiClientProvider));
   }
-  final token = ref.watch(mapAccessTokenProvider).valueOrNull ?? '';
+  final token = ref.watch(mapAccessTokenProvider).value ?? '';
   if (token.isEmpty) return const UnavailableRoutePreviewGateway();
   return CyrloRoutePreviewGateway(
     client: MapboxDirectionsClient(accessToken: token),
