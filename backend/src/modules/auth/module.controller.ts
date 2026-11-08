@@ -3,6 +3,7 @@ import type { RequestHandler } from 'express';
 import { sendSuccess } from '../../common/http/response.js';
 import type {
   LogoutInput,
+  LookupAccountInput,
   RefreshSessionInput,
   RequestOtpInput,
   VerifyOtpInput,
@@ -16,6 +17,16 @@ export class AuthController {
     try {
       const body = res.locals.validated.body as RequestOtpInput;
       const data = await this.service.requestOtp(body);
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  lookupAccount: RequestHandler = async (_req, res, next) => {
+    try {
+      const body = res.locals.validated.body as LookupAccountInput;
+      const data = await this.service.lookupAccount(body);
       sendSuccess(res, data);
     } catch (error) {
       next(error);

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../features/auth/application/auth_session.dart';
 import '../../features/auth/application/signup_controller.dart';
 import '../../features/auth/application/signup_draft.dart';
 import '../../features/auth/presentation/create_account_screen.dart';
@@ -33,12 +34,23 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(signupProvider, (previous, next) {
     refresh.value++;
   });
+  ref.listen(authSessionProvider, (previous, next) {
+    refresh.value++;
+  });
+  ref.listen(authBootstrapProvider, (previous, next) {
+    refresh.value++;
+  });
   ref.onDispose(refresh.dispose);
 
   final router = GoRouter(
     initialLocation: AppRoutes.splash,
     refreshListenable: refresh,
     redirect: (context, state) {
+      if (!ref.read(authBootstrapProvider)) {
+        return state.matchedLocation == AppRoutes.splash
+            ? null
+            : AppRoutes.splash;
+      }
       final draft = ref.read(signupProvider);
       final location = state.matchedLocation;
       final next = _requiredLocation(draft);
@@ -213,9 +225,12 @@ String? _requiredLocation(SignupDraft draft) {
   if (draft.role == null) return AppRoutes.selectRole;
   if (!draft.otpVerified) return AppRoutes.verifyOtp;
   if (draft.role == RideRole.passenger) {
-    if (!draft.hasPassengerProfile) return AppRoutes.passengerDetails;
+    if (!draft.accountReady && !draft.hasPassengerProfile) {
+      return AppRoutes.passengerDetails;
+    }
     return null;
   }
+  if (draft.accountReady) return null;
   if (draft.driverKind == null) return AppRoutes.driverType;
   if (!draft.hasRiderProfile) return AppRoutes.riderDetails;
   if (!draft.applicationSubmitted) return AppRoutes.riderDocuments;

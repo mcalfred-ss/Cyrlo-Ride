@@ -11,6 +11,7 @@ import {
 import type { SmsProvider } from '../../infrastructure/sms/sms.provider.js';
 import type {
   LogoutInput,
+  LookupAccountInput,
   RefreshSessionInput,
   RequestOtpInput,
   VerifyOtpInput,
@@ -39,6 +40,13 @@ export interface RequestOtpResult {
 
 export interface VerifyOtpResult extends AuthSessionTokens {
   user: AuthUserView;
+  /** False when this phone already had a Ride account. */
+  isNewUser: boolean;
+}
+
+export interface LookupAccountResult {
+  registered: boolean;
+  role: AuthUser['role'] | null;
 }
 
 export interface AuthServiceDeps {
@@ -50,6 +58,7 @@ export interface AuthServiceDeps {
 
 export interface AuthService {
   requestOtp(input: RequestOtpInput): Promise<RequestOtpResult>;
+  lookupAccount(input: LookupAccountInput): Promise<LookupAccountResult>;
   verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpResult>;
   refresh(input: RefreshSessionInput): Promise<AuthSessionTokens>;
   logout(input: LogoutInput, userId: string): Promise<{ revoked: boolean }>;
@@ -101,6 +110,21 @@ export class AuthServiceImpl implements AuthService {
     return result;
   }
 
+  async lookupAccount(input: LookupAccountInput): Promise<LookupAccountResult> {
+    const user = await this.repository.findUserByPhone(input.phoneNumber);
+    if (!user || user.status === 'DELETED') {
+      return { registered: false, role: null };
+    }
+    if (user.status === 'SUSPENDED') {
+      throw new AppError({
+        status: 403,
+        code: 'FORBIDDEN',
+        message: 'Account is suspended',
+      });
+    }
+    return { registered: true, role: user.role };
+  }
+
   async verifyOtp(input: VerifyOtpInput): Promise<VerifyOtpResult> {
     const now = this.now();
     const refreshToken = createRefreshToken();
@@ -108,7 +132,7 @@ export class AuthServiceImpl implements AuthService {
     const refreshTokenHash = hashSecretValue(refreshToken, env.JWT_REFRESH_SECRET);
     const refreshExpiresAt = new Date(now.getTime() + env.JWT_REFRESH_TTL_SECONDS * 1000);
 
-    const { user } = await this.repository.verifyOtpAndCreateSession({
+    const { user, created } = await this.repository.verifyOtpAndCreateSession({
       phoneNumber: input.phoneNumber,
       codeHash: hashOtpCode(input.code, env.OTP_HASH_SECRET),
       role: input.role,
@@ -122,6 +146,7 @@ export class AuthServiceImpl implements AuthService {
       ...this.issueAccess(user),
       refreshToken,
       user: toUserView(user),
+      isNewUser: created,
     };
   }
 

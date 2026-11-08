@@ -2,6 +2,7 @@
 abstract final class ApiPaths {
   static const health = '/health';
   static const requestOtp = '/auth/otp';
+  static const accountStatus = '/auth/account-status';
   static const verifyOtp = '/auth/otp/verify';
   static const refreshSession = '/auth/refresh';
   static const logout = '/auth/logout';

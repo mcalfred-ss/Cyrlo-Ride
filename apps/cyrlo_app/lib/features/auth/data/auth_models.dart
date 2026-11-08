@@ -60,12 +60,14 @@ class AuthTokens {
     required this.refreshToken,
     required this.expiresIn,
     required this.user,
+    this.isNewUser = true,
   });
 
   final String accessToken;
   final String refreshToken;
   final int expiresIn;
   final AuthUser user;
+  final bool isNewUser;
 
   factory AuthTokens.fromJson(Map<String, dynamic> json) {
     return AuthTokens(
@@ -73,6 +75,28 @@ class AuthTokens {
       refreshToken: json['refreshToken'] as String,
       expiresIn: (json['expiresIn'] as num?)?.toInt() ?? 900,
       user: AuthUser.fromJson(json['user'] as Map<String, dynamic>),
+      isNewUser: json['isNewUser'] as bool? ?? true,
+    );
+  }
+}
+
+class AccountStatus {
+  const AccountStatus({
+    required this.registered,
+    this.role,
+  });
+
+  final bool registered;
+  final RideRole? role;
+
+  factory AccountStatus.fromJson(Map<String, dynamic> json) {
+    final roleRaw = json['role'] as String?;
+    RideRole? role;
+    if (roleRaw == 'RIDER') role = RideRole.rider;
+    if (roleRaw == 'PASSENGER') role = RideRole.passenger;
+    return AccountStatus(
+      registered: json['registered'] as bool? ?? false,
+      role: role,
     );
   }
 }

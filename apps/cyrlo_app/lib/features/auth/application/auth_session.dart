@@ -51,7 +51,7 @@ final authSessionProvider =
 );
 
 class AuthSessionController extends Notifier<AuthSession?> {
-  static const _storageKey = 'cyrlo.auth.session';
+  static const storageKey = 'cyrlo.auth.session';
 
   @override
   AuthSession? build() {
@@ -61,17 +61,19 @@ class AuthSessionController extends Notifier<AuthSession?> {
 
   Future<void> _restore() async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_storageKey);
+    final raw = prefs.getString(storageKey);
     if (raw == null || raw.isEmpty) return;
     try {
-      final session = AuthSession.fromJson(
-        jsonDecode(raw) as Map<String, dynamic>,
-      );
-      ref.read(apiClientProvider).setAccessToken(session.accessToken);
-      state = session;
+      adopt(AuthSession.fromJson(jsonDecode(raw) as Map<String, dynamic>));
     } catch (_) {
-      await prefs.remove(_storageKey);
+      await prefs.remove(storageKey);
     }
+  }
+
+  /// Apply a session already loaded from storage (e.g. signup bootstrap).
+  void adopt(AuthSession session) {
+    ref.read(apiClientProvider).setAccessToken(session.accessToken);
+    state = session;
   }
 
   Future<void> save(AuthTokens tokens) async {
@@ -85,7 +87,7 @@ class AuthSessionController extends Notifier<AuthSession?> {
     ref.read(apiClientProvider).setAccessToken(session.accessToken);
     state = session;
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_storageKey, jsonEncode(session.toJson()));
+    await prefs.setString(storageKey, jsonEncode(session.toJson()));
   }
 
   Future<void> clear({bool remoteLogout = true}) async {
@@ -93,7 +95,7 @@ class AuthSessionController extends Notifier<AuthSession?> {
     state = null;
     ref.read(apiClientProvider).setAccessToken(null);
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_storageKey);
+    await prefs.remove(storageKey);
     if (!remoteLogout || current == null) return;
     try {
       await ref.read(authApiProvider).logout(

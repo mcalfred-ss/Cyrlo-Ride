@@ -5,6 +5,7 @@ import { otpRateLimiter } from '../../common/middleware/rate-limit.js';
 import { validate } from '../../common/middleware/validate.js';
 import type { AuthController } from './module.controller.js';
 import {
+  lookupAccountSchema,
   logoutSchema,
   refreshSessionSchema,
   requestOtpSchema,
@@ -19,6 +20,13 @@ export function createAuthRouter(controller: AuthController): Router {
     otpRateLimiter,
     validate({ body: requestOtpSchema }),
     controller.requestOtp,
+  );
+
+  router.post(
+    '/account-status',
+    otpRateLimiter,
+    validate({ body: lookupAccountSchema }),
+    controller.lookupAccount,
   );
 
   router.post(

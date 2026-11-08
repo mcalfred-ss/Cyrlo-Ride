@@ -19,6 +19,7 @@ class CreateAccountScreen extends ConsumerStatefulWidget {
 class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
   final _phoneController = TextEditingController();
   String? _error;
+  var _busy = false;
 
   @override
   void dispose() {
@@ -26,9 +27,18 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
     super.dispose();
   }
 
-  void _submit() {
-    final ok = ref.read(signupProvider.notifier).submitPhone(_phoneController.text);
+  Future<void> _submit() async {
+    if (_busy) return;
     setState(() {
+      _busy = true;
+      _error = null;
+    });
+    final ok = await ref
+        .read(signupProvider.notifier)
+        .submitPhone(_phoneController.text);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
       _error = ok ? null : 'Enter a valid Ghana phone number.';
     });
   }
@@ -59,8 +69,8 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
           const SizedBox(height: AppSpacing.xl),
           CyrloButton(
             key: const Key('create-account'),
-            label: 'Create account',
-            onPressed: _submit,
+            label: _busy ? 'Checking…' : 'Create account',
+            onPressed: _busy ? null : _submit,
           ),
         ],
       ),

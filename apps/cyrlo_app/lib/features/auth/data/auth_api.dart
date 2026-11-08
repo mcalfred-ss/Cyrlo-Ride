@@ -11,6 +11,8 @@ import 'auth_models.dart';
 abstract class AuthApi {
   Future<RequestOtpResult> requestOtp(String phoneNumber);
 
+  Future<AccountStatus> lookupAccount(String phoneNumber);
+
   Future<AuthTokens> verifyOtp({
     required String phoneNumber,
     required String code,
@@ -40,6 +42,19 @@ class LiveAuthApi implements AuthApi {
         data: {'phoneNumber': phoneNumber},
       );
       return RequestOtpResult.fromJson(_dataMap(response.data));
+    } on DioException catch (error) {
+      throw _asApiException(error);
+    }
+  }
+
+  @override
+  Future<AccountStatus> lookupAccount(String phoneNumber) async {
+    try {
+      final response = await _client.dio.post(
+        ApiPaths.accountStatus,
+        data: {'phoneNumber': phoneNumber},
+      );
+      return AccountStatus.fromJson(_dataMap(response.data));
     } on DioException catch (error) {
       throw _asApiException(error);
     }
@@ -158,6 +173,11 @@ class FakeAuthApi implements AuthApi {
   }
 
   @override
+  Future<AccountStatus> lookupAccount(String phoneNumber) async {
+    return const AccountStatus(registered: false);
+  }
+
+  @override
   Future<AuthTokens> verifyOtp({
     required String phoneNumber,
     required String code,
@@ -180,6 +200,7 @@ class FakeAuthApi implements AuthApi {
         role: role,
         status: 'ACTIVE',
       ),
+      isNewUser: true,
     );
   }
 
