@@ -40,12 +40,12 @@ flutter run --dart-define=API_BASE_URL=http://10.0.2.2:3000/api/v1 --dart-define
 
 Optional map defines:
 
-- `MAPBOX_ACCESS_TOKEN` — public `pk.` token for Mapbox **tiles** / device Directions only. Empty uses CARTO fallback. Never use as the Maps HTTP API key.
+- `MAPBOX_ACCESS_TOKEN` — optional local override for Mapbox **tiles**. Prefer leaving empty so the app loads the public `pk.` from Ride `GET /maps/config` (server `MAPBOX_ACCESS_TOKEN` or legacy `MAPS_API_KEY` if it is a `pk.`). Never use as the Cyrlo Maps HTTP API key.
 - `USE_RIDE_MAPS_PROXY` — default `true`; Flutter geocode/places/routes go through Ride `/maps/*` (Maps key stays server-side).
 
 Server Maps secrets (never in Flutter): `CYRLO_MAPS_BASE_URL`, `CYRLO_MAPS_API_KEY`.
 
-Cyrlo Maps is a git dependency pinned to commit `d299ede80fb63ccaa3f8d8b2135f757897317dfd`. See `docs/architecture/CYRLO_MAPS_INTEGRATION_REPORT.md`.
+Cyrlo Maps is a git dependency pinned to commit `9e344c5b862824c75b463f43a3c05b7734253bad`. See `docs/architecture/CYRLO_MAPS_INTEGRATION_REPORT.md`.
 
 The opening screen previews the passenger or rider experience. After sign-in exists, the API role replaces that choice.
 

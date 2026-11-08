@@ -47,7 +47,7 @@ MAPS_BASE_URL=https://api.cyrlomap.eqostack.com
 MAPS_API_KEY=...             # Cyrlo Maps key — not Mapbox
 ```
 
-Mapbox public `pk.` tokens are for Flutter **tiles** only (`MAPBOX_ACCESS_TOKEN`). Never use them as `MAPS_API_KEY`.
+Mapbox public `pk.` tokens are for Flutter **tiles**. Prefer `MAPBOX_ACCESS_TOKEN` in `providers.env` (also accepted if legacy `MAPS_API_KEY` is a `pk.`). Ride returns it to the app via authenticated `GET /maps/config` as `mapboxPublicToken`. Never use a Mapbox token as `CYRLO_MAPS_API_KEY`.
 
 ## Flutter client (2026-11-08)
 

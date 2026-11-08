@@ -42,7 +42,7 @@ dependencies:
   cyrlo_maps:
     git:
       url: https://github.com/mcalfred-ss/cyrlo-map.git
-      ref: d299ede80fb63ccaa3f8d8b2135f757897317dfd
+      ref: 9e344c5b862824c75b463f43a3c05b7734253bad
       path: packages/cyrlo_maps
   image_picker: ^1.2.4
   shared_preferences: ^2.5.6

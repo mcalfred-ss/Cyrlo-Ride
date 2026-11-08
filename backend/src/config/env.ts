@@ -103,8 +103,17 @@ const envSchema = z
      * Prefer CYRLO_MAPS_BASE_URL + CYRLO_MAPS_API_KEY.
      */
     MAPS_PROVIDER: z.string().default(''),
-    /** Legacy placeholder — prefer CYRLO_MAPS_API_KEY. */
+    /**
+     * Legacy. If this is a Mapbox public `pk.` token it is also used as a
+     * fallback for MAPBOX_ACCESS_TOKEN (Flutter tiles via GET /maps/config).
+     * Prefer MAPBOX_ACCESS_TOKEN + CYRLO_MAPS_API_KEY.
+     */
     MAPS_API_KEY: z.string().default(''),
+    /**
+     * Public Mapbox token (`pk.`) for Flutter raster tiles / device Directions.
+     * Exposed to authenticated clients via GET /maps/config. Never put `sk.` here.
+     */
+    MAPBOX_ACCESS_TOKEN: z.string().default(''),
     /**
      * Hosted Cyrlo Maps API origin (no trailing slash), e.g. https://api.cyrlomap.eqostack.com
      * Empty → maps routes fail closed with NOT_IMPLEMENTED.

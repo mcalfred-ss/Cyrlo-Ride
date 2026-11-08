@@ -22,6 +22,8 @@ export const logger = pino({
       '*.SMS_API_KEY',
       '*.CYRLO_MAPS_API_KEY',
       '*.MAPS_API_KEY',
+      '*.MAPBOX_ACCESS_TOKEN',
+      '*.mapboxPublicToken',
       '*.latitude',
       '*.longitude',
       'req.body.latitude',

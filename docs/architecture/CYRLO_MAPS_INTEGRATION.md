@@ -2,13 +2,13 @@
 
 Inspected repository: `https://github.com/mcalfred-ss/cyrlo-map`
 
-Published commit: `d299ede80fb63ccaa3f8d8b2135f757897317dfd`
+Published commit: `9e344c5b862824c75b463f43a3c05b7734253bad`
 
 Commit subject: `Extract reusable mapping into Cyrlo Maps.` (2026-11-06).
 
 Cyrlo Maps is a Flutter library. It renders tiles with `flutter_map`. The hosted HTTP API is at `https://api.cyrlomap.eqostack.com` and requires a server-side API key. Ride keeps that key in `CYRLO_MAPS_API_KEY` and exposes geocode / places / routes to Flutter via authenticated Ride `/maps/*` proxy routes. Never put the Maps key or a Mapbox `sk.` token in the Flutter app.
 
-`GET /health` on the Maps host is public. Map tiles may still use a public Mapbox `pk.` token or CARTO fallback.
+`GET /health` on the Maps host is public. Map tiles may use a public Mapbox `pk.` token, keyed CARTO (`CARTO_BASEMAPS_API_KEY`), or OSM when neither is set.
 
 Ride consumes the SDK as a git dependency in `apps/cyrlo_app`. Source is not copied. Implementation status is in `CYRLO_MAPS_INTEGRATION_REPORT.md`.
 
@@ -21,7 +21,7 @@ dependencies:
   cyrlo_maps:
     git:
       url: https://github.com/mcalfred-ss/cyrlo-map.git
-      ref: d299ede80fb63ccaa3f8d8b2135f757897317dfd
+      ref: 9e344c5b862824c75b463f43a3c05b7734253bad
       path: packages/cyrlo_maps
 ```
 
@@ -49,15 +49,15 @@ School JSON and those identifiers are product data. They are not required to dra
 
 ## Capability matrix
 
-Status is what commit `d299ede` actually implements.
+Status is what commit `9e344c5` actually implements.
 
 | Capability | Current status | How Cyrlo Ride will consume it |
 | --- | --- | --- |
-| Package install | Git package at `packages/cyrlo_maps`. Not on pub.dev (`publish_to: none`). | Pin `ref` to `d299ede80fb63ccaa3f8d8b2135f757897317dfd`. Do not copy source. |
+| Package install | Git package at `packages/cyrlo_maps`. Not on pub.dev (`publish_to: none`). | Pin `ref` to `9e344c5b862824c75b463f43a3c05b7734253bad`. Do not copy source. |
 | Map rendering | `CyrloMapView` draws `flutter_map` raster tiles, markers, polylines, overlays, and a tap callback. | Passenger map, pickup/destination selection, and the passenger's view of an accepted rider. The Ride app decides what a tap means. |
 | Camera | `MapCamera` plus `CyrloMapController.move`. Initial camera comes from `MapProject`. | Ride sets the camera. Recenter uses the controller. |
 | Map style | `MapStyleSet` style ids. Ride presets use Mapbox `dark-v11` and `streets-v12`. | Pass `isDark` into `CyrloMapView`. Cyrlo Ride currently forces light theme; that does not have to match the map style. |
-| Tile provider | `TileSourceChain`: public `pk.` token uses Mapbox raster tiles. Empty or `sk.` token uses CARTO when policy is `cartoFallback`, or a blank surface when policy is `offlineCanvas`. | Ride supplies a public token. CARTO is the keyless fallback already in the package. No Cyrlo tile server. |
+| Tile provider | `TileSourceChain`: public `pk.` token uses Mapbox raster tiles. Empty or `sk.` with `cartoFallback` uses keyed CARTO or OSM; `offlineCanvas` draws a blank surface. | Prefer a public Mapbox token for production tiles. No Cyrlo tile server. |
 | Attribution | `MapAttributionBadge` is drawn by the view from the active source. | Leave the badge in place. Extra credit, if a dataset is shown, goes in a `MapOverlay`. |
 | Mapbox Directions | `MapboxDirectionsClient` calls `https://api.mapbox.com/directions/v5/mapbox/driving/...` with the public token. Returns polyline, meters, and seconds. | Call it from the device for a route preview between pickup and destination. Show `DirectionsException` to the user. Do not treat distance or duration as a fare. The backend must not price a trip from this response. |
 | Directions errors | `DirectionsException.code`: `missing_token`, `http_error`, `empty_routes`, `invalid_geometry`, `network`. | Surface an unavailable route. Do not invent a line or a duration. |

@@ -109,7 +109,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     final selectedRider = ref.watch(selectedNearbyRiderProvider);
     final activeRequest = ref.watch(activeRideRequestProvider);
     final project = ref.watch(passengerMapProjectProvider);
-    final token = ref.watch(mapAccessTokenProvider);
+    final token = ref.watch(mapAccessTokenProvider).valueOrNull ?? '';
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final shareContact = activeRequest?.sharesContact == true;

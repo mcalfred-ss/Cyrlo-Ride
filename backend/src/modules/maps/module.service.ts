@@ -8,7 +8,10 @@ import type {
 } from './module.schema.js';
 
 export class MapsService {
-  constructor(private readonly client: CyrloMapsClient | null) {}
+  constructor(
+    private readonly client: CyrloMapsClient | null,
+    private readonly mapboxPublicToken: string = '',
+  ) {}
 
   private requireClient(): CyrloMapsClient {
     if (!this.client) {
@@ -21,8 +24,23 @@ export class MapsService {
     return this.client;
   }
 
+  /**
+   * Client bootstrap for maps. Always returns Ride tile config; optionally
+   * includes upstream Cyrlo Maps `/v1/config` when that provider is healthy.
+   */
   async config() {
-    return this.requireClient().getConfig();
+    let provider: unknown = null;
+    if (this.client) {
+      try {
+        provider = await this.client.getConfig();
+      } catch {
+        provider = null;
+      }
+    }
+    return {
+      mapboxPublicToken: this.mapboxPublicToken || null,
+      provider,
+    };
   }
 
   async geocode(input: GeocodeBody) {
