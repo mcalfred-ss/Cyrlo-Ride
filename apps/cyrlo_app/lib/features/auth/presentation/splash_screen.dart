@@ -1,75 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_motion.dart';
-import '../../../core/theme/app_spacing.dart';
-import '../../../shared/widgets/centered_frame.dart';
-import '../../../shared/widgets/cyrlo_card.dart';
-import '../../../shared/widgets/illustration_view.dart';
 import '../application/signup_controller.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
+  static const asset = 'assets/Splash/cyrlo-ride.png';
+
   @override
   ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends ConsumerState<SplashScreen> {
+class _SplashScreenState extends ConsumerState<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _fade;
+  var _leaving = false;
+
   @override
   void initState() {
     super.initState();
-    Future<void>.delayed(const Duration(milliseconds: 700), () {
-      if (!mounted) return;
-      ref.read(signupProvider.notifier).finishSplash();
-    });
+    _fade = AnimationController(
+      vsync: this,
+      duration: AppMotion.page,
+      value: 0,
+    )..forward();
+    Future<void>.delayed(const Duration(milliseconds: 1800), _fadeOutAndContinue);
+  }
+
+  Future<void> _fadeOutAndContinue() async {
+    if (!mounted || _leaving) return;
+    _leaving = true;
+    await _fade.reverse();
+    if (!mounted) return;
+    ref.read(signupProvider.notifier).finishSplash();
+  }
+
+  @override
+  void dispose() {
+    _fade.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
-      body: CenteredFrame(
-        child: CyrloCard(
-          child: Center(
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: AppMotion.page,
-              curve: AppMotion.standard,
-              builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: Transform.scale(scale: 0.94 + (value * 0.06), child: child),
-                );
-              },
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const IllustrationView(
-                    asset: AppIllustrations.welcomeRide,
-                    height: 156,
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  Text(
-                    'Cyrlo Ride',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -0.8,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    'Pragya rides',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      color: AppColors.textSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      backgroundColor: Colors.black,
+      body: FadeTransition(
+        opacity: _fade,
+        child: SizedBox.expand(
+          child: Image.asset(
+            SplashScreen.asset,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            filterQuality: FilterQuality.high,
+            gaplessPlayback: true,
+            semanticLabel: 'Cyrlo Ride',
           ),
         ),
       ),

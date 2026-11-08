@@ -54,8 +54,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       return location == next ? null : next;
     },
     routes: [
-      flowRoute(AppRoutes.splash, const SplashScreen()),
-      flowRoute(AppRoutes.onboarding, const OnboardingScreen()),
+      fadeFlowRoute(AppRoutes.splash, const SplashScreen()),
+      fadeFlowRoute(AppRoutes.onboarding, const OnboardingScreen()),
       flowRoute(AppRoutes.welcome, const WelcomeScreen()),
       flowRoute(AppRoutes.createAccount, const CreateAccountScreen()),
       flowRoute(AppRoutes.verifyOtp, const VerifyOtpScreen()),

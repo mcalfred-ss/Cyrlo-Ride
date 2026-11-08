@@ -4,6 +4,7 @@ import '../../../features/auth/application/signup_draft.dart';
 import '../../../shared/models/geo_point.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../domain/nearby_rider.dart';
+import 'rider_review_extras_provider.dart';
 
 final _baseNearbyRiders = [
   NearbyRider(
@@ -153,14 +154,32 @@ final _baseNearbyRiders = [
 /// Demo nearby supply. Marks a rider busy while they have an accepted active job.
 final nearbyRidersProvider = Provider<List<NearbyRider>>((ref) {
   final active = ref.watch(activeRideRequestProvider);
+  final extras = ref.watch(riderReviewExtrasProvider);
   final busyRiderId =
       active?.isAccepted == true ? active!.riderId : null;
 
   return [
     for (final rider in _baseNearbyRiders)
-      rider.copyWith(busy: busyRiderId != null && rider.id == busyRiderId),
+      _withExtras(
+        rider.copyWith(busy: busyRiderId != null && rider.id == busyRiderId),
+        extras[rider.id] ?? const [],
+      ),
   ];
 });
+
+NearbyRider _withExtras(NearbyRider rider, List<RiderReview> extraReviews) {
+  if (extraReviews.isEmpty) return rider;
+  final reviews = [...extraReviews, ...rider.reviews];
+  final total = rider.reviewCount + extraReviews.length;
+  final sum = rider.rating * rider.reviewCount +
+      extraReviews.fold<double>(0, (acc, item) => acc + item.rating);
+  final avg = total <= 0 ? rider.rating : sum / total;
+  return rider.copyWith(
+    reviews: reviews,
+    reviewCount: total,
+    rating: double.parse(avg.toStringAsFixed(1)),
+  );
+}
 
 final nearbyRiderByIdProvider = Provider.family<NearbyRider?, String>((ref, id) {
   for (final rider in ref.watch(nearbyRidersProvider)) {

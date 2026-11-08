@@ -4,24 +4,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/ride_session/pending_ride_review.dart';
 import '../application/passenger_rides_provider.dart';
 import '../domain/passenger_ride.dart';
+import 'rate_rider_sheet.dart';
 import 'ride_history_card.dart';
 
 class PassengerRidesScreen extends ConsumerWidget {
   const PassengerRidesScreen({super.key});
 
+  Future<void> _rateRide(
+    BuildContext context,
+    WidgetRef ref,
+    PassengerRide ride,
+  ) async {
+    final riderId = ride.riderId;
+    if (riderId == null || riderId.isEmpty) return;
+    await showRateRiderSheet(
+      context,
+      ref,
+      pending: PendingRideReview(
+        rideId: ride.id,
+        riderId: riderId,
+        riderDisplayName: ride.riderLabel,
+        kind: ride.kind,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final rides = ref.watch(passengerRidesProvider);
+    final awaitingRate =
+        rides.where((ride) => ride.canRate).toList(growable: false);
     final ongoing = rides
         .where((ride) => ride.status == PassengerRideStatus.ongoing)
         .toList();
     final history = rides
-        .where((ride) => ride.status != PassengerRideStatus.ongoing)
+        .where(
+          (ride) =>
+              ride.status != PassengerRideStatus.ongoing && !ride.canRate,
+        )
         .toList();
     final completed =
-        history.where((ride) => ride.status == PassengerRideStatus.completed).length;
+        rides.where((ride) => ride.status == PassengerRideStatus.completed).length;
     final theme = Theme.of(context);
 
     return SizedBox.expand(
@@ -41,7 +67,9 @@ class PassengerRidesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              'Live trips and your ride history.',
+              awaitingRate.isEmpty
+                  ? 'Live trips and your ride history.'
+                  : 'You have ${awaitingRate.length} ride${awaitingRate.length == 1 ? '' : 's'} waiting for a rating.',
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppColors.textSecondary,
                 fontWeight: FontWeight.w500,
@@ -55,6 +83,50 @@ class PassengerRidesScreen extends ConsumerWidget {
                   : ListView(
                       key: const Key('rides-history-list'),
                       children: [
+                        if (awaitingRate.isNotEmpty) ...[
+                          Row(
+                            children: [
+                              Text(
+                                'Rate your rides',
+                                style: theme.textTheme.titleSmall?.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Spacer(),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.yellow,
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadii.pill),
+                                ),
+                                child: Text(
+                                  '${awaitingRate.length} to rate',
+                                  style: theme.textTheme.labelMedium?.copyWith(
+                                    color: AppColors.darkGrey,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                          for (var i = 0; i < awaitingRate.length; i++) ...[
+                            RideHistoryCard(
+                              key: Key('rate-ride-card-${awaitingRate[i].id}'),
+                              ride: awaitingRate[i],
+                              onRate: () =>
+                                  _rateRide(context, ref, awaitingRate[i]),
+                            ),
+                            if (i != awaitingRate.length - 1)
+                              const SizedBox(height: AppSpacing.sm),
+                          ],
+                          const SizedBox(height: AppSpacing.lg),
+                        ],
                         if (ongoing.isNotEmpty) ...[
                           Text(
                             'Ongoing',
@@ -104,7 +176,7 @@ class PassengerRidesScreen extends ConsumerWidget {
                           ],
                         ),
                         const SizedBox(height: AppSpacing.sm),
-                        if (history.isEmpty)
+                        if (history.isEmpty && awaitingRate.isEmpty)
                           const Padding(
                             padding: EdgeInsets.symmetric(vertical: 24),
                             child: _EmptyRides(),

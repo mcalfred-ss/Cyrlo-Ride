@@ -8,6 +8,7 @@ import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/ride_session/active_ride_request.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
+import '../../../shared/ride_session/end_trip_by_rider.dart';
 import '../../../shared/ride_session/rider_accept_job.dart';
 import '../../../shared/ride_session/rider_cancel_accepted_ride.dart';
 import '../../../shared/widgets/active_contact_card.dart';
@@ -317,6 +318,7 @@ class RiderJobsScreen extends ConsumerWidget {
                                 ),
                               );
                             },
+                            completeLabel: 'End trip',
                             onComplete: () async {
                               final ok = await showDialog<bool>(
                                 context: context,
@@ -325,29 +327,42 @@ class RiderJobsScreen extends ConsumerWidget {
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(24),
                                   ),
-                                  title: const Text('Mark as arrived?'),
+                                  title: const Text('End this trip?'),
                                   content: const Text(
-                                    'Finish this pickup job once you’ve met the passenger.',
+                                    'Only end after you’ve dropped the passenger off. They’ll be asked to rate you.',
+                                    style: TextStyle(height: 1.4),
                                   ),
                                   actions: [
                                     TextButton(
                                       onPressed: () =>
                                           Navigator.of(context).pop(false),
-                                      child: const Text('No'),
+                                      child: const Text('Not yet'),
                                     ),
                                     FilledButton(
+                                      key: const Key('confirm-end-trip'),
                                       onPressed: () =>
                                           Navigator.of(context).pop(true),
-                                      child: const Text('Yes, done'),
+                                      child: const Text('End trip'),
                                     ),
                                   ],
                                 ),
                               );
-                              if (ok == true) {
-                                ref
-                                    .read(activeRideRequestProvider.notifier)
-                                    .markCompleted();
-                              }
+                              if (ok != true || !context.mounted) return;
+                              final result = endTripByRider(ref);
+                              if (!context.mounted || !result.ended) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  behavior: SnackBarBehavior.floating,
+                                  backgroundColor: AppColors.darkGrey,
+                                  content: Text(
+                                    'Trip ended. ${result.passengerFirstName ?? 'Passenger'} can rate you now.',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                              );
                             },
                           ),
                           const SizedBox(height: AppSpacing.md),

@@ -27,11 +27,51 @@ class CyrloTransitionPage<T> extends CustomTransitionPage<T> {
        );
 }
 
+/// Full fade for splash → next (no slide).
+class CyrloFadePage<T> extends CustomTransitionPage<T> {
+  CyrloFadePage({
+    required super.child,
+    required super.key,
+  }) : super(
+         transitionDuration: AppMotion.page,
+         reverseTransitionDuration: AppMotion.page,
+         transitionsBuilder: (context, animation, secondaryAnimation, child) {
+           final enter = CurvedAnimation(
+             parent: animation,
+             curve: AppMotion.standard,
+           );
+           final exit = CurvedAnimation(
+             parent: secondaryAnimation,
+             curve: AppMotion.exit,
+           );
+           return FadeTransition(
+             opacity: Tween<double>(begin: 1, end: 0).animate(exit),
+             child: FadeTransition(
+               opacity: enter,
+               child: child,
+             ),
+           );
+         },
+       );
+}
+
 GoRoute flowRoute(String path, Widget screen) {
   return GoRoute(
     path: path,
     pageBuilder: (context, state) {
       return CyrloTransitionPage<void>(
+        key: state.pageKey,
+        child: screen,
+      );
+    },
+  );
+}
+
+GoRoute fadeFlowRoute(String path, Widget screen) {
+  return GoRoute(
+    path: path,
+    pageBuilder: (context, state) {
+      return CyrloFadePage<void>(
         key: state.pageKey,
         child: screen,
       );

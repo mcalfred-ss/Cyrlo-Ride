@@ -16,6 +16,7 @@ class ActiveContactCard extends StatelessWidget {
     required this.contactLabel,
     this.onComplete,
     this.onCancel,
+    this.completeLabel = 'Arrived / Done',
   });
 
   final String title;
@@ -24,6 +25,7 @@ class ActiveContactCard extends StatelessWidget {
   final String contactLabel;
   final VoidCallback? onComplete;
   final VoidCallback? onCancel;
+  final String completeLabel;
 
   Future<void> _copyNumber(BuildContext context) async {
     await Clipboard.setData(ClipboardData(text: phoneE164));
@@ -156,7 +158,7 @@ class ActiveContactCard extends StatelessWidget {
                       child: FilledButton(
                         key: const Key('complete-active-ride'),
                         onPressed: onComplete,
-                        child: const Text('Arrived / Done'),
+                        child: Text(completeLabel),
                       ),
                     ),
                 ],

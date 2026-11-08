@@ -10,6 +10,7 @@ import '../../../features/auth/application/signup_controller.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/ride_session/show_passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
+import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
 import 'nearby_rider_card.dart';
@@ -34,6 +35,7 @@ class PassengerHomeScreen extends ConsumerWidget {
     final theme = Theme.of(context);
 
     listenForPassengerCancelNotice(ref, context);
+    listenForPendingRideReview(ref, context);
 
     return SizedBox.expand(
       child: Padding(
@@ -111,15 +113,11 @@ class PassengerHomeScreen extends ConsumerWidget {
                     ActiveContactCard(
                       title: '${activeRequest!.kindLabel} requested',
                       subtitle:
-                          'Rider number is shared for this pickup. Open Map to mark where they should meet you.',
+                          'Rider number is shared for this pickup. Open Map to mark where they should meet you. The rider ends the trip after drop-off.',
                       phoneE164: activeRequest.riderPhoneE164,
                       contactLabel: 'Rider number',
                       onCancel: () {
                         ref.read(activeRideRequestProvider.notifier).markCancelled();
-                        ref.read(selectedNearbyRiderProvider.notifier).clear();
-                      },
-                      onComplete: () {
-                        ref.read(activeRideRequestProvider.notifier).markCompleted();
                         ref.read(selectedNearbyRiderProvider.notifier).clear();
                       },
                     ),

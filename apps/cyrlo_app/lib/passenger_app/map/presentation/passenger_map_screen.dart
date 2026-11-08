@@ -14,13 +14,18 @@ import '../../../shared/models/geo_point.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/ride_session/passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
+import '../../../shared/widgets/cyrlo_button.dart';
 import '../../home/application/nearby_riders_provider.dart';
 import '../../home/domain/nearby_rider.dart';
+import '../../home/presentation/request_ride_flow.dart';
+import '../../rides/presentation/rate_rider_sheet.dart';
+import '../application/nearby_riders_map_motion.dart';
 import '../application/trip_pin_controller.dart';
 import '../application/trip_pin_state.dart';
+import 'bolt_rider_map_marker.dart';
 
-/// Passenger map: set pickup so the rider can come to you.
-/// Destination is agreed in person — the app does not take trip fare.
+/// Passenger map: nearby riders on the map + pickup pin for the rider.
+/// Works with Carto fallback now; swap in Mapbox token when ready.
 class PassengerMapScreen extends ConsumerStatefulWidget {
   const PassengerMapScreen({super.key});
 
@@ -32,6 +37,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   final CyrloMapController _mapController = CyrloMapController();
   String? _focusedRiderId;
   GeoPoint? _focusedPickup;
+  var _fittedRiders = false;
 
   @override
   void dispose() {
@@ -39,12 +45,12 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     super.dispose();
   }
 
-  void _focusNearbyRider(NearbyRider? rider) {
-    if (rider == null || rider.id == _focusedRiderId) return;
+  void _focusNearbyRider(NearbyRider? rider, {double zoom = 15}) {
+    if (rider == null) return;
     _focusedRiderId = rider.id;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mapController.move(rider.point.toMapCoordinate(), 15);
+      _mapController.move(rider.point.toMapCoordinate(), zoom);
     });
   }
 
@@ -57,20 +63,64 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     });
   }
 
+  void _fitNearbyRiders(List<NearbyRider> riders) {
+    if (riders.isEmpty || _fittedRiders) return;
+    _fittedRiders = true;
+    final lat =
+        riders.map((r) => r.point.latitude).reduce((a, b) => a + b) /
+            riders.length;
+    final lng =
+        riders.map((r) => r.point.longitude).reduce((a, b) => a + b) /
+            riders.length;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _mapController.move(
+        MapCoordinate(latitude: lat, longitude: lng),
+        14.2,
+      );
+    });
+  }
+
+  Future<void> _onRiderMarkerTap(NearbyRider rider) async {
+    ref.read(selectedNearbyRiderProvider.notifier).select(rider);
+    _focusNearbyRider(rider, zoom: 15.5);
+    if (!mounted) return;
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withValues(alpha: 0.35),
+      builder: (context) => _NearbyRiderMapSheet(
+        rider: rider,
+        onRequest: () {
+          Navigator.of(context).pop();
+          startRequestRideFlow(context: context, ref: ref, rider: rider);
+        },
+        onClose: () => Navigator.of(context).pop(),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final pins = ref.watch(tripPinProvider);
-    final nearbyRider = ref.watch(selectedNearbyRiderProvider);
+    final nearbyRiders = ref.watch(nearbyRidersProvider);
+    final mapPoses = ref.watch(nearbyRidersMapMotionProvider);
+    final movingRiders = ridersWithMapPoses(nearbyRiders, mapPoses);
+    final selectedRider = ref.watch(selectedNearbyRiderProvider);
     final activeRequest = ref.watch(activeRideRequestProvider);
     final project = ref.watch(passengerMapProjectProvider);
     final token = ref.watch(mapAccessTokenProvider);
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final shareContact = activeRequest?.sharesContact == true;
     final sharedPickup = pins.pickup ?? activeRequest?.pickupPoint;
+    final availableCount =
+        nearbyRiders.where((rider) => rider.canRequest).length;
 
     ref.listen(selectedNearbyRiderProvider, (previous, next) {
-      _focusNearbyRider(next);
+      if (next != null) _focusNearbyRider(next);
     });
+    listenForPendingRideReview(ref, context);
     ref.listen<PassengerCancelNotice?>(passengerCancelNoticeProvider, (
       previous,
       next,
@@ -94,10 +144,20 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
       );
       context.go(AppRoutes.passengerHome);
     });
+
     if (sharedPickup != null) {
       _focusPickup(sharedPickup);
-    } else if (nearbyRider != null && nearbyRider.id != _focusedRiderId) {
-      _focusNearbyRider(nearbyRider);
+    } else if (selectedRider != null && selectedRider.id != _focusedRiderId) {
+      NearbyRider? live;
+      for (final rider in movingRiders) {
+        if (rider.id == selectedRider.id) {
+          live = rider;
+          break;
+        }
+      }
+      _focusNearbyRider(live ?? selectedRider);
+    } else {
+      _fitNearbyRiders(movingRiders);
     }
 
     return Scaffold(
@@ -107,9 +167,14 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
           CyrloMapView(
             project: project,
             accessToken: token,
-            isDark: false,
+            isDark: isDark,
             controller: _mapController,
-            markers: _markers(pins, nearbyRider),
+            markers: _markers(
+              pins: pins,
+              riders: movingRiders,
+              poses: mapPoses,
+              selectedId: selectedRider?.id ?? activeRequest?.riderId,
+            ),
             onTap: (point) {
               unawaited(
                 ref
@@ -133,18 +198,18 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            nearbyRider == null
-                                ? 'Your pickup on the map'
-                                : '${nearbyRider.kindLabel} coming to you',
+                            shareContact
+                                ? '${activeRequest!.kindLabel} coming to you'
+                                : 'Nearby riders on the map',
                             style: theme.textTheme.titleMedium?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
                           const SizedBox(height: AppSpacing.xs),
                           Text(
-                            nearbyRider != null
-                                ? '${nearbyRider.etaLabel}. Your exact location is shared — tap the map or My location if you need to adjust it.'
-                                : 'Your exact spot is on the map for the rider. Tap to adjust if you moved.',
+                            shareContact
+                                ? '${activeRequest!.etaLabel}. Your exact location is shared — tap to adjust pickup.'
+                                : '$availableCount vehicles nearby. Tap a Pragya, Okada, or Aboboyaa on the map to request.',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppColors.inkDim,
                               height: 1.35,
@@ -155,6 +220,18 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                             spacing: AppSpacing.xs,
                             runSpacing: AppSpacing.xs,
                             children: [
+                              Chip(
+                                key: const Key('rider-count-chip'),
+                                avatar: const Icon(Icons.two_wheeler_rounded, size: 18),
+                                label: Text(
+                                  '$availableCount online',
+                                  style: TextStyle(
+                                    color: AppColors.onBrandLight,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                backgroundColor: AppColors.brandLight,
+                              ),
                               Chip(
                                 key: const Key('focus-pickup'),
                                 avatar: Icon(
@@ -182,16 +259,14 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                                     : AppColors.brandLight,
                               ),
                               TextButton(
-                                key: const Key('clear-pins'),
-                                onPressed: pins.pickup == null ||
-                                        activeRequest?.pickupPoint != null
+                                key: const Key('show-all-riders'),
+                                onPressed: movingRiders.isEmpty
                                     ? null
                                     : () {
-                                        ref
-                                            .read(tripPinProvider.notifier)
-                                            .clearPickup();
+                                        _fittedRiders = false;
+                                        _fitNearbyRiders(movingRiders);
                                       },
-                                child: const Text('Clear'),
+                                child: const Text('Show all'),
                               ),
                             ],
                           ),
@@ -217,15 +292,13 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                     ActiveContactCard(
                       title: '${activeRequest!.kindLabel} is on the way',
                       subtitle:
-                          'Call the rider if they need help finding you. Tell them your destination when they arrive.',
+                          'Call the rider if they need help finding you. Tell them your destination when they arrive. They’ll end the trip after drop-off.',
                       phoneE164: activeRequest.riderPhoneE164,
                       contactLabel: 'Rider number',
                       onCancel: () {
-                        ref.read(activeRideRequestProvider.notifier).markCancelled();
-                        ref.read(selectedNearbyRiderProvider.notifier).clear();
-                      },
-                      onComplete: () {
-                        ref.read(activeRideRequestProvider.notifier).markCompleted();
+                        ref
+                            .read(activeRideRequestProvider.notifier)
+                            .markCancelled();
                         ref.read(selectedNearbyRiderProvider.notifier).clear();
                       },
                     ),
@@ -262,22 +335,35 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     );
   }
 
-  List<MapMarker> _markers(TripPinState pins, NearbyRider? nearbyRider) {
+  List<MapMarker> _markers({
+    required TripPinState pins,
+    required List<NearbyRider> riders,
+    required Map<String, MapRiderPose> poses,
+    String? selectedId,
+  }) {
     return [
-      if (nearbyRider != null)
+      for (final rider in riders)
         MapMarker(
-          id: 'nearby-rider',
-          point: nearbyRider.point.toMapCoordinate(),
-          child: _PinMarker(
-            key: const Key('nearby-rider-marker'),
-            color: AppColors.darkGrey,
-            label: nearbyRider.kindLabel.substring(0, 1),
+          id: 'rider-${rider.id}',
+          point: rider.point.toMapCoordinate(),
+          width: rider.id == selectedId ? 72 : 62,
+          height: rider.id == selectedId ? 78 : 68,
+          child: GestureDetector(
+            key: Key('map-rider-${rider.id}'),
+            onTap: () => _onRiderMarkerTap(rider),
+            child: BoltRiderMapMarker(
+              rider: rider,
+              selected: rider.id == selectedId,
+              headingRadians: poses[rider.id]?.headingRadians ?? 0,
+            ),
           ),
         ),
       if (pins.pickup != null)
         MapMarker(
           id: 'pickup',
           point: pins.pickup!.toMapCoordinate(),
+          width: 40,
+          height: 40,
           child: const _PinMarker(
             key: Key('pickup-marker'),
             color: AppColors.brand,
@@ -285,6 +371,93 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
           ),
         ),
     ];
+  }
+}
+
+class _NearbyRiderMapSheet extends StatelessWidget {
+  const _NearbyRiderMapSheet({
+    required this.rider,
+    required this.onRequest,
+    required this.onClose,
+  });
+
+  final NearbyRider rider;
+  final VoidCallback onRequest;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520),
+        child: Material(
+          color: AppColors.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+          clipBehavior: Clip.antiAlias,
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 10, 20, 20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 42,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppColors.border,
+                        borderRadius: BorderRadius.circular(AppRadii.pill),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  Text(
+                    rider.displayName,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${rider.kindRiderLabel} · ${rider.etaLabel} · ${rider.ratingLabel}★',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    rider.statusLabel,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  CyrloButton(
+                    key: Key('map-request-${rider.id}'),
+                    label: rider.canRequest ? 'Request ${rider.kindLabel}' : 'Unavailable',
+                    onPressed: rider.canRequest ? onRequest : null,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  CyrloButton(
+                    key: const Key('map-rider-sheet-close'),
+                    label: 'Close',
+                    variant: CyrloButtonVariant.outlined,
+                    onPressed: onClose,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -42,6 +42,7 @@ class ActiveRideRequestController extends Notifier<ActiveRideRequest?> {
       passengerPhoneE164: contactPhoneE164,
       status: ActiveRideStatus.ongoing,
       createdAt: DateTime.now(),
+      riderDisplayName: rider.displayName,
       passengerName: draft.passengerName,
       passengerFirstName: draft.passengerFirstName,
       passengerGender: draft.passengerGender,
@@ -92,6 +93,9 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
     final now = DateTime.now();
     final kind = draft.driverKind ?? DriverKind.pragya;
     final riderPhone = draft.phoneE164 ?? '+233244000111';
+    final riderName = draft.riderName?.trim().isNotEmpty == true
+        ? draft.riderName!.trim()
+        : 'Your rider';
     return [
       ActiveRideRequest(
         id: 'job-ama',
@@ -101,6 +105,7 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
         passengerPhoneE164: '+233201234567',
         status: ActiveRideStatus.requested,
         createdAt: now.subtract(const Duration(minutes: 1)),
+        riderDisplayName: riderName,
         passengerName: 'Ama Mensah',
         passengerFirstName: 'Ama',
         passengerGender: PassengerGender.female,
@@ -115,6 +120,7 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
         passengerPhoneE164: '+233244998877',
         status: ActiveRideStatus.requested,
         createdAt: now.subtract(const Duration(minutes: 4)),
+        riderDisplayName: riderName,
         passengerName: 'Kwesi Owusu',
         passengerFirstName: 'Kwesi',
         passengerGender: PassengerGender.male,
@@ -129,6 +135,7 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
         passengerPhoneE164: '+233275551122',
         status: ActiveRideStatus.requested,
         createdAt: now.subtract(const Duration(minutes: 7)),
+        riderDisplayName: riderName,
         passengerName: 'Akosua Boateng',
         passengerFirstName: 'Akosua',
         passengerGender: PassengerGender.female,

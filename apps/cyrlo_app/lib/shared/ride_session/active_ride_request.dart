@@ -13,6 +13,7 @@ class ActiveRideRequest {
     required this.passengerPhoneE164,
     required this.status,
     required this.createdAt,
+    this.riderDisplayName,
     this.passengerName,
     this.passengerFirstName,
     this.passengerGender,
@@ -27,11 +28,18 @@ class ActiveRideRequest {
   final String passengerPhoneE164;
   final ActiveRideStatus status;
   final DateTime createdAt;
+  final String? riderDisplayName;
   final String? passengerName;
   final String? passengerFirstName;
   final PassengerGender? passengerGender;
   final int? etaMinutes;
   final GeoPoint? pickupPoint;
+
+  String get riderLabel {
+    final name = riderDisplayName?.trim();
+    if (name != null && name.isNotEmpty) return name;
+    return '$kindLabel rider';
+  }
 
   String get kindLabel => switch (kind) {
         DriverKind.okada => 'Okada',
@@ -64,6 +72,7 @@ class ActiveRideRequest {
   ActiveRideRequest copyWith({
     ActiveRideStatus? status,
     GeoPoint? pickupPoint,
+    String? riderDisplayName,
   }) {
     return ActiveRideRequest(
       id: id,
@@ -73,6 +82,7 @@ class ActiveRideRequest {
       passengerPhoneE164: passengerPhoneE164,
       status: status ?? this.status,
       createdAt: createdAt,
+      riderDisplayName: riderDisplayName ?? this.riderDisplayName,
       passengerName: passengerName,
       passengerFirstName: passengerFirstName,
       passengerGender: passengerGender,

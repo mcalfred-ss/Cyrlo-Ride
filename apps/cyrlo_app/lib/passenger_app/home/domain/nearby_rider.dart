@@ -73,7 +73,13 @@ class NearbyRider {
     return '$reviewCount reviews';
   }
 
-  NearbyRider copyWith({bool? busy, bool? available}) {
+  NearbyRider copyWith({
+    bool? busy,
+    bool? available,
+    double? rating,
+    int? reviewCount,
+    List<RiderReview>? reviews,
+  }) {
     return NearbyRider(
       id: id,
       kind: kind,
@@ -81,9 +87,9 @@ class NearbyRider {
       point: point,
       displayName: displayName,
       gender: gender,
-      rating: rating,
-      reviewCount: reviewCount,
-      reviews: reviews,
+      rating: rating ?? this.rating,
+      reviewCount: reviewCount ?? this.reviewCount,
+      reviews: reviews ?? this.reviews,
       phoneE164: phoneE164,
       available: available ?? this.available,
       busy: busy ?? this.busy,
