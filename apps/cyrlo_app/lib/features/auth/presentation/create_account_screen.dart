@@ -51,8 +51,8 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ScreenHeader(
-            title: 'Create account',
-            subtitle: 'We will send a code to this number.',
+            title: 'Sign in',
+            subtitle: 'We’ll text a code to this number.',
           ),
           const SizedBox(height: AppSpacing.xl),
           GhanaPhoneField(controller: _phoneController),
@@ -69,7 +69,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
           const SizedBox(height: AppSpacing.xl),
           CyrloButton(
             key: const Key('create-account'),
-            label: _busy ? 'Checking…' : 'Create account',
+            label: _busy ? 'Checking…' : 'Continue',
             onPressed: _busy ? null : _submit,
           ),
         ],

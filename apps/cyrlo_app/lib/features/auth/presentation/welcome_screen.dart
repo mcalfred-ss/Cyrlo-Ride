@@ -16,7 +16,7 @@ class WelcomeScreen extends ConsumerWidget {
     return FlowScaffold(
       footer: CyrloButton(
         key: const Key('get-started'),
-        label: 'Get started',
+        label: 'Continue with phone',
         onPressed: () => ref.read(signupProvider.notifier).finishWelcome(),
       ),
       child: const Column(
@@ -26,7 +26,8 @@ class WelcomeScreen extends ConsumerWidget {
           SizedBox(height: AppSpacing.lg),
           ScreenHeader(
             title: 'Welcome',
-            subtitle: 'Book a Pragya, or drive one, with your phone number.',
+            subtitle:
+                'Sign in or create an account with your Ghana phone number.',
           ),
         ],
       ),

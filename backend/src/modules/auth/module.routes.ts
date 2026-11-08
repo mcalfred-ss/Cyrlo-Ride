@@ -24,7 +24,6 @@ export function createAuthRouter(controller: AuthController): Router {
 
   router.post(
     '/account-status',
-    otpRateLimiter,
     validate({ body: lookupAccountSchema }),
     controller.lookupAccount,
   );
