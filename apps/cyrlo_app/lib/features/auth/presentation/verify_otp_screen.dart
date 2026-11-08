@@ -126,7 +126,21 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   }
 
   String _messageFor(Object error) {
-    return _asApi(error)?.message ??
+    final api = _asApi(error);
+    if (api != null &&
+        api.message.isNotEmpty &&
+        api.message != 'Could not reach Cyrlo Ride. Check your connection.') {
+      return api.message;
+    }
+    if (error is DioException) {
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.unknown) {
+        // Flutter Web: browser hides CORS failures as a generic network error.
+        return 'Could not reach Cyrlo Ride. If you are on Chrome/Edge, use a phone/emulator or ask ops to allow local web CORS.';
+      }
+    }
+    return api?.message ??
         'Could not reach Cyrlo Ride. Check your connection.';
   }
 

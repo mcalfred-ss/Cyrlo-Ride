@@ -14,6 +14,7 @@ import {
   usesDedicatedRateLimiter,
 } from './common/middleware/rate-limit.js';
 import { requestId } from './common/middleware/request-id.js';
+import { isAllowedCorsOrigin } from './common/http/cors-origin.js';
 import { createHealthRouter } from './common/routes/health.routes.js';
 import { openApiDocument } from './docs/openapi.js';
 import { prisma } from './infrastructure/database/prisma.js';
@@ -36,11 +37,16 @@ export function createApp(): Express {
   app.disable('x-powered-by');
 
   app.use(requestId);
-  app.use(helmet());
+  // cross-origin so Flutter Web (and other browser clients) can read API JSON.
+  app.use(
+    helmet({
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
   app.use(
     cors({
       origin(origin, callback) {
-        if (!origin || allowedOrigins.has(origin)) {
+        if (isAllowedCorsOrigin(origin, allowedOrigins)) {
           callback(null, true);
           return;
         }

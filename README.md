@@ -20,10 +20,13 @@ By default the Flutter app talks to the hosted API at `https://cyrloride.eqostac
 ```bash
 cd apps/cyrlo_app
 flutter pub get
-flutter run
+# Prefer Android/iOS. Flutter Web needs the API to allow localhost CORS (deployed).
+flutter run -d chrome
 ```
 
 Signup order: phone → role → SMS OTP. Tokens are stored on device; demo riders/jobs/history are removed.
+
+If Chrome shows “Could not reach Cyrlo Ride”, the staging API must allow local browser origins (built-in for `localhost` / `127.0.0.1` after the CORS fix) and `cyrlo-ride-api` must be restarted on the VPS.
 
 Optional overrides:
 

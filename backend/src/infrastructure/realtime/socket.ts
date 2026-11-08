@@ -3,6 +3,7 @@ import type { Server as HttpServer } from 'node:http';
 import { Server } from 'socket.io';
 import type { PrismaClient } from '@prisma/client';
 
+import { isAllowedCorsOrigin } from '../../common/http/cors-origin.js';
 import { env } from '../../config/env.js';
 import { verifyAccessToken } from '../../common/security/tokens.js';
 import { bookingRoom, userRoom } from './events.js';
@@ -22,7 +23,9 @@ export function createRealtimeServer(
 ): Server {
   const io = new Server(httpServer, {
     cors: {
-      origin: env.CORS_ORIGINS,
+      origin(origin, callback) {
+        callback(null, isAllowedCorsOrigin(origin, env.CORS_ORIGINS));
+      },
       credentials: true,
     },
   });

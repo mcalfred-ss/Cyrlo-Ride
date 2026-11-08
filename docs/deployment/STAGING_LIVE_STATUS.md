@@ -55,7 +55,7 @@ Mapbox public `pk.` tokens are for Flutter **tiles** only (`MAPBOX_ACCESS_TOKEN`
 - Live OTP: phone → role → SMS verify; tokens in `shared_preferences`.
 - Demo nearby riders / ride history / job offers removed.
 - Cyrlo Maps: Flutter calls Ride `/maps/*` proxy; Maps API key stays on the server (`CYRLO_MAPS_API_KEY` in providers.env).
-- **Flutter Web** against staging needs `CORS_ORIGINS` to include the web origin; prefer Android/iOS for dogfood.
+- **Flutter Web:** API allows `localhost` / `127.0.0.1` (any port) plus `CORS_ORIGINS`. Helmet CORP is `cross-origin` so browsers can read JSON. Prefer Android/iOS when possible.
 
 ## Still open
 
