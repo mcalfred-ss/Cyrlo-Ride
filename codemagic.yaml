@@ -4,8 +4,8 @@
 # Codemagic UI setup (once):
 # 1. Add GitHub repo mcalfred-ss/Cyrlo-Ride
 # 2. Team settings → codemagic.yaml as config
-# 3. Integrations → Developer Portal: Apple team + App Store Connect API key
-#    (reuse existing key: Issuer 54a63607-… / Key ID 75V72728X4 / .p8)
+# 3. Integrations → Developer Portal: reuse existing key named "Cyrlo"
+#    (Key ID 75V72728X4 — do not create another unless .p8 is lost)
 # 4. Start "ios-app-store" workflow (manual or on tag)
 
 workflows:
@@ -14,7 +14,7 @@ workflows:
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
-      app_store_connect: CyrloRide
+      app_store_connect: Cyrlo
     environment:
       flutter: stable
       xcode: latest

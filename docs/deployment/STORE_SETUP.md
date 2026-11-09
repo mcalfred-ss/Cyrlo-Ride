@@ -78,7 +78,7 @@ Repo config: root `codemagic.yaml` (workflow `ios-app-store`).
 3. **Team integrations → Developer Portal**
    - Connect Apple Developer team
    - Add App Store Connect API key (reuse existing **Codemagic** key — do not create another unless `.p8` is lost)
-   - Name the integration exactly `CyrloRide` (matches `codemagic.yaml`)
+   - Integration name must match `codemagic.yaml` (`Cyrlo` — already connected)
 4. Code signing identities: let Codemagic create/fetch **App Store** distribution cert + profile for `com.cyrloride.app`
 5. Run workflow **Cyrlo Ride iOS (App Store)** → IPA goes to **TestFlight**
 
