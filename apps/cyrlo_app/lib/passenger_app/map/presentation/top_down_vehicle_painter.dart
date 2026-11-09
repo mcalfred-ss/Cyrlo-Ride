@@ -9,7 +9,7 @@ import '../../../features/auth/application/signup_draft.dart';
 /// Compact bird’s-eye vehicles — readable kinds, no pin/card.
 ///
 /// Shape language (top-down):
-/// - Okada: long thin 2-wheeler (wheels in one line) + rear box
+/// - Okada: rider-on-bike (helmet + shoulders + bars) inspired by map-sprite refs
 /// - Pragya: 1 front + 2 rear wheels, wide cabin roof
 /// - Aboboyaa: short nose + long rectangular cargo bed
 class TopDownVehiclePainter extends CustomPainter {
@@ -100,69 +100,146 @@ class TopDownVehiclePainter extends CustomPainter {
     ..style = PaintingStyle.stroke
     ..strokeWidth = 1.3;
 
-  /// Motorcycle from above: narrow hull, 2 inline wheels, rear delivery box.
+  /// Okada from above — same language as the rider-on-bike map sprites:
+  /// front tyre tip → fairing/headlight → handlebars → helmet → shoulders →
+  /// seat/tail → rear tyre.
   void _paintOkada(Canvas canvas, Size size) {
     final w = size.width;
     final h = size.height;
     final cx = w / 2;
 
-    // Inline wheels (the “this is a motor” cue)
-    _wheel(canvas, Offset(cx, h * 0.14), w * 0.34, h * 0.13);
-    _wheel(canvas, Offset(cx, h * 0.78), w * 0.38, h * 0.14);
+    final yellow = _yellow(size);
+    final jacket = Paint()..color = const Color(0xFF1F2933);
+    final helmet = Paint()..color = const Color(0xFF111111);
+    final visor = Paint()
+      ..color = const Color(0xFF6B7280)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.4, w * 0.04)
+      ..strokeCap = StrokeCap.round;
+    final bars = Paint()
+      ..color = const Color(0xFF111111)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.6, w * 0.055)
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
 
-    // Narrow bike body
-    final hull = Path()
-      ..moveTo(cx, h * 0.10)
-      ..quadraticBezierTo(w * 0.62, h * 0.22, w * 0.58, h * 0.42)
-      ..lineTo(w * 0.56, h * 0.62)
-      ..quadraticBezierTo(cx, h * 0.70, w * 0.44, h * 0.62)
-      ..lineTo(w * 0.42, h * 0.42)
-      ..quadraticBezierTo(w * 0.38, h * 0.22, cx, h * 0.10)
-      ..close();
-    canvas.drawPath(hull, _yellow(size));
-    canvas.drawPath(hull, _stroke);
-    if (selected) canvas.drawPath(hull, _selectStroke);
-
-    // Seat strip
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(cx, h * 0.46),
-          width: w * 0.16,
-          height: h * 0.28,
-        ),
-        const Radius.circular(4),
-      ),
-      _black,
-    );
-
-    // Handlebars (wide vs thin body = motorcycle)
-    canvas.drawRRect(
-      RRect.fromRectAndRadius(
-        Rect.fromCenter(
-          center: Offset(cx, h * 0.22),
-          width: w * 0.62,
-          height: h * 0.06,
-        ),
-        const Radius.circular(3),
-      ),
-      _black,
-    );
-
-    // Rear delivery box (okada signature)
-    final box = RRect.fromRectAndRadius(
+    // --- Front tyre (only the tip shows, like the ref) ---
+    canvas.drawOval(
       Rect.fromCenter(
-        center: Offset(cx, h * 0.86),
-        width: w * 0.42,
-        height: h * 0.16,
+        center: Offset(cx, h * 0.07),
+        width: w * 0.30,
+        height: h * 0.09,
       ),
-      const Radius.circular(3),
+      _tyre,
     );
-    canvas.drawRRect(box, _yellow(size));
-    canvas.drawRRect(box, _stroke);
 
-    // Headlight
-    canvas.drawCircle(Offset(cx, h * 0.12), w * 0.07, _glass);
+    // --- Front fairing / tank (yellow body) ---
+    final fairing = Path()
+      ..moveTo(cx, h * 0.05)
+      ..quadraticBezierTo(w * 0.70, h * 0.14, w * 0.62, h * 0.28)
+      ..lineTo(w * 0.56, h * 0.38)
+      ..lineTo(w * 0.44, h * 0.38)
+      ..lineTo(w * 0.38, h * 0.28)
+      ..quadraticBezierTo(w * 0.30, h * 0.14, cx, h * 0.05)
+      ..close();
+    canvas.drawPath(fairing, yellow);
+    canvas.drawPath(fairing, _stroke);
+
+    // Round headlight (ref: yellow bike with circular lamp)
+    canvas.drawCircle(Offset(cx, h * 0.14), w * 0.08, _glass);
+    canvas.drawCircle(
+      Offset(cx, h * 0.14),
+      w * 0.08,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.55)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8,
+    );
+
+    // --- Curved handlebars ---
+    final barPath = Path()
+      ..moveTo(w * 0.14, h * 0.30)
+      ..quadraticBezierTo(cx, h * 0.22, w * 0.86, h * 0.30);
+    canvas.drawPath(barPath, bars);
+    // Grips
+    canvas.drawCircle(Offset(w * 0.14, h * 0.30), w * 0.045, _black);
+    canvas.drawCircle(Offset(w * 0.86, h * 0.30), w * 0.045, _black);
+
+    // --- Rider arms to the bars ---
+    final armPaint = Paint()
+      ..color = const Color(0xFF1F2933)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(2.0, w * 0.07)
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(cx - w * 0.08, h * 0.42), Offset(w * 0.22, h * 0.31), armPaint);
+    canvas.drawLine(Offset(cx + w * 0.08, h * 0.42), Offset(w * 0.78, h * 0.31), armPaint);
+
+    // --- Rider torso / shoulders (rounded back) ---
+    final torso = Path()
+      ..moveTo(cx, h * 0.36)
+      ..quadraticBezierTo(w * 0.78, h * 0.42, w * 0.72, h * 0.56)
+      ..quadraticBezierTo(cx, h * 0.64, w * 0.28, h * 0.56)
+      ..quadraticBezierTo(w * 0.22, h * 0.42, cx, h * 0.36)
+      ..close();
+    canvas.drawPath(torso, jacket);
+    canvas.drawPath(torso, _stroke);
+
+    // --- Helmet (focal point of the ref) ---
+    final helmetCenter = Offset(cx, h * 0.40);
+    canvas.drawCircle(helmetCenter, w * 0.17, helmet);
+    canvas.drawCircle(
+      helmetCenter,
+      w * 0.17,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    // Visor band
+    canvas.drawArc(
+      Rect.fromCircle(center: helmetCenter, radius: w * 0.12),
+      -0.55,
+      1.1,
+      false,
+      visor,
+    );
+
+    // --- Seat behind rider ---
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(
+        Rect.fromCenter(
+          center: Offset(cx, h * 0.68),
+          width: w * 0.28,
+          height: h * 0.14,
+        ),
+        const Radius.circular(5),
+      ),
+      _black,
+    );
+
+    // --- Rear tail / fender (yellow) ---
+    final tail = Path()
+      ..moveTo(w * 0.38, h * 0.72)
+      ..lineTo(w * 0.62, h * 0.72)
+      ..quadraticBezierTo(w * 0.66, h * 0.82, cx, h * 0.90)
+      ..quadraticBezierTo(w * 0.34, h * 0.82, w * 0.38, h * 0.72)
+      ..close();
+    canvas.drawPath(tail, yellow);
+    canvas.drawPath(tail, _stroke);
+    if (selected) {
+      canvas.drawPath(fairing, _selectStroke);
+      canvas.drawPath(tail, _selectStroke);
+    }
+
+    // --- Rear tyre tip ---
+    canvas.drawOval(
+      Rect.fromCenter(
+        center: Offset(cx, h * 0.93),
+        width: w * 0.34,
+        height: h * 0.09,
+      ),
+      _tyre,
+    );
   }
 
   /// Pragya / keke: triangular cabin, 1 front + 2 rear wheels.
@@ -297,10 +374,10 @@ class TopDownVehiclePainter extends CustomPainter {
   }
 }
 
-/// First-pass compact size (readable, not huge).
+/// Compact size — okada sprite is taller than wide (bike + rider).
 Size topDownVehicleSize({required bool selected}) {
-  final s = selected ? 50.0 : 42.0;
-  return Size(s, s * 1.2);
+  final s = selected ? 48.0 : 40.0;
+  return Size(s, s * 1.35);
 }
 
 double topDownHeadingCorrection(DriverKind kind) => 0;

@@ -346,9 +346,9 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
         MapMarker(
           id: 'rider-${rider.id}',
           point: rider.point.toMapCoordinate(),
-          // Compact hit target — first-pass size, clearer kind silhouettes.
-          width: rider.id == selectedId ? 56 : 48,
-          height: rider.id == selectedId ? 64 : 56,
+          // Compact hit target — okada sprite is taller (bike + rider).
+          width: rider.id == selectedId ? 52 : 44,
+          height: rider.id == selectedId ? 70 : 60,
           child: GestureDetector(
             key: Key('map-rider-${rider.id}'),
             onTap: () => _onRiderMarkerTap(rider),
