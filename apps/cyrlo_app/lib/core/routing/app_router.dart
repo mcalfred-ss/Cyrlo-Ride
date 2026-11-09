@@ -225,7 +225,8 @@ String? _requiredLocation(SignupDraft draft) {
   if (draft.role == null) return AppRoutes.selectRole;
   if (!draft.otpVerified) return AppRoutes.verifyOtp;
   if (draft.role == RideRole.passenger) {
-    if (!draft.accountReady && !draft.hasPassengerProfile) {
+    // Returning logins must still complete/hydrate profile before home.
+    if (!draft.hasPassengerProfile) {
       return AppRoutes.passengerDetails;
     }
     return null;

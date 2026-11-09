@@ -169,12 +169,22 @@ model OtpChallenge {
   @@map("otp_challenges")
 }
 
+enum PassengerGender {
+  MALE
+  FEMALE
+}
+
 model PassengerProfile {
-  userId    String   @id @map("user_id") @db.Uuid
-  fullName  String?  @map("full_name")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String           @id @map("user_id") @db.Uuid
+  fullName      String?          @map("full_name")
+  dateOfBirth   DateTime?        @map("date_of_birth") @db.Date
+  gender        PassengerGender?
+  homeLocation  String?          @map("home_location")
+  homeLatitude  Decimal?         @map("home_latitude") @db.Decimal(9, 6)
+  homeLongitude Decimal?         @map("home_longitude") @db.Decimal(9, 6)
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("passenger_profiles")
 }

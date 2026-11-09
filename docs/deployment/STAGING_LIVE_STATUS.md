@@ -110,4 +110,5 @@ OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS=60
 - Wire Flutter bookings / nearby / matching to live APIs.
 
 - FCM push not configured.
-- Profile/onboarding POST APIs for passenger & rider details (local WIP may exist).
+- Rider onboarding POST APIs still incomplete.
+- Passenger profile: `PATCH /users/me` + hydrate on login (deploy migration `20261109180000_passenger_profile_details`).

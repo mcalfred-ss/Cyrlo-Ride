@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/api_exception.dart';
 import '../../../core/mapping/device_location_gateway.dart';
 import '../../../core/mapping/mapping_providers.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -29,6 +30,7 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
   GeoPoint? _locationPoint;
   var _locating = false;
   var _applyingLocation = false;
+  var _saving = false;
   String? _error;
 
   @override
@@ -120,34 +122,52 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
     });
   }
 
-  void _submit() {
-    final ok = ref.read(signupProvider.notifier).savePassengerDetails(
-      firstName: _firstNameController.text,
-      lastName: _lastNameController.text,
-      dateOfBirth: _dateOfBirth,
-      gender: _gender,
-      location: _locationController.text,
-      locationPoint: _locationPoint,
-    );
+  Future<void> _submit() async {
+    if (_saving) return;
     setState(() {
-      if (ok) {
-        _error = null;
-        return;
-      }
-      if (_firstNameController.text.trim().length < 2) {
-        _error = 'Enter your first name.';
-      } else if (_lastNameController.text.trim().length < 2) {
-        _error = 'Enter your last name.';
-      } else if (_dateOfBirth == null) {
-        _error = 'Select your date of birth.';
-      } else if (_gender == null) {
-        _error = 'Select your gender.';
-      } else if (_locationController.text.trim().length < 2) {
-        _error = 'Type your location or use my location.';
-      } else {
-        _error = 'You must be at least 16 years old.';
-      }
+      _saving = true;
+      _error = null;
     });
+
+    try {
+      final ok = await ref.read(signupProvider.notifier).savePassengerDetails(
+            firstName: _firstNameController.text,
+            lastName: _lastNameController.text,
+            dateOfBirth: _dateOfBirth,
+            gender: _gender,
+            location: _locationController.text,
+            locationPoint: _locationPoint,
+          );
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        if (ok) {
+          _error = null;
+          return;
+        }
+        if (_firstNameController.text.trim().length < 2) {
+          _error = 'Enter your first name.';
+        } else if (_lastNameController.text.trim().length < 2) {
+          _error = 'Enter your last name.';
+        } else if (_dateOfBirth == null) {
+          _error = 'Select your date of birth.';
+        } else if (_gender == null) {
+          _error = 'Select your gender.';
+        } else if (_locationController.text.trim().length < 2) {
+          _error = 'Type your location or use my location.';
+        } else {
+          _error = 'You must be at least 16 years old.';
+        }
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _error = error is ApiException
+            ? error.message
+            : 'Could not save your profile. Try again.';
+      });
+    }
   }
 
   @override
@@ -156,8 +176,8 @@ class _PassengerDetailsScreenState extends ConsumerState<PassengerDetailsScreen>
       onBack: () => ref.read(signupProvider.notifier).clearRole(),
       footer: CyrloButton(
         key: const Key('passenger-continue'),
-        label: 'Continue',
-        onPressed: _locating ? null : _submit,
+        label: _saving ? 'Saving…' : 'Continue',
+        onPressed: (_locating || _saving) ? null : _submit,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,

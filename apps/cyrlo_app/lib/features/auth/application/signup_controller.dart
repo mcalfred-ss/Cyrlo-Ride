@@ -58,6 +58,9 @@ class SignupController extends Notifier<SignupDraft> {
     if (session != null && !state.otpVerified) {
       _applyRestoredSession(session);
     }
+    if (session != null) {
+      unawaited(_hydrateProfileFromApi(session));
+    }
     ref.read(authBootstrapProvider.notifier).markReady();
   }
 
@@ -91,7 +94,59 @@ class SignupController extends Notifier<SignupDraft> {
       applicationSubmitted: state.applicationSubmitted,
       riderApproved: state.riderApproved,
     );
+    _applyPassengerProfile(session.user.passengerProfile);
     unawaited(_persist());
+  }
+
+  void _applyPassengerProfile(PassengerProfileInfo? profile) {
+    if (profile == null || !profile.isComplete) return;
+    final name = profile.fullName!.trim();
+    final parts = name.split(RegExp(r'\s+'));
+    final first = parts.first;
+    final last = parts.length > 1 ? parts.sublist(1).join(' ') : parts.first;
+    GeoPoint? point;
+    if (profile.homeLatitude != null && profile.homeLongitude != null) {
+      point = GeoPoint(
+        latitude: profile.homeLatitude!,
+        longitude: profile.homeLongitude!,
+      );
+    }
+    state = state.copyWith(
+      passengerFirstName: first,
+      passengerLastName: last,
+      passengerDateOfBirth: profile.dateOfBirth,
+      passengerGender: profile.gender,
+      passengerLocation: profile.homeLocation,
+      passengerLocationPoint: point ?? state.passengerLocationPoint,
+      accountReady: true,
+    );
+  }
+
+  Future<void> _hydrateProfileFromApi(AuthSession session) async {
+    if (session.user.role != RideRole.passenger) return;
+    try {
+      final me = await ref.read(authApiProvider).me(session.accessToken);
+      _applyPassengerProfile(me.passengerProfile);
+      if (me.displayName != null &&
+          me.displayName!.trim().isNotEmpty &&
+          !state.hasPassengerProfile) {
+        final fromName = SignupDraft.restoredSession(
+          phoneE164: me.phoneNumber,
+          role: me.role,
+          displayName: me.displayName,
+        );
+        state = state.copyWith(
+          passengerFirstName:
+              state.passengerFirstName ?? fromName.passengerFirstName,
+          passengerLastName:
+              state.passengerLastName ?? fromName.passengerLastName,
+        );
+      }
+      await _persist();
+    } catch (_) {
+      // Offline / transient failures keep local draft; router may still ask
+      // for passenger details when nothing is available.
+    }
   }
 
   Future<void> _persist() async {
@@ -200,7 +255,11 @@ class SignupController extends Notifier<SignupDraft> {
         otpVerified: true,
         phoneE164: tokens.user.phoneNumber,
         role: tokens.user.role,
-        accountReady: returning,
+        // Passengers only become "ready" after a complete profile exists
+        // (local or hydrated from GET /users/me).
+        accountReady: tokens.user.role == RideRole.passenger
+            ? state.hasPassengerProfile
+            : returning,
         applicationSubmitted: returning && tokens.user.role == RideRole.rider
             ? true
             : null,
@@ -209,6 +268,13 @@ class SignupController extends Notifier<SignupDraft> {
             : null,
       ),
     );
+    final session = ref.read(authSessionProvider);
+    if (session != null) {
+      await _hydrateProfileFromApi(session);
+      if (state.hasPassengerProfile) {
+        _set(state.copyWith(accountReady: true));
+      }
+    }
     return tokens.user;
   }
 
@@ -217,14 +283,14 @@ class SignupController extends Notifier<SignupDraft> {
     _set(state.copyWith(clearRole: true, clearDriverKind: true));
   }
 
-  bool savePassengerDetails({
+  Future<bool> savePassengerDetails({
     required String firstName,
     required String lastName,
     required DateTime? dateOfBirth,
     required PassengerGender? gender,
     required String location,
     GeoPoint? locationPoint,
-  }) {
+  }) async {
     final first = firstName.trim();
     final last = lastName.trim();
     final place = location.trim();
@@ -235,6 +301,26 @@ class SignupController extends Notifier<SignupDraft> {
     if (place.length < 2) return false;
     if (!_isAtLeast16(dateOfBirth)) return false;
 
+    final session = ref.read(authSessionProvider);
+    if (session == null) {
+      throw const ApiException(
+        code: 'UNAUTHORIZED',
+        message: 'Sign in again to save your profile.',
+      );
+    }
+
+    final fullName = '$first $last';
+    final saved = await ref.read(authApiProvider).updatePassengerProfile(
+          accessToken: session.accessToken,
+          fullName: fullName,
+          dateOfBirth: dateOfBirth,
+          gender: gender,
+          homeLocation: place,
+          homeLatitude: locationPoint?.latitude,
+          homeLongitude: locationPoint?.longitude,
+        );
+
+    _applyPassengerProfile(saved);
     _set(
       state.copyWith(
         passengerFirstName: first,
@@ -243,8 +329,25 @@ class SignupController extends Notifier<SignupDraft> {
         passengerGender: gender,
         passengerLocation: place,
         passengerLocationPoint: locationPoint,
+        accountReady: true,
       ),
     );
+    await ref.read(authSessionProvider.notifier).save(
+          AuthTokens(
+            accessToken: session.accessToken,
+            refreshToken: session.refreshToken,
+            expiresIn: 900,
+            user: AuthUser(
+              id: session.user.id,
+              phoneNumber: session.user.phoneNumber,
+              role: session.user.role,
+              status: session.user.status,
+              displayName: fullName,
+              passengerProfile: saved,
+            ),
+            isNewUser: false,
+          ),
+        );
     return true;
   }
 

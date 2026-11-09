@@ -1,5 +1,67 @@
 import '../application/signup_draft.dart';
 
+class PassengerProfileInfo {
+  const PassengerProfileInfo({
+    this.fullName,
+    this.dateOfBirth,
+    this.gender,
+    this.homeLocation,
+    this.homeLatitude,
+    this.homeLongitude,
+  });
+
+  final String? fullName;
+  final DateTime? dateOfBirth;
+  final PassengerGender? gender;
+  final String? homeLocation;
+  final double? homeLatitude;
+  final double? homeLongitude;
+
+  bool get isComplete =>
+      fullName != null &&
+      fullName!.trim().length >= 2 &&
+      dateOfBirth != null &&
+      gender != null &&
+      homeLocation != null &&
+      homeLocation!.trim().length >= 2;
+
+  factory PassengerProfileInfo.fromJson(Map<String, dynamic>? json) {
+    if (json == null) return const PassengerProfileInfo();
+    final genderRaw = json['gender'] as String?;
+    PassengerGender? gender;
+    if (genderRaw == 'MALE') gender = PassengerGender.male;
+    if (genderRaw == 'FEMALE') gender = PassengerGender.female;
+
+    DateTime? dob;
+    final dobRaw = json['dateOfBirth'] as String?;
+    if (dobRaw != null && dobRaw.isNotEmpty) {
+      dob = DateTime.tryParse(dobRaw);
+    }
+
+    return PassengerProfileInfo(
+      fullName: json['fullName'] as String?,
+      dateOfBirth: dob,
+      gender: gender,
+      homeLocation: json['homeLocation'] as String?,
+      homeLatitude: (json['homeLatitude'] as num?)?.toDouble(),
+      homeLongitude: (json['homeLongitude'] as num?)?.toDouble(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'fullName': fullName,
+        'dateOfBirth': dateOfBirth?.toIso8601String().split('T').first,
+        'gender': switch (gender) {
+          PassengerGender.male => 'MALE',
+          PassengerGender.female => 'FEMALE',
+          null => null,
+        },
+        'homeLocation': homeLocation,
+        'homeLatitude': homeLatitude,
+        'homeLongitude': homeLongitude,
+      };
+}
+
 class AuthUser {
   const AuthUser({
     required this.id,
@@ -7,6 +69,7 @@ class AuthUser {
     required this.role,
     required this.status,
     this.displayName,
+    this.passengerProfile,
   });
 
   final String id;
@@ -14,14 +77,19 @@ class AuthUser {
   final RideRole role;
   final String status;
   final String? displayName;
+  final PassengerProfileInfo? passengerProfile;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
+    final profileRaw = json['passengerProfile'];
     return AuthUser(
       id: json['id'] as String,
       phoneNumber: json['phoneNumber'] as String,
       role: (json['role'] as String) == 'RIDER' ? RideRole.rider : RideRole.passenger,
       status: json['status'] as String? ?? 'ACTIVE',
       displayName: json['displayName'] as String?,
+      passengerProfile: profileRaw is Map
+          ? PassengerProfileInfo.fromJson(Map<String, dynamic>.from(profileRaw))
+          : null,
     );
   }
 
@@ -31,6 +99,7 @@ class AuthUser {
         'role': role == RideRole.rider ? 'RIDER' : 'PASSENGER',
         'status': status,
         'displayName': displayName,
+        'passengerProfile': passengerProfile?.toJson(),
       };
 }
 

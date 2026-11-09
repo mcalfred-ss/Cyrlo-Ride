@@ -1,4 +1,13 @@
-import type { PrismaClient, UserRole, UserStatus } from '@prisma/client';
+import type { PassengerGender, PrismaClient, UserRole, UserStatus } from '@prisma/client';
+
+export interface PassengerProfileRecord {
+  fullName: string | null;
+  dateOfBirth: Date | null;
+  gender: PassengerGender | null;
+  homeLocation: string | null;
+  homeLatitude: { toString(): string } | null;
+  homeLongitude: { toString(): string } | null;
+}
 
 export interface UserMeRecord {
   id: string;
@@ -6,7 +15,7 @@ export interface UserMeRecord {
   role: UserRole;
   status: UserStatus;
   displayName: string | null;
-  passengerProfile: { fullName: string | null } | null;
+  passengerProfile: PassengerProfileRecord | null;
   riderProfile: {
     fullName: string;
     verificationStatus: string;
@@ -14,6 +23,15 @@ export interface UserMeRecord {
     vehicleRegistration: string | null;
     vehicleDescription: string | null;
   } | null;
+}
+
+export interface UpsertPassengerProfileInput {
+  fullName: string;
+  dateOfBirth: Date;
+  gender: PassengerGender;
+  homeLocation: string;
+  homeLatitude: number | null;
+  homeLongitude: number | null;
 }
 
 /** Private to the users module. Do not import this from another module. */
@@ -33,7 +51,16 @@ export class UsersRepository {
         role: true,
         status: true,
         displayName: true,
-        passengerProfile: { select: { fullName: true } },
+        passengerProfile: {
+          select: {
+            fullName: true,
+            dateOfBirth: true,
+            gender: true,
+            homeLocation: true,
+            homeLatitude: true,
+            homeLongitude: true,
+          },
+        },
         riderProfile: {
           select: {
             fullName: true,
@@ -45,6 +72,51 @@ export class UsersRepository {
         },
       },
     });
+  }
+
+  async findRole(userId: string): Promise<UserRole | null> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true, status: true },
+    });
+    if (!user || user.status === 'DELETED') return null;
+    return user.role;
+  }
+
+  async upsertPassengerProfile(
+    userId: string,
+    input: UpsertPassengerProfileInput,
+  ): Promise<PassengerProfileRecord> {
+    const data = {
+      fullName: input.fullName,
+      dateOfBirth: input.dateOfBirth,
+      gender: input.gender,
+      homeLocation: input.homeLocation,
+      homeLatitude: input.homeLatitude,
+      homeLongitude: input.homeLongitude,
+    };
+
+    const [, profile] = await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: { displayName: input.fullName },
+      }),
+      this.prisma.passengerProfile.upsert({
+        where: { userId },
+        create: { userId, ...data },
+        update: data,
+        select: {
+          fullName: true,
+          dateOfBirth: true,
+          gender: true,
+          homeLocation: true,
+          homeLatitude: true,
+          homeLongitude: true,
+        },
+      }),
+    ]);
+
+    return profile;
   }
 
   /**

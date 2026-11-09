@@ -27,6 +27,16 @@ abstract class AuthApi {
   });
 
   Future<AuthUser> me(String accessToken);
+
+  Future<PassengerProfileInfo> updatePassengerProfile({
+    required String accessToken,
+    required String fullName,
+    required DateTime dateOfBirth,
+    required PassengerGender gender,
+    required String homeLocation,
+    double? homeLatitude,
+    double? homeLongitude,
+  });
 }
 
 class LiveAuthApi implements AuthApi {
@@ -131,8 +141,38 @@ class LiveAuthApi implements AuthApi {
   Future<AuthUser> me(String accessToken) async {
     _client.setAccessToken(accessToken);
     try {
-      final response = await _client.dio.get('/users/me');
+      final response = await _client.dio.get(ApiPaths.me);
       return AuthUser.fromJson(_dataMap(response.data));
+    } on DioException catch (error) {
+      throw _asApiException(error);
+    }
+  }
+
+  @override
+  Future<PassengerProfileInfo> updatePassengerProfile({
+    required String accessToken,
+    required String fullName,
+    required DateTime dateOfBirth,
+    required PassengerGender gender,
+    required String homeLocation,
+    double? homeLatitude,
+    double? homeLongitude,
+  }) async {
+    _client.setAccessToken(accessToken);
+    try {
+      final response = await _client.dio.patch(
+        ApiPaths.me,
+        data: {
+          'fullName': fullName,
+          'dateOfBirth':
+              '${dateOfBirth.year.toString().padLeft(4, '0')}-${dateOfBirth.month.toString().padLeft(2, '0')}-${dateOfBirth.day.toString().padLeft(2, '0')}',
+          'gender': gender == PassengerGender.male ? 'MALE' : 'FEMALE',
+          'homeLocation': homeLocation,
+          if (homeLatitude != null) 'homeLatitude': homeLatitude,
+          if (homeLongitude != null) 'homeLongitude': homeLongitude,
+        },
+      );
+      return PassengerProfileInfo.fromJson(_dataMap(response.data));
     } on DioException catch (error) {
       throw _asApiException(error);
     }
@@ -227,12 +267,37 @@ class FakeAuthApi implements AuthApi {
 
   @override
   Future<AuthUser> me(String accessToken) async {
-    return const AuthUser(
+    return AuthUser(
       id: 'user-me',
       phoneNumber: '+233244000000',
       role: RideRole.passenger,
       status: 'ACTIVE',
+      displayName: _savedProfile?.fullName,
+      passengerProfile: _savedProfile,
     );
+  }
+
+  PassengerProfileInfo? _savedProfile;
+
+  @override
+  Future<PassengerProfileInfo> updatePassengerProfile({
+    required String accessToken,
+    required String fullName,
+    required DateTime dateOfBirth,
+    required PassengerGender gender,
+    required String homeLocation,
+    double? homeLatitude,
+    double? homeLongitude,
+  }) async {
+    _savedProfile = PassengerProfileInfo(
+      fullName: fullName,
+      dateOfBirth: dateOfBirth,
+      gender: gender,
+      homeLocation: homeLocation,
+      homeLatitude: homeLatitude,
+      homeLongitude: homeLongitude,
+    );
+    return _savedProfile!;
   }
 }
 
