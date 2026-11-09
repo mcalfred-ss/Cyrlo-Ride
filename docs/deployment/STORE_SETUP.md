@@ -43,7 +43,12 @@ Repo prep is done for store registration. Use this when you open **App Store Con
 | Full description | Store copy + pilot city (Kokobin) |
 | Privacy policy URL | already live |
 
-Current launcher icons are Flutter defaults — **replace with Cyrlo brand** before submit.
+Launcher icons are generated from `apps/cyrlo_app/assets/branding/app_icon.png` via `flutter_launcher_icons`. To refresh after replacing that file:
+
+```bash
+cd apps/cyrlo_app
+dart run flutter_launcher_icons
+```
 
 ### Android signing (Play upload key)
 
@@ -95,7 +100,8 @@ Collect for app functionality (not tracking):
 
 ### Before first review
 
-- [ ] Replace default app icons with brand  
+- [x] App launcher icons set from branding source  
+
 - [ ] Upload keystore created + backed up offline  
 - [ ] Ghana counsel review of Terms/Privacy (still drafts for counsel)  
 - [ ] Test OTP on release builds against staging/production API  
