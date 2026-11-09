@@ -104,13 +104,16 @@ class NearbyRidersMapMotionController
   }
 
   GeoPoint _nudgeTarget(GeoPoint home, String id) {
+    // Prefer longer along-road drift (lat/lng axis by seed) so vehicles
+    // look like they cruise a street instead of wandering into plots.
     final seed = id.hashCode;
-    final jitterLat = ((_random.nextDouble() * 2) - 1) * 0.0011;
-    final jitterLng = ((_random.nextDouble() * 2) - 1) * 0.0011;
-    final wave = math.sin(seed + _random.nextDouble()) * 0.00035;
+    final alongLat = seed.isEven;
+    final travel = ((_random.nextDouble() * 2) - 1) * 0.00135;
+    final side = ((_random.nextDouble() * 2) - 1) * 0.00028;
+    final wave = math.sin(seed + _random.nextDouble()) * 0.00018;
     return GeoPoint(
-      latitude: home.latitude + jitterLat + wave,
-      longitude: home.longitude + jitterLng,
+      latitude: home.latitude + (alongLat ? travel : side) + wave,
+      longitude: home.longitude + (alongLat ? side : travel),
     );
   }
 
