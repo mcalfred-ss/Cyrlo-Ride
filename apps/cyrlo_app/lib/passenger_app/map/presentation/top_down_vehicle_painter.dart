@@ -7,17 +7,17 @@ import '../../../features/auth/application/signup_draft.dart';
 
 /// Per-kind map colours — quick read without reading the silhouette.
 abstract final class MapVehicleColors {
-  /// Okada — brand yellow
-  static const okada = Color(0xFFF5C400);
-  static const okadaLight = Color(0xFFFFE98A);
-  static const okadaDark = Color(0xFFC99200);
+  /// Okada — red
+  static const okada = Color(0xFFE53935);
+  static const okadaLight = Color(0xFFFF8A80);
+  static const okadaDark = Color(0xFFB71C1C);
 
-  /// Pragya — teal
-  static const pragya = Color(0xFF14B8A6);
-  static const pragyaLight = Color(0xFF5EEAD4);
-  static const pragyaDark = Color(0xFF0F766E);
+  /// Pragya — yellow
+  static const pragya = Color(0xFFF5C400);
+  static const pragyaLight = Color(0xFFFFE98A);
+  static const pragyaDark = Color(0xFFC99200);
 
-  /// Aboboyaa — blue (matches cargo-trike refs)
+  /// Aboboyaa — blue
   static const aboboyaa = Color(0xFF2563EB);
   static const aboboyaaLight = Color(0xFF60A5FA);
   static const aboboyaaDark = Color(0xFF1D4ED8);
