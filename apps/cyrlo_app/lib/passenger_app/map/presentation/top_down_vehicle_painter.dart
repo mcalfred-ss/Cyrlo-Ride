@@ -336,27 +336,27 @@ class TopDownVehiclePainter extends CustomPainter {
 
     // Front tyre
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(cx, h * 0.06), width: w * 0.24, height: h * 0.08),
+      Rect.fromCenter(center: Offset(cx, h * 0.05), width: w * 0.24, height: h * 0.07),
       _tyre,
     );
-    // Dual rear wheels
+    // Dual rear wheels (further back with the longer bed)
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(w * 0.18, h * 0.88), width: w * 0.18, height: h * 0.11),
+      Rect.fromCenter(center: Offset(w * 0.18, h * 0.92), width: w * 0.18, height: h * 0.10),
       _tyre,
     );
     canvas.drawOval(
-      Rect.fromCenter(center: Offset(w * 0.82, h * 0.88), width: w * 0.18, height: h * 0.11),
+      Rect.fromCenter(center: Offset(w * 0.82, h * 0.92), width: w * 0.18, height: h * 0.10),
       _tyre,
     );
 
-    // Motorcycle nose / tank
+    // Motorcycle nose / tank (kept short so the bed can run longer)
     final nose = Path()
-      ..moveTo(cx, h * 0.05)
-      ..quadraticBezierTo(w * 0.68, h * 0.12, w * 0.62, h * 0.28)
-      ..lineTo(w * 0.58, h * 0.36)
-      ..lineTo(w * 0.42, h * 0.36)
-      ..lineTo(w * 0.38, h * 0.28)
-      ..quadraticBezierTo(w * 0.32, h * 0.12, cx, h * 0.05)
+      ..moveTo(cx, h * 0.04)
+      ..quadraticBezierTo(w * 0.66, h * 0.10, w * 0.60, h * 0.22)
+      ..lineTo(w * 0.56, h * 0.30)
+      ..lineTo(w * 0.44, h * 0.30)
+      ..lineTo(w * 0.40, h * 0.22)
+      ..quadraticBezierTo(w * 0.34, h * 0.10, cx, h * 0.04)
       ..close();
     canvas.drawPath(nose, body);
     canvas.drawPath(nose, _stroke);
@@ -364,14 +364,14 @@ class TopDownVehiclePainter extends CustomPainter {
     // Hex-ish headlight
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, h * 0.14), width: w * 0.16, height: h * 0.08),
+        Rect.fromCenter(center: Offset(cx, h * 0.12), width: w * 0.16, height: h * 0.07),
         const Radius.circular(3),
       ),
       _glass,
     );
     // Amber indicators
-    canvas.drawCircle(Offset(w * 0.30, h * 0.16), w * 0.035, amber);
-    canvas.drawCircle(Offset(w * 0.70, h * 0.16), w * 0.035, amber);
+    canvas.drawCircle(Offset(w * 0.30, h * 0.13), w * 0.035, amber);
+    canvas.drawCircle(Offset(w * 0.70, h * 0.13), w * 0.035, amber);
 
     // Wide handlebars + mirrors (front-view cue)
     final bars = Paint()
@@ -379,14 +379,14 @@ class TopDownVehiclePainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = math.max(1.5, w * 0.05)
       ..strokeCap = StrokeCap.round;
-    canvas.drawLine(Offset(w * 0.12, h * 0.26), Offset(w * 0.88, h * 0.26), bars);
-    canvas.drawCircle(Offset(w * 0.12, h * 0.22), w * 0.05, _black);
-    canvas.drawCircle(Offset(w * 0.88, h * 0.22), w * 0.05, _black);
+    canvas.drawLine(Offset(w * 0.12, h * 0.22), Offset(w * 0.88, h * 0.22), bars);
+    canvas.drawCircle(Offset(w * 0.12, h * 0.18), w * 0.05, _black);
+    canvas.drawCircle(Offset(w * 0.88, h * 0.18), w * 0.05, _black);
 
     // Driver seat
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(cx, h * 0.38), width: w * 0.26, height: h * 0.10),
+        Rect.fromCenter(center: Offset(cx, h * 0.32), width: w * 0.26, height: h * 0.08),
         const Radius.circular(4),
       ),
       _black,
@@ -394,54 +394,54 @@ class TopDownVehiclePainter extends CustomPainter {
 
     // Roll-cage / frame arcs behind driver (rear+side cue)
     canvas.drawArc(
-      Rect.fromLTRB(w * 0.28, h * 0.30, w * 0.72, h * 0.48),
+      Rect.fromLTRB(w * 0.28, h * 0.24, w * 0.72, h * 0.40),
       math.pi,
       math.pi,
       false,
       frame,
     );
 
-    // Long cargo bed — main aboboyaa cue
+    // Extended cargo bed — main aboboyaa cue
     final bed = RRect.fromRectAndRadius(
-      Rect.fromLTRB(w * 0.14, h * 0.44, w * 0.86, h * 0.90),
+      Rect.fromLTRB(w * 0.14, h * 0.36, w * 0.86, h * 0.96),
       const Radius.circular(4),
     );
     canvas.drawRRect(bed, body);
     canvas.drawRRect(bed, _stroke);
     if (selected) canvas.drawRRect(bed, _selectStroke);
 
-    // Open well + slatted sides
+    // Open well + slatted sides (extra slat for the longer bed)
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTRB(w * 0.22, h * 0.50, w * 0.78, h * 0.82),
+        Rect.fromLTRB(w * 0.22, h * 0.42, w * 0.78, h * 0.88),
         const Radius.circular(3),
       ),
       Paint()..color = MapVehicleColors.dark(kind).withValues(alpha: 0.35),
     );
-    for (final t in [0.56, 0.64, 0.72]) {
+    for (final t in [0.50, 0.60, 0.70, 0.80]) {
       canvas.drawLine(Offset(w * 0.26, h * t), Offset(w * 0.74, h * t), slat);
     }
     // Side rail posts
-    canvas.drawLine(Offset(w * 0.18, h * 0.48), Offset(w * 0.18, h * 0.86), frame);
-    canvas.drawLine(Offset(w * 0.82, h * 0.48), Offset(w * 0.82, h * 0.86), frame);
+    canvas.drawLine(Offset(w * 0.18, h * 0.40), Offset(w * 0.18, h * 0.92), frame);
+    canvas.drawLine(Offset(w * 0.82, h * 0.40), Offset(w * 0.82, h * 0.92), frame);
 
     // Tailgate lamps (rear view cue)
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(w * 0.30, h * 0.92), width: w * 0.12, height: h * 0.04),
+        Rect.fromCenter(center: Offset(w * 0.30, h * 0.97), width: w * 0.12, height: h * 0.035),
         const Radius.circular(1.5),
       ),
       lamp,
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromCenter(center: Offset(w * 0.70, h * 0.92), width: w * 0.12, height: h * 0.04),
+        Rect.fromCenter(center: Offset(w * 0.70, h * 0.97), width: w * 0.12, height: h * 0.035),
         const Radius.circular(1.5),
       ),
       lamp,
     );
-    canvas.drawCircle(Offset(w * 0.36, h * 0.92), w * 0.02, lampWhite);
-    canvas.drawCircle(Offset(w * 0.76, h * 0.92), w * 0.02, lampWhite);
+    canvas.drawCircle(Offset(w * 0.36, h * 0.97), w * 0.02, lampWhite);
+    canvas.drawCircle(Offset(w * 0.76, h * 0.97), w * 0.02, lampWhite);
   }
 
   @override
