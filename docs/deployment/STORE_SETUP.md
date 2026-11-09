@@ -67,14 +67,31 @@ flutter build appbundle --release
 # output: build/app/outputs/bundle/release/app-release.aab
 ```
 
-### iOS (App Store)
+### iOS (App Store) — Codemagic upload
 
-1. Create App ID `com.cyrloride.app` in Apple Developer
-2. In Xcode: open `ios/Runner.xcworkspace`, set Team, signing
-3. Confirm `PrivacyInfo.xcprivacy` is in the Runner target (Copy Bundle Resources)
-4. Archive → Upload
+Repo config: root `codemagic.yaml` (workflow `ios-app-store`).
+
+**In Codemagic (once):**
+
+1. [codemagic.io](https://codemagic.io) → add GitHub repo `Cyrlo-Ride`
+2. Application settings → use **codemagic.yaml**
+3. **Team integrations → Developer Portal**
+   - Connect Apple Developer team
+   - Add App Store Connect API key (reuse existing **Codemagic** key — do not create another unless `.p8` is lost)
+   - Name the integration exactly `CyrloRide` (matches `codemagic.yaml`)
+4. Code signing identities: let Codemagic create/fetch **App Store** distribution cert + profile for `com.cyrloride.app`
+5. Run workflow **Cyrlo Ride iOS (App Store)** → IPA goes to **TestFlight**
+
+**In App Store Connect after a green build:**
+
+1. Open version `1.0` → select the new build
+2. Finish compliance / privacy questions if prompted
+3. Submit for Review when listing + screenshots are ready
+
+Local Archive is optional; Codemagic is the upload path.
 
 ```bash
+# Local smoke only (optional)
 cd apps/cyrlo_app
 flutter build ipa --release
 ```

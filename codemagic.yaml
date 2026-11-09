@@ -1,0 +1,88 @@
+# Cyrlo Ride — Codemagic CI
+# Flutter app lives in apps/cyrlo_app (monorepo).
+#
+# Codemagic UI setup (once):
+# 1. Add GitHub repo mcalfred-ss/Cyrlo-Ride
+# 2. Team settings → codemagic.yaml as config
+# 3. Integrations → Developer Portal: Apple team + App Store Connect API key
+#    (reuse existing key: Issuer 54a63607-… / Key ID 75V72728X4 / .p8)
+# 4. Start "ios-app-store" workflow (manual or on tag)
+
+workflows:
+  ios-app-store:
+    name: Cyrlo Ride iOS (App Store)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: CyrloRide
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.cyrloride.app
+      vars:
+        APP_STORE_APPLE_ID: com.cyrloride.app
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd apps/cyrlo_app
+          flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd apps/cyrlo_app/ios
+          pod install
+      - name: Set up code signing
+        script: |
+          xcode-project use-profiles
+      - name: Build IPA
+        script: |
+          cd apps/cyrlo_app
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+    artifacts:
+      - apps/cyrlo_app/build/ios/ipa/*.ipa
+      - apps/cyrlo_app/build/ios/archive/*.xcarchive
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        submit_to_app_store: false
+
+  android-play-store:
+    name: Cyrlo Ride Android (Play Store)
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+      java: 17
+      groups:
+        - play_credentials
+      vars:
+        PACKAGE_NAME: com.cyrloride.app
+    scripts:
+      - name: Set up Android keystore
+        script: |
+          echo "$CM_KEYSTORE" | base64 --decode > "$CM_BUILD_DIR/apps/cyrlo_app/android/upload-keystore.jks"
+          cat > "$CM_BUILD_DIR/apps/cyrlo_app/android/key.properties" <<EOF
+          storePassword=$CM_KEYSTORE_PASSWORD
+          keyPassword=$CM_KEY_PASSWORD
+          keyAlias=$CM_KEY_ALIAS
+          storeFile=../upload-keystore.jks
+          EOF
+      - name: Get Flutter packages
+        script: |
+          cd apps/cyrlo_app
+          flutter pub get
+      - name: Build App Bundle
+        script: |
+          cd apps/cyrlo_app
+          flutter build appbundle --release
+    artifacts:
+      - apps/cyrlo_app/build/app/outputs/bundle/release/*.aab
+    publishing:
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        track: internal
+        submit_as_draft: true
