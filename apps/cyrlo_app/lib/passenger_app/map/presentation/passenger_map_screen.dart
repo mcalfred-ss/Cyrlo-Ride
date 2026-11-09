@@ -209,7 +209,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                           Text(
                             shareContact
                                 ? '${activeRequest!.etaLabel}. Your exact location is shared — tap to adjust pickup.'
-                                : '$availableCount vehicles nearby. Tap a Pragya, Okada, or Aboboyaa on the map to request.',
+                                : '$availableCount nearby · Yellow Okada · Teal Pragya · Blue Aboboyaa',
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppColors.inkDim,
                               height: 1.35,
