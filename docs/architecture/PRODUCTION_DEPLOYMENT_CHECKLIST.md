@@ -239,16 +239,30 @@ Financial rule: **never** delete or rewrite `token_ledger_entries`, successful `
 
 ## 9. Pre-pilot gate
 
+**Progress (2026-11-09 staging):** **7 / 9** complete. Remaining: live polygons + refund/dispute policy acknowledgement.
+
 Pilot is blocked until:
 
 - [x] Product sets `RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS` (= **20**)  
 - [ ] Live polygons loaded for Atwima Kwanwoma pilot subareas *(deferred — jump later)*  
 - [x] Paystack live keys + webhook verified *(staging webhook: Transactions + Refund → `https://cyrloride.eqostack.com/api/v1/payments/paystack/webhook`; signature check OK)*  
-- [ ] Bunny.net storage + CDN token auth configured *(replaces Cloudflare R2)*  
-- [ ] Identity + MFA keys in secrets manager  
-- [ ] SMS path proven for OTP  
-- [ ] Backups scheduled and restore drilled once  
-- [ ] Single matching writer topology agreed  
+- [x] Bunny.net storage + CDN token auth configured *(staging verified: upload + signed CDN download OK; zone `cyrloride`, host `jh.storage.bunnycdn.com`, CDN `cyrlo-ride-staging.b-cdn.net`)*  
+- [x] Identity + MFA keys in secrets manager *(staging: distinct 32-byte keys present; `IDENTITY_ENCRYPTION_KEY_VERSION=1` set; not placeholders)*  
+- [x] SMS path proven for OTP *(Vynfy ready on staging; sender `CYRLO RIDE`; OTPs previously delivered)*  
+- [x] Backups scheduled and restore drilled once *(daily 02:15 UTC cron; first dump + restore drill restored 41 public tables into throwaway DB then dropped)*  
+- [x] Single matching writer topology agreed *(one systemd unit `cyrlo-ride-api` owns in-process matching/outbox/refund timers; do not scale API replicas until separate worker entrypoints exist)*  
 - [ ] Open refund/dispute policies acknowledged (no silent invention)
 
 Flutter integration can proceed earlier against staging with test keys and an explicit offer timeout.
+
+### Staging deploy notes (ops)
+
+| Item | Value |
+| --- | --- |
+| Git checkout | `/var/www/cyrlo-ride-api/app` |
+| Backend cwd | `/var/www/cyrlo-ride-api/app/backend` |
+| Unit | `cyrlo-ride-api.service` |
+| Env | `/etc/cyrlo-ride/ride.env` + `/etc/cyrlo-ride/providers.env` |
+| Backup wrapper | `/usr/local/sbin/cyrlo-ride-backup.sh` |
+| Backup cron | `/etc/cron.d/cyrlo-ride-backup` (02:15 UTC daily) |
+| Backup dir | `/var/backups/cyrlo-ride` |

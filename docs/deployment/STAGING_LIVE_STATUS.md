@@ -22,7 +22,8 @@
 | --- | --- |
 | Ride unit | `cyrlo-ride-api.service` |
 | Env files | `/etc/cyrlo-ride/ride.env`, `/etc/cyrlo-ride/providers.env` |
-| App dir | `/var/www/cyrlo-ride-api` (deploy artifact) |
+| App dir | `/var/www/cyrlo-ride-api/app` (git checkout) |
+| Backend cwd | `/var/www/cyrlo-ride-api/app/backend` (`WorkingDirectory` in systemd) |
 | Nginx site | `/etc/nginx/sites-enabled/cyrloride.eqostack.com` → `proxy_pass http://127.0.0.1:3020` |
 | Maps unit | `cyrlo-maps-api.service` |
 
@@ -71,10 +72,24 @@ BUNNY_CDN_TOKEN_KEY=...
 OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS=60
 ```
 
+## Pre-pilot checklist progress (2026-11-09)
+
+| Gate | Status |
+| --- | --- |
+| Offer timeout = 20s | Done (env aligned) |
+| Paystack webhook | Done (staging URL + signature check) |
+| Bunny storage | Done (live upload + signed download verified) |
+| Identity / MFA keys | Done (`IDENTITY_ENCRYPTION_KEY_VERSION=1`) |
+| SMS OTP (Vynfy) | Done |
+| Backups + restore drill | Done (cron + 41-table restore drill) |
+| Single matching writer | Done (one API systemd unit) |
+| Live polygons | Open (deferred) |
+| Refund/dispute policy ack | Open |
+
 ## Still open
 
-- Deploy latest repo (maps client-config route + Flutter auth) to the VPS artifact if not yet pulled.
+- Live service-zone polygons for Atwima Kwanwoma / Ahenema Kokoben.
+- Product acknowledgement of open refund/dispute policies (no silent invention).
 - Wire Flutter bookings / nearby / matching to live APIs.
 - FCM push not configured.
-- Profile/onboarding POST APIs for passenger & rider details.
-- Bunny storage credentials on VPS after zone + pull-zone token auth are created.
+- Profile/onboarding POST APIs for passenger & rider details (local WIP may exist).
