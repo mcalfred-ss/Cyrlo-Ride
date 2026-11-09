@@ -118,7 +118,9 @@ The Flutter draft's okada, pragya, and aboboyaa choices are not the launch catal
 
 **Current implementation.** `service_zones` stores a GeoJSON boundary, a bounding box, and `is_active`. There is no rider-to-zone approval table and no seed.
 
-**Unresolved.** The sourced polygons, and which subareas besides Ahenema Kokoben are in the first activation.
+**Confirmed for first activation.** Launch with **one** service zone only: **Kokobin** (sourced polygon in `ops/zones/kokobin.geojson`). Earlier planning text referred to Ahenema Kokoben; the verified first map place is Kokobin. Other Atwima Kwanwoma subareas are not in the first activation; add them later one zone at a time after the first zone is stable.
+
+**Unresolved.** Which neighboring subareas come second/third after Kokobin is stable.
 
 ## 6. Booking lifecycle
 
@@ -269,7 +271,7 @@ Unpaid timeout and provider failure capture nothing, so there is no fee refund a
 
 A passenger cancel after acceptance does not automatically return the fee or the token. Support may review it. Any money that is later returned is still a new refund record, executed only with the finance refund permission.
 
-**Unresolved.** The criteria a reviewer uses to grant or refuse that post-acceptance passenger refund. Whether a dispute after `COMPLETED` can override the "no refund" row. The approved text says refunds follow this matrix, so an override is not granted here.
+**Confirmed (pilot).** Reviewer criteria for post-acceptance passenger cancels, and the hard rule that disputes after `COMPLETED` do not override “no refund,” are in `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md`. Summary: fee refund only for documented rider fault / no-show / payment anomaly via Finance; no goodwill automatic refunds; completed trips stay non-refundable except proven duplicate charge or clear payment fraud.
 
 ## 11. Trip completion and disputes
 
@@ -394,8 +396,6 @@ Zone polygons are an operational input to phase 5, not a guess in the repository
 - Sort order when more than three riders are inside 5 km.
 - Whether suspension cancels an assigned trip.
 - Whether a rider may go offline during `OFFER_PENDING`.
-- Criteria for a reviewed passenger-cancel refund after acceptance.
-- Whether a dispute after `COMPLETED` can ever refund.
 - MFA method.
 - Encryption key manager, identity retention period.
 - Vehicle document checklist beyond photographs, and capacity limits.
@@ -403,4 +403,4 @@ Zone polygons are an operational input to phase 5, not a guess in the repository
 - Sourced and verified polygons, and the subarea list besides Ahenema Kokoben.
 - How long trip GPS points are kept after the dispute window.
 
-Resolved by this specification and no longer open: unpaid timeout (10 minutes), successive batches, per-offer response timeout (20 seconds), launch vehicles, token pack starting prices, four staff roles, `IN_PROGRESS`, passenger acknowledgement not changing status, dispute window (24 hours), and the refund matrix in section 10.
+Resolved by this specification and no longer open: unpaid timeout (10 minutes), successive batches, per-offer response timeout (20 seconds), launch vehicles, token pack starting prices, four staff roles, `IN_PROGRESS`, passenger acknowledgement not changing status, dispute window (24 hours), the refund matrix in section 10, pilot post-acceptance review criteria, and no completed-trip dispute refund override (see `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md`).

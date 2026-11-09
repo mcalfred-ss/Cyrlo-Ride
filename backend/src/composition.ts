@@ -31,7 +31,7 @@ export function createModules(deps: ModuleDeps) {
   const maps = createMapsModule(deps);
   return {
     auth: createAuthModule(deps),
-    users: createUsersModule(deps),
+    users: createUsersModule({ ...deps, audit: audit.service }),
     riders: createRidersModule({ ...deps, audit: audit.service }),
     bookings,
     matching,

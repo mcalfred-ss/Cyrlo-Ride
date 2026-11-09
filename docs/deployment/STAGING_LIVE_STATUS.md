@@ -36,6 +36,22 @@ systemctl restart cyrlo-ride-api
 systemctl status cyrlo-ride-api --no-pager
 ```
 
+### Deploy / CI
+
+| Piece | Path |
+| --- | --- |
+| Staging deploy (on VPS) | `ops/deploy/deploy-staging.sh` |
+| Local SSH helper (Windows) | `ops/deploy/deploy-staging.ps1` |
+| Smoke checks | `ops/deploy/smoke-staging.sh` |
+| Docs | `ops/deploy/README.md` |
+| CI (test/typecheck) | `.github/workflows/ci.yml` |
+| CD (manual staging deploy) | `.github/workflows/deploy-staging.yml` |
+
+```bash
+bash /var/www/cyrlo-ride-api/app/ops/deploy/deploy-staging.sh
+bash /var/www/cyrlo-ride-api/app/ops/deploy/smoke-staging.sh
+```
+
 ## Required provider env (names only)
 
 ```bash
@@ -83,13 +99,15 @@ OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS=60
 | SMS OTP (Vynfy) | Done |
 | Backups + restore drill | Done (cron + 41-table restore drill) |
 | Single matching writer | Done (one API systemd unit) |
-| Live polygons | Open (deferred) |
-| Refund/dispute policy ack | Open |
+| Live polygons | Done (staging) — zone **Kokobin** created, currently **inactive** pending activate |
+| Refund/dispute policy ack | Done — `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md` |
+| Terms / Privacy hosted | Done — `https://eqostack.com/cyrlo/terms` · `https://eqostack.com/cyrlo/privacy` (Nginx on eqostack.com → `/var/www/cyrlo-legal/`) |
 
 ## Still open
 
 - Live service-zone polygons for Atwima Kwanwoma / Ahenema Kokoben.
-- Product acknowledgement of open refund/dispute policies (no silent invention).
+- Activate Kokobin zone when ready for pilot rides.
 - Wire Flutter bookings / nearby / matching to live APIs.
+
 - FCM push not configured.
 - Profile/onboarding POST APIs for passenger & rider details (local WIP may exist).

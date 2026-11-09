@@ -74,4 +74,6 @@ cd backend && npm test && npm run typecheck && npx prisma validate
 
 Staging ops status (host, systemd, SMS, Maps): [docs/deployment/STAGING_LIVE_STATUS.md](docs/deployment/STAGING_LIVE_STATUS.md).
 
+Deploy scripts + GitHub Actions: [ops/deploy/README.md](ops/deploy/README.md).
+
 Auth OTP against staging is live. Prefer Android/iOS over Flutter Web unless `CORS_ORIGINS` includes your web origin. Bookings / nearby / matching client wiring is still in progress — see the API docs and architecture notes.

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:url_launcher/url_launcher.dart';
 
+import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -134,6 +136,23 @@ class AccountScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _openExternalUrl(BuildContext context, String url) async {
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            'Could not open $url',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -318,12 +337,18 @@ class AccountScreen extends ConsumerWidget {
                       _AccountActionRow(
                         icon: Icons.privacy_tip_outlined,
                         label: 'Privacy policy',
-                        onTap: () => _comingSoon(context, 'Privacy policy'),
+                        onTap: () => _openExternalUrl(
+                          context,
+                          AppConfig.privacyPolicyUrl,
+                        ),
                       ),
                       _AccountActionRow(
                         icon: Icons.description_outlined,
                         label: 'Terms of use',
-                        onTap: () => _comingSoon(context, 'Terms of use'),
+                        onTap: () => _openExternalUrl(
+                          context,
+                          AppConfig.termsOfServiceUrl,
+                        ),
                         showDivider: false,
                       ),
                     ],

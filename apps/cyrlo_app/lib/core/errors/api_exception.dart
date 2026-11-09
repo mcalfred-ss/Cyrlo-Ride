@@ -76,7 +76,7 @@ class ApiException implements Exception {
       403 => 'Not allowed.',
       404 => 'Service endpoint not found.',
       409 => 'This number is already registered with another role.',
-      429 => 'Please wait before requesting another code.',
+      429 => 'Please wait before requesting another code. Watch the timer on this screen.',
       503 => 'SMS could not be sent. Try again in a moment.',
       _ => 'Could not reach Cyrlo Ride. Check your connection.',
     };

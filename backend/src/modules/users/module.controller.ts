@@ -14,4 +14,13 @@ export class UsersController {
       next(error);
     }
   };
+
+  deleteMe: RequestHandler = async (req, res, next) => {
+    try {
+      const data = await this.service.deleteMe(req.auth!.sub, req.ip);
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
 }

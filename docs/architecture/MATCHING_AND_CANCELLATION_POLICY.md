@@ -44,4 +44,4 @@ A token refund row sets `reverses_entry_id` to the assignment debit. A fee refun
 
 The current `shouldRefundToken` function does the opposite of the rider-cancel row: it keeps the token when the rider cancels. Replace the function. Do not add a boolean argument to it.
 
-Passenger cancel after acceptance creates a support case. It does not call Paystack and it does not insert a token refund. A later finance refund, if a reviewer authorizes one, is still a new record. The criteria for that authorization are not specified.
+Passenger cancel after acceptance creates a support case. It does not call Paystack and it does not insert a token refund. A later finance refund, if a reviewer authorizes one, is still a new record. Authorization criteria for the Kokobin pilot are in `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md`.

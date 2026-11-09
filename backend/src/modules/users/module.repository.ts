@@ -46,4 +46,50 @@ export class UsersRepository {
       },
     });
   }
+
+  /**
+   * Soft-deletes the account: status DELETED, frees the unique phone for re-signup,
+   * and revokes active refresh sessions. Does not hard-delete financial rows.
+   */
+  async markDeleted(
+    userId: string,
+    now = new Date(),
+  ): Promise<{
+    id: string;
+    status: 'DELETED';
+    previousPhoneNumber: string;
+    sessionsRevoked: number;
+  } | null> {
+    return this.prisma.$transaction(async (tx) => {
+      const user = await tx.user.findUnique({
+        where: { id: userId },
+        select: { id: true, status: true, phoneNumber: true },
+      });
+      if (!user || user.status === 'DELETED') {
+        return null;
+      }
+
+      // phone_number is @unique — release it so the same number can re-register.
+      const releasedPhone = `deleted:${now.getTime()}:${user.phoneNumber}`;
+      await tx.user.update({
+        where: { id: userId },
+        data: {
+          status: 'DELETED',
+          phoneNumber: releasedPhone,
+        },
+      });
+
+      const revoked = await tx.refreshToken.updateMany({
+        where: { userId, revokedAt: null },
+        data: { revokedAt: now },
+      });
+
+      return {
+        id: user.id,
+        status: 'DELETED' as const,
+        previousPhoneNumber: user.phoneNumber,
+        sessionsRevoked: revoked.count,
+      };
+    });
+  }
 }

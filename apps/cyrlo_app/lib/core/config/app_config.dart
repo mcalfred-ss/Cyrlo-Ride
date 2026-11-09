@@ -40,4 +40,14 @@ abstract final class AppConfig {
     'USE_RIDE_MAPS_PROXY',
     defaultValue: true,
   );
+
+  /// Hosted legal pages on eqostack.com (store listing + in-app links).
+  static const termsOfServiceUrl = String.fromEnvironment(
+    'TERMS_OF_SERVICE_URL',
+    defaultValue: 'https://eqostack.com/cyrlo/terms',
+  );
+  static const privacyPolicyUrl = String.fromEnvironment(
+    'PRIVACY_POLICY_URL',
+    defaultValue: 'https://eqostack.com/cyrlo/privacy',
+  );
 }

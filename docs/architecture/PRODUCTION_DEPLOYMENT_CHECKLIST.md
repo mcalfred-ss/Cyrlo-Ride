@@ -239,19 +239,19 @@ Financial rule: **never** delete or rewrite `token_ledger_entries`, successful `
 
 ## 9. Pre-pilot gate
 
-**Progress (2026-11-09 staging):** **7 / 9** complete. Remaining: live polygons + refund/dispute policy acknowledgement.
+**Progress (2026-11-09 staging):** **9 / 9** gate items decided/loaded. Kokobin zone still **inactive** until you say activate. Store publish still needs hosted Terms/Privacy URLs.
 
 Pilot is blocked until:
 
 - [x] Product sets `RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS` (= **20**)  
-- [ ] Live polygons loaded for Atwima Kwanwoma pilot subareas *(deferred — jump later)*  
+- [x] Live polygons loaded for Atwima Kwanwoma pilot subareas *(first zone **Kokobin** loaded on staging, id `55845ca2-…`, **inactive** until activate; GeoJSON in `ops/zones/kokobin.geojson`)*  
 - [x] Paystack live keys + webhook verified *(staging webhook: Transactions + Refund → `https://cyrloride.eqostack.com/api/v1/payments/paystack/webhook`; signature check OK)*  
 - [x] Bunny.net storage + CDN token auth configured *(staging verified: upload + signed CDN download OK; zone `cyrloride`, host `jh.storage.bunnycdn.com`, CDN `cyrlo-ride-staging.b-cdn.net`)*  
 - [x] Identity + MFA keys in secrets manager *(staging: distinct 32-byte keys present; `IDENTITY_ENCRYPTION_KEY_VERSION=1` set; not placeholders)*  
 - [x] SMS path proven for OTP *(Vynfy ready on staging; sender `CYRLO RIDE`; OTPs previously delivered)*  
 - [x] Backups scheduled and restore drilled once *(daily 02:15 UTC cron; first dump + restore drill restored 41 public tables into throwaway DB then dropped)*  
 - [x] Single matching writer topology agreed *(one systemd unit `cyrlo-ride-api` owns in-process matching/outbox/refund timers; do not scale API replicas until separate worker entrypoints exist)*  
-- [ ] Open refund/dispute policies acknowledged (no silent invention)
+- [x] Open refund/dispute policies acknowledged *(see `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md`; hosted Terms/Privacy: `https://eqostack.com/cyrlo/terms` · `https://eqostack.com/cyrlo/privacy`; drafts in `docs/legal/`)*
 
 Flutter integration can proceed earlier against staging with test keys and an explicit offer timeout.
 
@@ -263,6 +263,8 @@ Flutter integration can proceed earlier against staging with test keys and an ex
 | Backend cwd | `/var/www/cyrlo-ride-api/app/backend` |
 | Unit | `cyrlo-ride-api.service` |
 | Env | `/etc/cyrlo-ride/ride.env` + `/etc/cyrlo-ride/providers.env` |
+| Deploy script | `ops/deploy/deploy-staging.sh` (see `ops/deploy/README.md`) |
+| CI / CD | `.github/workflows/ci.yml` + manual `deploy-staging.yml` |
 | Backup wrapper | `/usr/local/sbin/cyrlo-ride-backup.sh` |
 | Backup cron | `/etc/cron.d/cyrlo-ride-backup` (02:15 UTC daily) |
 | Backup dir | `/var/backups/cyrlo-ride` |
