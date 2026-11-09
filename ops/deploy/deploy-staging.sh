@@ -70,13 +70,16 @@ require_root() {
   [[ "$(id -u)" -eq 0 ]] || die "Run as root (needed for systemctl and safe.directory)."
 }
 
+# cyrlo-ride often has HOME=/nonexistent — give npm/prisma a writable home.
+APP_HOME="${APP_HOME:-/var/www/cyrlo-ride-api}"
+
 as_app() {
   local cmd="$1"
   if [[ "$DRY_RUN" -eq 1 ]]; then
     log "DRY-RUN (as ${APP_USER}): ${cmd}"
     return 0
   fi
-  sudo -u "$APP_USER" -H bash -lc "$cmd"
+  sudo -u "$APP_USER" env HOME="$APP_HOME" bash -lc "$cmd"
 }
 
 health_wait() {
