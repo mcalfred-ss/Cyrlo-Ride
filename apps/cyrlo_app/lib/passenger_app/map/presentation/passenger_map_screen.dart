@@ -346,9 +346,9 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
         MapMarker(
           id: 'rider-${rider.id}',
           point: rider.point.toMapCoordinate(),
-          // Tight hit target — marker is bare top-down art, not a card.
-          width: rider.id == selectedId ? 56 : 48,
-          height: rider.id == selectedId ? 64 : 56,
+          // Larger hit target so polished top-down art stays readable on dark tiles.
+          width: rider.id == selectedId ? 78 : 66,
+          height: rider.id == selectedId ? 90 : 78,
           child: GestureDetector(
             key: Key('map-rider-${rider.id}'),
             onTap: () => _onRiderMarkerTap(rider),
