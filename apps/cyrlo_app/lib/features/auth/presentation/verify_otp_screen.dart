@@ -15,6 +15,7 @@ import '../../../shared/widgets/flow_scaffold.dart';
 import '../../../shared/widgets/screen_header.dart';
 import '../../../shared/widgets/success_check_animation.dart';
 import '../application/signup_controller.dart';
+import '../application/signup_draft.dart';
 
 class VerifyOtpScreen extends ConsumerStatefulWidget {
   const VerifyOtpScreen({super.key});
@@ -182,9 +183,16 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final phone = ref.watch(signupProvider).phoneE164;
+    final draft = ref.watch(signupProvider);
+    final phone = draft.phoneE164;
+    final returning = draft.accountReady;
     final waiting = _secondsLeft > 0 || _sending;
     final status = _statusMessage;
+    final roleLabel = switch (draft.role) {
+      RideRole.passenger => 'passenger',
+      RideRole.rider => 'rider',
+      null => null,
+    };
 
     return FlowScaffold(
       child: AnimatedSwitcher(
@@ -192,12 +200,12 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
         switchInCurve: AppMotion.standard,
         switchOutCurve: AppMotion.exit,
         child: _verified
-            ? const Padding(
-                key: ValueKey('otp-success'),
-                padding: EdgeInsets.symmetric(vertical: 48),
+            ? Padding(
+                key: const ValueKey('otp-success'),
+                padding: const EdgeInsets.symmetric(vertical: 48),
                 child: SuccessCheckAnimation(
-                  key: Key('otp-success-check'),
-                  label: 'Number verified',
+                  key: const Key('otp-success-check'),
+                  label: returning ? 'Welcome back' : 'Account verified',
                 ),
               )
             : Column(
@@ -210,16 +218,27 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                     child: IconButton(
                       onPressed: _busy
                           ? null
-                          : () => ref.read(signupProvider.notifier).clearRole(),
+                          : () {
+                              final notifier =
+                                  ref.read(signupProvider.notifier);
+                              // Returning users skip role — go edit phone.
+                              // New users go back to role picker.
+                              if (returning) {
+                                notifier.editPhone();
+                              } else {
+                                notifier.clearRole();
+                              }
+                            },
                       icon: const Icon(Icons.arrow_back_rounded),
                       color: AppColors.textPrimary,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   ScreenHeader(
-                    title: 'Verify code',
-                    subtitle:
-                        'Enter the code sent to ${PhoneNumbers.formatGhanaDisplay(phone)}.',
+                    title: returning ? 'Welcome back' : 'Verify your number',
+                    subtitle: returning
+                        ? 'We found your${roleLabel == null ? '' : ' $roleLabel'} account. Enter the code sent to ${PhoneNumbers.formatGhanaDisplay(phone)}.'
+                        : 'Enter the code sent to ${PhoneNumbers.formatGhanaDisplay(phone)} to finish creating your account.',
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   _OtpBoxes(controller: _codeController),

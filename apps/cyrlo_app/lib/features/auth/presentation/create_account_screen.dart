@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
@@ -45,14 +46,48 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return FlowScaffold(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ScreenHeader(
-            title: 'Sign in',
-            subtitle: 'We’ll text a code to this number.',
+            title: 'Your phone number',
+            subtitle:
+                'We’ll text a one-time code. If you’ve used Cyrlo before, we’ll welcome you back. If you’re new, we’ll help you create an account.',
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(AppRadii.lg),
+              border: Border.all(color: AppColors.border),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Same number for sign in and sign up — no separate password.',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: AppColors.textSecondary,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
           const SizedBox(height: AppSpacing.xl),
           GhanaPhoneField(controller: _phoneController),
@@ -60,7 +95,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
             const SizedBox(height: AppSpacing.sm),
             Text(
               _error!,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: AppColors.error,
                 fontWeight: FontWeight.w700,
               ),
@@ -69,7 +104,7 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
           const SizedBox(height: AppSpacing.xl),
           CyrloButton(
             key: const Key('create-account'),
-            label: _busy ? 'Checking…' : 'Continue',
+            label: _busy ? 'Checking your number…' : 'Continue',
             onPressed: _busy ? null : _submit,
           ),
         ],

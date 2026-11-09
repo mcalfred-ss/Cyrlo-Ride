@@ -71,8 +71,9 @@ class _SelectRoleScreenState extends ConsumerState<SelectRoleScreen> {
         children: [
           const SizedBox(height: AppSpacing.lg),
           const ScreenHeader(
-            title: 'How will you ride?',
-            subtitle: 'Slide left or right, then continue.',
+            title: 'Create your account',
+            subtitle:
+                'You’re new here. Choose passenger or rider, then verify your number.',
           ),
           const SizedBox(height: AppSpacing.lg),
           Expanded(
