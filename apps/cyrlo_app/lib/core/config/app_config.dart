@@ -41,7 +41,7 @@ abstract final class AppConfig {
     defaultValue: true,
   );
 
-  /// Hosted legal pages on eqostack.com (store listing + in-app links).
+  /// Hosted legal pages on eqostack.com (store listing + in-app WebView).
   static const termsOfServiceUrl = String.fromEnvironment(
     'TERMS_OF_SERVICE_URL',
     defaultValue: 'https://eqostack.com/cyrlo/terms',
@@ -49,5 +49,18 @@ abstract final class AppConfig {
   static const privacyPolicyUrl = String.fromEnvironment(
     'PRIVACY_POLICY_URL',
     defaultValue: 'https://eqostack.com/cyrlo/privacy',
+  );
+
+  static const supportEmail = String.fromEnvironment(
+    'SUPPORT_EMAIL',
+    defaultValue: 'eqostack@gmail.com',
+  );
+  static const supportWhatsAppE164 = String.fromEnvironment(
+    'SUPPORT_WHATSAPP_E164',
+    defaultValue: '233246304492',
+  );
+  static const supportWhatsAppDisplay = String.fromEnvironment(
+    'SUPPORT_WHATSAPP_DISPLAY',
+    defaultValue: '0246304492',
   );
 }

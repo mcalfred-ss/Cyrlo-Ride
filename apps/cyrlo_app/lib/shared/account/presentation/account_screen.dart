@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
@@ -11,6 +10,8 @@ import '../../../features/auth/application/signup_controller.dart';
 import '../../../features/auth/application/signup_draft.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
+import 'help_support_screen.dart';
+import 'in_app_web_screen.dart';
 
 /// Polished account tab for passenger and rider.
 class AccountScreen extends ConsumerWidget {
@@ -125,34 +126,24 @@ class AccountScreen extends ConsumerWidget {
     ref.read(activeRideRequestProvider.notifier).clear();
   }
 
-  void _comingSoon(BuildContext context, String label) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.darkGrey,
-        content: Text(
-          '$label coming soon.',
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
+  void _openInAppWeb(
+    BuildContext context, {
+    required String title,
+    required String url,
+  }) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => InAppWebScreen(title: title, url: url),
       ),
     );
   }
 
-  Future<void> _openExternalUrl(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          behavior: SnackBarBehavior.floating,
-          backgroundColor: AppColors.darkGrey,
-          content: Text(
-            'Could not open $url',
-            style: const TextStyle(fontWeight: FontWeight.w700),
-          ),
-        ),
-      );
-    }
+  void _openHelpSupport(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => const HelpSupportScreen(),
+      ),
+    );
   }
 
   @override
@@ -332,22 +323,24 @@ class AccountScreen extends ConsumerWidget {
                       _AccountActionRow(
                         icon: Icons.support_agent_rounded,
                         label: 'Help & support',
-                        onTap: () => _comingSoon(context, 'Help & support'),
+                        onTap: () => _openHelpSupport(context),
                       ),
                       _AccountActionRow(
                         icon: Icons.privacy_tip_outlined,
                         label: 'Privacy policy',
-                        onTap: () => _openExternalUrl(
+                        onTap: () => _openInAppWeb(
                           context,
-                          AppConfig.privacyPolicyUrl,
+                          title: 'Privacy policy',
+                          url: AppConfig.privacyPolicyUrl,
                         ),
                       ),
                       _AccountActionRow(
                         icon: Icons.description_outlined,
                         label: 'Terms of use',
-                        onTap: () => _openExternalUrl(
+                        onTap: () => _openInAppWeb(
                           context,
-                          AppConfig.termsOfServiceUrl,
+                          title: 'Terms of use',
+                          url: AppConfig.termsOfServiceUrl,
                         ),
                         showDivider: false,
                       ),
