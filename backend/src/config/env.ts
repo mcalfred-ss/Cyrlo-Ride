@@ -52,11 +52,26 @@ const envSchema = z
     ADMIN_MFA_PENDING_TTL_SECONDS: z.coerce.number().int().positive().default(600),
     ADMIN_RECENT_MFA_SECONDS: z.coerce.number().int().positive().default(900),
     TOTP_ISSUER: z.string().min(1).default('Cyrlo Ride Admin'),
+    /**
+     * Object storage vendor. Use `bunny` for Bunny.net Edge Storage + CDN token URLs.
+     * Empty / other → unconfigured unless legacy R2_* credentials are present.
+     */
+    STORAGE_PROVIDER: z.string().default(''),
+    BUNNY_STORAGE_ZONE_NAME: z.string().default(''),
+    /** Storage zone password (AccessKey header). Never commit. */
+    BUNNY_STORAGE_ACCESS_KEY: z.string().default(''),
+    /** From Bunny zone FTP & HTTP API info, e.g. storage.bunnycdn.com */
+    BUNNY_STORAGE_HOSTNAME: z.string().default('storage.bunnycdn.com'),
+    /** Pull zone base URL, e.g. https://cyrlo-ride.b-cdn.net */
+    BUNNY_CDN_BASE_URL: z.string().default(''),
+    /** Pull zone Token Authentication key (Advanced HS256). */
+    BUNNY_CDN_TOKEN_KEY: z.string().default(''),
+    OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(60),
+    /** @deprecated Legacy Cloudflare R2 — prefer STORAGE_PROVIDER=bunny. */
     R2_ACCOUNT_ID: z.string().default(''),
     R2_ACCESS_KEY_ID: z.string().default(''),
     R2_SECRET_ACCESS_KEY: z.string().default(''),
     R2_BUCKET: z.string().default(''),
-    R2_SIGNED_URL_TTL_SECONDS: z.coerce.number().int().positive().default(60),
     RIDER_DOC_RETENTION_MONTHS_AFTER_CLOSURE: z.coerce.number().int().positive().default(12),
     PAYSTACK_SECRET_KEY: z.string().default(''),
     PAYSTACK_PUBLIC_KEY: z.string().default(''),

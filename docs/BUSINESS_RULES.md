@@ -24,7 +24,7 @@ Only the assigned rider moves `ACCEPTED` to `IN_PROGRESS` and then to `COMPLETED
 
 Eligible riders are approved, active, approved for the pickup's active zone, online, with GPS no older than 30 seconds, at least one token, and within 5 km straight line of the pickup. Batches hold at most 3 riders. Further batches continue until assignment or search expiry. A rider who rejected or timed out on that booking is not offered it again. The first valid accept wins under a row lock.
 
-The per-offer timeout and the sort order inside the radius are not specified. See the master spec.
+Per-offer timeout is 20 seconds. The sort order inside the radius is still not specified. See the master spec.
 
 ## Refunds
 

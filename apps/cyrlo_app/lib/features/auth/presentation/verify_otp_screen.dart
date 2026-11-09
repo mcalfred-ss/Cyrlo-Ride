@@ -23,11 +23,14 @@ class VerifyOtpScreen extends ConsumerStatefulWidget {
   ConsumerState<VerifyOtpScreen> createState() => _VerifyOtpScreenState();
 }
 
+enum _OtpWaitKind { none, sent, cooldown }
+
 class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   final _codeController = TextEditingController();
   Timer? _timer;
-  var _secondsLeft = 60;
+  var _secondsLeft = 0;
   String? _error;
+  var _waitKind = _OtpWaitKind.none;
   var _verified = false;
   var _busy = false;
   var _sending = false;
@@ -46,14 +49,37 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     super.dispose();
   }
 
-  void _startTimer([int seconds = 60]) {
+  String get _countdownLabel {
+    final minutes = (_secondsLeft ~/ 60).toString();
+    final seconds = (_secondsLeft % 60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
+
+  String? get _statusMessage {
+    if (_sending) return 'Sending code…';
+    if (_secondsLeft <= 0) return null;
+    // Single countdown lives here — resend row stays "Resend code" only.
+    if (_waitKind == _OtpWaitKind.cooldown) {
+      return 'Please wait $_countdownLabel before requesting another code.';
+    }
+    return 'Code sent. You can request another in $_countdownLabel.';
+  }
+
+  void _startTimer(int seconds, _OtpWaitKind kind) {
     _timer?.cancel();
-    setState(() => _secondsLeft = seconds);
+    setState(() {
+      _secondsLeft = seconds.clamp(1, 900);
+      _waitKind = kind;
+      _error = null;
+    });
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       if (_secondsLeft <= 1) {
         timer.cancel();
-        setState(() => _secondsLeft = 0);
+        setState(() {
+          _secondsLeft = 0;
+          _waitKind = _OtpWaitKind.none;
+        });
       } else {
         setState(() => _secondsLeft -= 1);
       }
@@ -62,22 +88,32 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
 
   Future<void> _requestCode() async {
     if (_sending || _verified) return;
+    if (_secondsLeft > 0) {
+      setState(() {
+        _waitKind = _OtpWaitKind.cooldown;
+        _error = null;
+      });
+      return;
+    }
     setState(() {
       _sending = true;
       _error = null;
+      _waitKind = _OtpWaitKind.none;
     });
     try {
       final result = await ref.read(signupProvider.notifier).requestOtp();
       if (!mounted) return;
-      _startTimer(result.resendAfter.clamp(15, 300));
+      _startTimer(result.resendAfter.clamp(15, 300), _OtpWaitKind.sent);
     } catch (error) {
       if (!mounted) return;
       final api = _asApi(error);
-      final wait = api?.resendAfterSeconds;
+      final wait = api?.resendAfterSeconds ??
+          (api?.code == 'RATE_LIMITED' || api?.statusCode == 429 ? 60 : null);
       if (wait != null && wait > 0) {
-        _startTimer(wait.clamp(1, 300));
+        _startTimer(wait.clamp(1, 900), _OtpWaitKind.cooldown);
+      } else {
+        setState(() => _error = _messageFor(error));
       }
-      setState(() => _error = _messageFor(error));
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -147,9 +183,8 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   @override
   Widget build(BuildContext context) {
     final phone = ref.watch(signupProvider).phoneE164;
-    final minutes = (_secondsLeft ~/ 60).toString();
-    final seconds = (_secondsLeft % 60).toString().padLeft(2, '0');
     final waiting = _secondsLeft > 0 || _sending;
+    final status = _statusMessage;
 
     return FlowScaffold(
       child: AnimatedSwitcher(
@@ -188,15 +223,11 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   _OtpBoxes(controller: _codeController),
-                  if (_sending) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Sending code…',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                            fontWeight: FontWeight.w600,
-                          ),
+                  if (status != null) ...[
+                    const SizedBox(height: AppSpacing.md),
+                    _OtpWaitBanner(
+                      message: status,
+                      emphasize: _waitKind == _OtpWaitKind.cooldown || _sending,
                     ),
                   ],
                   if (_error != null) ...[
@@ -224,11 +255,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                               ),
                           children: [
                             TextSpan(
-                              text: waiting
-                                  ? (_sending
-                                      ? 'Sending…'
-                                      : 'Resend in $minutes:$seconds')
-                                  : 'Resend code',
+                              text: waiting ? 'Please wait' : 'Resend code',
                               style: TextStyle(
                                 color: waiting
                                     ? AppColors.textSecondary
@@ -249,6 +276,53 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                   ),
                 ],
               ),
+      ),
+    );
+  }
+}
+
+class _OtpWaitBanner extends StatelessWidget {
+  const _OtpWaitBanner({
+    required this.message,
+    required this.emphasize,
+  });
+
+  final String message;
+  final bool emphasize;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      decoration: BoxDecoration(
+        color: emphasize ? AppColors.brandLight : AppColors.field,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: emphasize ? AppColors.yellow : AppColors.border,
+          width: emphasize ? 1.6 : 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            emphasize ? Icons.hourglass_top_rounded : Icons.sms_rounded,
+            size: 20,
+            color: AppColors.onBrandLight,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              message,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: AppColors.textPrimary,
+                    fontWeight: FontWeight.w800,
+                    height: 1.35,
+                  ),
+            ),
+          ),
+        ],
       ),
     );
   }

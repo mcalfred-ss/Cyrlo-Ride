@@ -464,7 +464,7 @@ export class RidersServiceImpl implements RidersService {
     }
     const url = await this.deps.storage.getSignedDownloadUrl(
       doc.storageKey,
-      env.R2_SIGNED_URL_TTL_SECONDS,
+      env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS,
     );
     await this.deps.audit.record({
       actorId,
@@ -474,7 +474,7 @@ export class RidersServiceImpl implements RidersService {
       metadata: { kind: doc.kind, riderId: doc.riderId },
       ipAddress: ip,
     });
-    return { url, expiresIn: env.R2_SIGNED_URL_TTL_SECONDS };
+    return { url, expiresIn: env.OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS };
   }
 
   async revealGhanaCardForOps(actorId: string, riderId: string, ip?: string) {

@@ -57,9 +57,24 @@ Mapbox public `pk.` tokens are for Flutter **tiles**. Prefer `MAPBOX_ACCESS_TOKE
 - Cyrlo Maps: Flutter calls Ride `/maps/*` proxy; Maps API key stays on the server (`CYRLO_MAPS_API_KEY` in providers.env).
 - **Flutter Web:** API allows `localhost` / `127.0.0.1` (any port) plus `CORS_ORIGINS`. Helmet CORP is `cross-origin` so browsers can read JSON. Prefer Android/iOS when possible.
 
+## Object storage (Bunny.net)
+
+Preferred provider is Bunny Edge Storage + CDN token URLs (not Cloudflare R2):
+
+```bash
+STORAGE_PROVIDER=bunny
+BUNNY_STORAGE_ZONE_NAME=...
+BUNNY_STORAGE_ACCESS_KEY=...
+BUNNY_STORAGE_HOSTNAME=storage.bunnycdn.com
+BUNNY_CDN_BASE_URL=https://YOUR_ZONE.b-cdn.net
+BUNNY_CDN_TOKEN_KEY=...
+OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS=60
+```
+
 ## Still open
 
 - Deploy latest repo (maps client-config route + Flutter auth) to the VPS artifact if not yet pulled.
 - Wire Flutter bookings / nearby / matching to live APIs.
 - FCM push not configured.
 - Profile/onboarding POST APIs for passenger & rider details.
+- Bunny storage credentials on VPS after zone + pull-zone token auth are created.

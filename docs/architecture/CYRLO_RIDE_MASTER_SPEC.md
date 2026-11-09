@@ -97,7 +97,9 @@ The Flutter draft's okada, pragya, and aboboyaa choices are not the launch catal
 
 **Current implementation.** Onboarding Zod fields are `fullName`, `vehicleRegistration`, and `vehicleDescription` only. The service throws `NOT_IMPLEMENTED`.
 
-**Unresolved.** The checklist of vehicle documents beyond photographs. Numeric limits for capacity. How long ciphertext and images are kept after rejection or account closure. Which key manager holds the encryption key. Which object-storage vendor is used.
+**Confirmed.** Object storage vendor is **Bunny.net** (Edge Storage uploads + CDN Advanced Token Authentication for short-lived download URLs). PostgreSQL still stores `storage_key` only.
+
+**Unresolved.** The checklist of vehicle documents beyond photographs. Numeric limits for capacity. How long ciphertext and images are kept after rejection or account closure. Which key manager holds the encryption key.
 
 ## 5. Service zones
 
@@ -179,7 +181,9 @@ Every transition appends `booking_status_history` in the same transaction. Histo
 - Not previously rejected or timed out on this booking.
 - Inside the 5 km radius.
 
-**Unresolved.** How long one offer stays open before it counts as timed out and the next batch may start. Which riders are chosen first when more than three are eligible. Those two gaps do not remove successive batches. They only leave the batch clock and the sort order unspecified.
+**Confirmed.** Each offer stays open for **20 seconds**. If no rider in the batch accepts before that timeout (or all reject), those offers end and the next batch of up to 3 eligible riders may start. Search still ends at 5 minutes overall.
+
+**Unresolved.** Which riders are chosen first when more than three are eligible (sort order only).
 
 ## 8. Rider availability
 
@@ -387,17 +391,16 @@ Zone polygons are an operational input to phase 5, not a guess in the repository
 
 ## 18. Remaining unresolved decisions
 
-- Per-offer time before an offer is timed out and the next batch starts.
 - Sort order when more than three riders are inside 5 km.
 - Whether suspension cancels an assigned trip.
 - Whether a rider may go offline during `OFFER_PENDING`.
 - Criteria for a reviewed passenger-cancel refund after acceptance.
 - Whether a dispute after `COMPLETED` can ever refund.
 - MFA method.
-- Encryption key manager, identity retention period, object-storage vendor.
+- Encryption key manager, identity retention period.
 - Vehicle document checklist beyond photographs, and capacity limits.
 - Which SMS messages are critical besides OTP. Push vendor.
 - Sourced and verified polygons, and the subarea list besides Ahenema Kokoben.
 - How long trip GPS points are kept after the dispute window.
 
-Resolved by this specification and no longer open: unpaid timeout (10 minutes), successive batches, launch vehicles, token pack starting prices, four staff roles, `IN_PROGRESS`, passenger acknowledgement not changing status, dispute window (24 hours), and the refund matrix in section 10.
+Resolved by this specification and no longer open: unpaid timeout (10 minutes), successive batches, per-offer response timeout (20 seconds), launch vehicles, token pack starting prices, four staff roles, `IN_PROGRESS`, passenger acknowledgement not changing status, dispute window (24 hours), and the refund matrix in section 10.

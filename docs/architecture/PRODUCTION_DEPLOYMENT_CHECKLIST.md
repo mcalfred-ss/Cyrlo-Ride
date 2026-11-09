@@ -29,14 +29,16 @@ Copy `backend/.env.example` → `backend/.env` (or platform secrets). Production
 | `ADMIN_MFA_*` / `TOTP_ISSUER` | Yes | MFA windows and issuer label |
 | `IDENTITY_ENCRYPTION_KEY` | Yes | 32-byte base64; **must differ** from MFA key |
 | `IDENTITY_ENCRYPTION_KEY_VERSION` | Yes | Integer ≥ 1 |
-| `R2_ACCOUNT_ID` | Yes for docs | Empty → upload/download fail closed |
-| `R2_ACCESS_KEY_ID` | Yes for docs | |
-| `R2_SECRET_ACCESS_KEY` | Yes for docs | |
-| `R2_BUCKET` | Yes for docs | |
-| `R2_SIGNED_URL_TTL_SECONDS` | Yes | Short TTL recommended (e.g. 60) |
+| `STORAGE_PROVIDER` | Yes for docs | `bunny` |
+| `BUNNY_STORAGE_ZONE_NAME` | Yes for docs | Edge Storage zone name |
+| `BUNNY_STORAGE_ACCESS_KEY` | Yes for docs | Zone password / AccessKey |
+| `BUNNY_STORAGE_HOSTNAME` | Yes for docs | e.g. `storage.bunnycdn.com` |
+| `BUNNY_CDN_BASE_URL` | Yes for docs | Pull zone URL (`https://….b-cdn.net`) |
+| `BUNNY_CDN_TOKEN_KEY` | Yes for docs | Pull zone Advanced Token Authentication key |
+| `OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS` | Yes | Short TTL recommended (e.g. 60) |
 | `PAYSTACK_SECRET_KEY` | **Required in production** | Webhook HMAC + API |
 | `PAYSTACK_PUBLIC_KEY` | Recommended | Client initialize |
-| `RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS` | **Required in production** | Product-approved integer seconds; **no default** |
+| `RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS` | **Required in production** | Product-approved: **20** (seconds per offer before next batch) |
 | `SMS_PROVIDER` / `SMS_API_KEY` | Required for live OTP | **Deployment blocker until existing vendor adapter is wired** (Phase 11B). Credentials alone → `ready=false` |
 | `SMS_SENDER_ID` | Optional | Default `Cyrlo` |
 | `PUSH_PROVIDER` | Optional until push | `fcm` for HTTP v1 |
@@ -118,12 +120,13 @@ Current packaging starts these inside the API when `NODE_ENV !== 'test'`:
 5. Confirm currency `GHS` and booking fee amount **100** pesewas.  
 6. Confirm refunds stay `PROCESSING` until `refund.processed` (or Finance reconcile), not merely after create-refund HTTP 200.
 
-### Cloudflare R2
+### Bunny.net object storage
 
-1. Bucket private (no public ACL).  
-2. API tokens with object read/write only on that bucket.  
-3. Verify signed URL expiry.  
-4. Confirm Ghana Card and vehicle images never logged as plaintext.
+1. Create a **private** Edge Storage zone (no public open listing).  
+2. Attach a Pull Zone; enable **Token Authentication** (Advanced / HS256).  
+3. Set `STORAGE_PROVIDER=bunny` plus zone name, AccessKey, storage hostname, CDN base URL, and CDN token key.  
+4. Keep `OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS` short (e.g. 60).  
+5. Confirm Ghana Card and vehicle images never logged as plaintext.
 
 ### Identity / MFA encryption
 
@@ -238,10 +241,10 @@ Financial rule: **never** delete or rewrite `token_ledger_entries`, successful `
 
 Pilot is blocked until:
 
-- [ ] Product sets `RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS`  
-- [ ] Live polygons loaded for Atwima Kwanwoma pilot subareas  
-- [ ] Paystack live keys + webhook verified  
-- [ ] R2 production bucket configured  
+- [x] Product sets `RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS` (= **20**)  
+- [ ] Live polygons loaded for Atwima Kwanwoma pilot subareas *(deferred — jump later)*  
+- [x] Paystack live keys + webhook verified *(staging webhook: Transactions + Refund → `https://cyrloride.eqostack.com/api/v1/payments/paystack/webhook`; signature check OK)*  
+- [ ] Bunny.net storage + CDN token auth configured *(replaces Cloudflare R2)*  
 - [ ] Identity + MFA keys in secrets manager  
 - [ ] SMS path proven for OTP  
 - [ ] Backups scheduled and restore drilled once  

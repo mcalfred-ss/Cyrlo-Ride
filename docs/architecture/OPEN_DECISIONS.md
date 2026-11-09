@@ -6,6 +6,8 @@ No longer open:
 
 - Unpaid timeout is 10 minutes. Search is 5 minutes and starts only after the fee is confirmed.
 - Matching radius is 5 km straight line. GPS freshness is 30 seconds. Batches hold at most 3 riders and continue until assignment or search expiry.
+- Per-offer response timeout is **20 seconds** (`RIDER_OFFER_RESPONSE_TIMEOUT_SECONDS=20`). After timeout or full reject, the next batch may start.
+- Object storage vendor is **Bunny.net** (`STORAGE_PROVIDER=bunny` + Edge Storage / CDN token env).
 - A rider who rejected or timed out is not offered that booking again. The first valid accept wins in one locked transaction. One token is deducted only on that assignment.
 - The refund matrix in the master spec, including a token refund when the rider cancels after acceptance, and no automatic refund when the passenger cancels after acceptance.
 - Launch vehicles are tricycle and car. Motorcycle is excluded.
@@ -19,14 +21,13 @@ No longer open:
 
 | Decision | Blocks |
 | --- | --- |
-| How long one offer stays open before it times out and the next batch can start | The batch loop |
 | Which eligible riders are chosen when more than three are inside 5 km | Who receives the first offers |
 | Whether suspension aborts an assigned trip or only blocks new offers | Suspend behaviour during `ON_TRIP` |
 | Whether the rider may go offline while an offer is pending | Offer lifetime when the rider toggles offline |
 | What criteria allow a finance refund after a passenger cancels post-acceptance | Support and finance review |
 | Whether a dispute after `COMPLETED` can override the no-refund row | Dispute outcomes |
 | MFA method for staff | Privileged login |
-| Key manager, identity retention period, object-storage vendor | Ghana Card and vehicle images |
+| Key manager, identity retention period | Ghana Card ciphertext lifecycle |
 | Vehicle document checklist beyond photographs, and capacity limits | Onboarding validation |
 | Which notifications are critical SMS besides OTP. Push vendor | Notification rollout |
 | Sourced polygons and the subarea list besides Ahenema Kokoben | First active zone |
