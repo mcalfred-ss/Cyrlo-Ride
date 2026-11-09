@@ -50,6 +50,8 @@ Future<RiderCancelAcceptedResult> cancelAcceptedRideByRider(
           body:
               'Your ${job.kindLabel} rider cancelled. Request another nearby rider when you’re ready.',
           createdAt: DateTime.now(),
+          action: PassengerNotificationAction.home,
+          vehicleKind: job.kind,
         ),
       );
 

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../map/presentation/top_down_vehicle_painter.dart';
 import '../application/passenger_notifications_provider.dart';
 import '../domain/passenger_notification.dart';
 
@@ -23,6 +26,21 @@ Future<void> showPassengerNotificationsSheet(BuildContext context) {
 class PassengerNotificationsSheet extends ConsumerWidget {
   const PassengerNotificationsSheet({super.key});
 
+  void _openAction(
+    BuildContext context,
+    PassengerNotificationAction action,
+  ) {
+    Navigator.of(context).pop();
+    switch (action) {
+      case PassengerNotificationAction.home:
+        context.go(AppRoutes.passengerHome);
+      case PassengerNotificationAction.map:
+        context.go(AppRoutes.passengerMap);
+      case PassengerNotificationAction.none:
+        break;
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final notifications = ref.watch(passengerNotificationsProvider);
@@ -36,7 +54,6 @@ class PassengerNotificationsSheet extends ConsumerWidget {
       child: Align(
         alignment: Alignment.bottomCenter,
         child: GestureDetector(
-          // Keep taps on the sheet from dismissing it.
           onTap: () {},
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: height, maxWidth: 520),
@@ -75,11 +92,13 @@ class PassengerNotificationsSheet extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  unread == 0
-                                      ? 'You’re all caught up'
-                                      : unread == 1
-                                          ? '1 new update'
-                                          : '$unread new updates',
+                                  notifications.isEmpty
+                                      ? 'Ride updates will show up here'
+                                      : unread == 0
+                                          ? 'You’re all caught up'
+                                          : unread == 1
+                                              ? '1 new update'
+                                              : '$unread new updates',
                                   style: theme.textTheme.bodyMedium?.copyWith(
                                     color: AppColors.textSecondary,
                                     fontWeight: FontWeight.w500,
@@ -88,43 +107,79 @@ class PassengerNotificationsSheet extends ConsumerWidget {
                               ],
                             ),
                           ),
-                      if (unread > 0)
-                        TextButton(
-                          key: const Key('mark-notifications-read'),
-                          onPressed: () {
-                            ref
-                                .read(passengerNotificationsProvider.notifier)
-                                .markAllRead();
-                          },
-                          child: const Text('Mark all read'),
-                        ),
-                    ],
-                  ),
+                          if (unread > 0)
+                            TextButton(
+                              key: const Key('mark-notifications-read'),
+                              onPressed: () {
+                                ref
+                                    .read(passengerNotificationsProvider.notifier)
+                                    .markAllRead();
+                              },
+                              child: const Text('Mark all read'),
+                            ),
+                        ],
+                      ),
+                    ),
+                    Flexible(
+                      child: notifications.isEmpty
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.notifications_none_rounded,
+                                    size: 40,
+                                    color: AppColors.textSecondary,
+                                  ),
+                                  const SizedBox(height: 12),
+                                  Text(
+                                    'No ride updates yet',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.titleSmall?.copyWith(
+                                      fontWeight: FontWeight.w800,
+                                      color: AppColors.textPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'When you request a ride, or a rider accepts / finishes, you’ll see it here.',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: AppColors.textSecondary,
+                                      height: 1.4,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                              shrinkWrap: true,
+                              itemCount: notifications.length,
+                              separatorBuilder: (context, index) =>
+                                  const SizedBox(height: AppSpacing.sm),
+                              itemBuilder: (context, index) {
+                                final item = notifications[index];
+                                return _NotificationTile(
+                                  notification: item,
+                                  onTap: () {
+                                    ref
+                                        .read(
+                                          passengerNotificationsProvider.notifier,
+                                        )
+                                        .markRead(item.id);
+                                    _openAction(context, item.action);
+                                  },
+                                );
+                              },
+                            ),
+                    ),
+                  ],
                 ),
-                Flexible(
-                  child: ListView.separated(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
-                    shrinkWrap: true,
-                    itemCount: notifications.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: AppSpacing.sm),
-                    itemBuilder: (context, index) {
-                      final item = notifications[index];
-                      return _NotificationTile(
-                        notification: item,
-                        onTap: () {
-                          ref
-                              .read(passengerNotificationsProvider.notifier)
-                              .markRead(item.id);
-                        },
-                      );
-                    },
-                  ),
-                ),
-              ],
+              ),
             ),
-          ),
-        ),
           ),
         ),
       ),
@@ -143,21 +198,28 @@ class _NotificationTile extends StatelessWidget {
 
   IconData get _icon => switch (notification.kind) {
         PassengerNotificationKind.riderNearby => Icons.two_wheeler_rounded,
-        PassengerNotificationKind.rideUpdate => Icons.map_rounded,
+        PassengerNotificationKind.rideUpdate => Icons.route_rounded,
         PassengerNotificationKind.promo => Icons.auto_awesome_rounded,
       };
 
-  Color get _iconBg => switch (notification.kind) {
-        PassengerNotificationKind.riderNearby => AppColors.yellow,
-        PassengerNotificationKind.rideUpdate => AppColors.darkGrey,
-        PassengerNotificationKind.promo => AppColors.brandLight,
-      };
+  Color get _iconBg {
+    final kind = notification.vehicleKind;
+    if (kind != null) return MapVehicleColors.primary(kind);
+    return switch (notification.kind) {
+      PassengerNotificationKind.riderNearby => MapVehicleColors.pragya,
+      PassengerNotificationKind.rideUpdate => AppColors.darkGrey,
+      PassengerNotificationKind.promo => AppColors.brandLight,
+    };
+  }
 
-  Color get _iconColor => switch (notification.kind) {
-        PassengerNotificationKind.riderNearby => AppColors.onBrandLight,
-        PassengerNotificationKind.rideUpdate => AppColors.yellow,
-        PassengerNotificationKind.promo => AppColors.onBrandLight,
-      };
+  Color get _iconColor {
+    if (notification.vehicleKind != null) return Colors.white;
+    return switch (notification.kind) {
+      PassengerNotificationKind.riderNearby => Colors.white,
+      PassengerNotificationKind.rideUpdate => AppColors.yellow,
+      PassengerNotificationKind.promo => AppColors.onBrandLight,
+    };
+  }
 
   String get _timeLabel {
     final diff = DateTime.now().difference(notification.createdAt);
@@ -167,6 +229,12 @@ class _NotificationTile extends StatelessWidget {
     if (diff.inDays == 1) return 'Yesterday';
     return '${diff.inDays}d ago';
   }
+
+  String? get _actionHint => switch (notification.action) {
+        PassengerNotificationAction.home => 'Open Home',
+        PassengerNotificationAction.map => 'Open Map',
+        PassengerNotificationAction.none => null,
+      };
 
   @override
   Widget build(BuildContext context) {
@@ -239,12 +307,26 @@ class _NotificationTile extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      Text(
-                        _timeLabel,
-                        style: theme.textTheme.labelMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                          fontWeight: FontWeight.w700,
-                        ),
+                      Row(
+                        children: [
+                          Text(
+                            _timeLabel,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: AppColors.textSecondary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          if (_actionHint != null) ...[
+                            const SizedBox(width: 10),
+                            Text(
+                              _actionHint!,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ],
                   ),

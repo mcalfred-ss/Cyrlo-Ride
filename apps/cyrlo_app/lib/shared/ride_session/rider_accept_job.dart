@@ -64,6 +64,8 @@ Future<bool> _notifyPassengerRiderBusy(
               'Your ${job.kindLabel} rider accepted another pickup nearby. '
               'Wait for them, or request a different rider.',
           createdAt: DateTime.now(),
+          action: PassengerNotificationAction.home,
+          vehicleKind: job.kind,
         ),
       );
 

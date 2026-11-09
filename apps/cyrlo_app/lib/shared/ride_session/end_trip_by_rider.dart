@@ -62,6 +62,8 @@ EndTripResult endTripByRider(WidgetRef ref) {
           title: 'Trip completed',
           body: 'Rate ${job.riderLabel} while the ride is fresh.',
           createdAt: DateTime.now(),
+          action: PassengerNotificationAction.home,
+          vehicleKind: job.kind,
         ),
       );
 
