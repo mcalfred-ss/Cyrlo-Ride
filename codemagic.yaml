@@ -64,13 +64,14 @@ workflows:
     scripts:
       - name: Set up Android keystore
         script: |
-          echo "$CM_KEYSTORE" | base64 --decode > "$CM_BUILD_DIR/apps/cyrlo_app/android/upload-keystore.jks"
-          cat > "$CM_BUILD_DIR/apps/cyrlo_app/android/key.properties" <<EOF
-          storePassword=$CM_KEYSTORE_PASSWORD
-          keyPassword=$CM_KEY_PASSWORD
-          keyAlias=$CM_KEY_ALIAS
-          storeFile=../upload-keystore.jks
-          EOF
+          KEYSTORE_PATH="$CM_BUILD_DIR/apps/cyrlo_app/android/upload-keystore.jks"
+          echo "$CM_KEYSTORE" | base64 --decode > "$KEYSTORE_PATH"
+          printf '%s\n' \
+            "storePassword=$CM_KEYSTORE_PASSWORD" \
+            "keyPassword=$CM_KEY_PASSWORD" \
+            "keyAlias=$CM_KEY_ALIAS" \
+            "storeFile=../upload-keystore.jks" \
+            > "$CM_BUILD_DIR/apps/cyrlo_app/android/key.properties"
       - name: Get Flutter packages
         script: |
           cd apps/cyrlo_app
