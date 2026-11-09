@@ -5,7 +5,7 @@ import 'package:cyrlo_maps/cyrlo_maps.dart';
 /// Built here instead of importing `cyrlo_ride_maps` so this app keeps its own
 /// package name and does not pull the extracted Cirlo user-agents or school asset.
 abstract final class RideMapProjects {
-  static const String passengerUserAgent = 'com.cyrlo.ride';
+  static const String passengerUserAgent = 'com.cyrloride.app';
 
   /// Kumasi center until a GPS fix is available. Matches the pilot region.
   static const MapCoordinate defaultCenter = MapCoordinate(

@@ -1,0 +1,8 @@
+# Copy to android/key.properties (never commit the real file).
+# Create an upload keystore before Play Store release:
+#   keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
+
+storePassword=REPLACE_ME
+keyPassword=REPLACE_ME
+keyAlias=upload
+storeFile=../upload-keystore.jks

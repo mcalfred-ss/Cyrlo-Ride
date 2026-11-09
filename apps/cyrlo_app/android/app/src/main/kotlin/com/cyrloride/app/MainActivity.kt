@@ -1,4 +1,4 @@
-package com.cyrloride.cyrlo_app
+package com.cyrloride.app
 
 import io.flutter.embedding.android.FlutterActivity
 

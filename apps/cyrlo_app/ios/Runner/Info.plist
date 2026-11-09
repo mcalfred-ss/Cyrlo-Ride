@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>cyrlo_app</string>
+	<string>Cyrlo Ride</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -27,13 +27,20 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Cyrlo Ride uses your location to suggest a pickup point and to show nearby rides. Location is only used when you ask for it.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>Cyrlo Ride can keep sharing a rider location while a trip is active. Passengers never receive other riders' locations.</string>
+	<string>Cyrlo Ride uses your location to set a pickup point and show nearby rides while you use the app.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Cyrlo Ride needs the camera so riders can take a selfie for verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Cyrlo Ride needs photo access so riders can upload a license or Ghana Card.</string>
+	<string>Cyrlo Ride needs photo access so riders can upload a licence or Ghana Card.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>https</string>
+		<string>http</string>
+		<string>mailto</string>
+		<string>tel</string>
+		<string>sms</string>
+		<string>whatsapp</string>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -64,8 +71,6 @@
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UISupportedInterfaceOrientations~ipad</key>
 	<array>

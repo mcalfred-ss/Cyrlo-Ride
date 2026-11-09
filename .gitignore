@@ -32,6 +32,9 @@ coverage/
 *.key
 *.jks
 *.keystore
+**/android/key.properties
+**/android/upload-keystore.jks
+**/android/*.keystore
 
 # Logs and databases
 *.log

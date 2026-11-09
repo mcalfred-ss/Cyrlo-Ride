@@ -76,4 +76,6 @@ Staging ops status (host, systemd, SMS, Maps): [docs/deployment/STAGING_LIVE_STA
 
 Manual deploy scripts + CI tests: [ops/deploy/README.md](ops/deploy/README.md).
 
+App Store / Play Store prep: [docs/deployment/STORE_SETUP.md](docs/deployment/STORE_SETUP.md).
+
 Auth OTP against staging is live. Prefer Android/iOS over Flutter Web unless `CORS_ORIGINS` includes your web origin. Bookings / nearby / matching client wiring is still in progress — see the API docs and architecture notes.
