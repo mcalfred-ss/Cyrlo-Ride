@@ -44,8 +44,8 @@ systemctl status cyrlo-ride-api --no-pager
 | Local SSH helper (Windows) | `ops/deploy/deploy-staging.ps1` |
 | Smoke checks | `ops/deploy/smoke-staging.sh` |
 | Docs | `ops/deploy/README.md` |
-| CI (test/typecheck) | `.github/workflows/ci.yml` |
-| CD (manual staging deploy) | `.github/workflows/deploy-staging.yml` |
+| CI (test/typecheck only) | `.github/workflows/ci.yml` |
+| CD | none — always manual via deploy scripts above |
 
 ```bash
 bash /var/www/cyrlo-ride-api/app/ops/deploy/deploy-staging.sh

@@ -264,7 +264,7 @@ Flutter integration can proceed earlier against staging with test keys and an ex
 | Unit | `cyrlo-ride-api.service` |
 | Env | `/etc/cyrlo-ride/ride.env` + `/etc/cyrlo-ride/providers.env` |
 | Deploy script | `ops/deploy/deploy-staging.sh` (see `ops/deploy/README.md`) |
-| CI / CD | `.github/workflows/ci.yml` + manual `deploy-staging.yml` |
+| CI | `.github/workflows/ci.yml` (tests only; deploy stays manual) |
 | Backup wrapper | `/usr/local/sbin/cyrlo-ride-backup.sh` |
 | Backup cron | `/etc/cron.d/cyrlo-ride-backup` (02:15 UTC daily) |
 | Backup dir | `/var/backups/cyrlo-ride` |
