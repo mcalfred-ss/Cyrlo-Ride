@@ -43,13 +43,13 @@ Do not encode this table by adding flags to `shouldRefundBookingFee` or `shouldR
 
 Manual Ghana Card review is required. The rider submits documents, waits in `PENDING_REVIEW`, and an Operations Admin or Super Admin approves or rejects. Only approved riders go online. The card number is encrypted. Images are not stored in PostgreSQL. Ordinary rider APIs do not return identity data.
 
-Launch vehicles are tricycle (primary) and car. Motorcycle is excluded. The current okada, pragya, and aboboyaa UI is not the launch catalog.
+Launch vehicles are Okada, Pragya, and Aboboyaa (`OKADA` \| `PRAGYA` \| `ABOBOYAA`). There is no car category.
 
 Display availability is `OFFLINE`, `ONLINE`, `OFFER_PENDING`, `ON_TRIP`, or `SUSPENDED`. Only offline and online are rider intent. The others are derived. A rider cannot use the normal offline control during `ACCEPTED` or `IN_PROGRESS`. Suspension blocks offers and online availability, keeps the token balance, and requires a reason plus an audit row from Operations Admin or Super Admin.
 
 ## Zones and pilot
 
-Administrative area: Atwima Kwanwoma District, Ashanti Region. Pilot operations: Ahenema Kokoben and selected covered subareas, about 20 verified tricycle riders, cars allowed, closed passenger list. Polygons must be sourced before activation. They are not in this repository. Each zone approval is separate. Deactivating a zone keeps historical bookings.
+Administrative area: Atwima Kwanwoma District, Ashanti Region. Pilot operations: Ahenema Kokoben and selected covered subareas, about 20 verified Pragya/Okada riders, closed passenger list. Polygons must be sourced before activation. They are not in this repository. Each zone approval is separate. Deactivating a zone keeps historical bookings.
 
 ## Staff
 

@@ -106,7 +106,7 @@ describe('matching postgres concurrency', () => {
               availability: 'AVAILABLE',
               vehicles: {
                 create: {
-                  category: 'TRICYCLE',
+                  category: 'PRAGYA',
                   registrationNumber: `REG-${i}-${Date.now()}`,
                   make: 'Test',
                   model: 'Trike',
@@ -162,7 +162,7 @@ describe('matching postgres concurrency', () => {
         passengerId: passenger.id,
         serviceZoneId: zone.id,
         status: 'SEARCHING',
-        vehicleCategory: 'TRICYCLE',
+        vehicleCategory: 'PRAGYA',
         pickupLatitude: 6.685,
         pickupLongitude: -1.625,
         destinationLatitude: 6.686,
@@ -269,7 +269,7 @@ describe('matching postgres concurrency', () => {
             availability: 'AVAILABLE',
             vehicles: {
               create: {
-                category: 'TRICYCLE',
+                category: 'PRAGYA',
                 registrationNumber: `SOLO-${Date.now()}`,
                 make: 'Test',
                 model: 'Trike',
@@ -320,7 +320,7 @@ describe('matching postgres concurrency', () => {
         passengerId: passenger.id,
         serviceZoneId: zone.id,
         status: 'SEARCHING',
-        vehicleCategory: 'TRICYCLE',
+        vehicleCategory: 'PRAGYA',
         pickupLatitude: 6.685,
         pickupLongitude: -1.625,
         destinationLatitude: 6.686,

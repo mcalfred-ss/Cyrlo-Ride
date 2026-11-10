@@ -7,7 +7,7 @@ export const createBookingSchema = z
     destination: coordinatesSchema,
     pickupLabel: z.string().trim().min(1).max(200).optional(),
     destinationLabel: z.string().trim().min(1).max(200).optional(),
-    vehicleCategory: z.enum(['TRICYCLE', 'CAR']),
+    vehicleCategory: z.enum(['OKADA', 'PRAGYA', 'ABOBOYAA']),
   })
   .strict();
 

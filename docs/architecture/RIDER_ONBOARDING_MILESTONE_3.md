@@ -10,8 +10,7 @@ Base: `/api/v1/riders` — Bearer `PASSENGER` or `RIDER`, active account.
 | PATCH | `/onboarding` | Update draft/rejected application fields |
 | GET | `/onboarding` | Own application (no plaintext Ghana Card) |
 | POST | `/onboarding/submit` | Submit when complete → `PENDING_REVIEW` |
-| POST | `/vehicles` | Register TRICYCLE or CAR |
-| PATCH | `/vehicles/:vehicleId` | Edit non-approved vehicle |
+| POST | `/vehicles` | Register OKADA, PRAGYA, or ABOBOYAA || PATCH | `/vehicles/:vehicleId` | Edit non-approved vehicle |
 | POST | `/documents` | multipart `file` + `kind` (+ `vehicleId` when needed) |
 
 ## Endpoints (operations)

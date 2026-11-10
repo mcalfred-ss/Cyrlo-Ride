@@ -2,7 +2,7 @@
 
 Approved target for the local-ride pilot. This document is the product source of truth among the architecture docs. It is not a description of the running code.
 
-**Current implementation** is called out where a reader could confuse it with the target. Business routes are not mounted. The Prisma booking enum is still `REQUESTED`, `ACCEPTED`, `CANCELLED`, `COMPLETED`, `EXPIRED`. The only staff role in code is `ADMIN`. The Flutter vehicle choices are okada, pragya, and aboboyaa. None of those are the approved target.
+**Current implementation** is called out where a reader could confuse it with the target. Where a note is stale, prefer the confirmed product rules in this file and the live code.
 
 Nothing in this file authorizes a migration or a code change by itself.
 
@@ -83,19 +83,19 @@ Ghana Card verification is manual and mandatory.
 - Ordinary rider and user APIs return verification status only. They do not return the number, ciphertext, storage key, or a document URL.
 - Decrypt and document open are audited without copying the secret into the audit payload.
 
-**Confirmed** launch vehicles:
+**Confirmed** launch vehicles (Ghana product names = API codes):
 
-| Category | Launch |
-| --- | --- |
-| Tricycle | Primary |
-| Car | Supported |
-| Motorcycle | Excluded |
+| Category code | Product name | Launch |
+| --- | --- | --- |
+| `OKADA` | Okada | Supported |
+| `PRAGYA` | Pragya | Supported |
+| `ABOBOYAA` | Aboboyaa | Supported |
 
-The Flutter draft's okada, pragya, and aboboyaa choices are not the launch catalog. Aboboyaa is disabled in the current UI and is not the approved tricycle category. The target category codes are `TRICYCLE` and `CAR`.
+There is no separate “car” or generic “tricycle” category. Do not use `TRICYCLE`, `CAR`, or `MOTORCYCLE` as category codes.
 
-**Confirmed** vehicle facts on the application: category, registration, make and model, colour, capacity, photographs, and the required vehicle documents.
+**Confirmed** capacity limits: Okada max **1** passenger seat; Pragya and Aboboyaa max **4**.
 
-**Current implementation.** Onboarding Zod fields are `fullName`, `vehicleRegistration`, and `vehicleDescription` only. The service throws `NOT_IMPLEMENTED`.
+**Confirmed** vehicle facts on the application: category (`OKADA` \| `PRAGYA` \| `ABOBOYAA`), registration, make and model, colour, capacity, photographs, and the required vehicle documents.
 
 **Confirmed.** Object storage vendor is **Bunny.net** (Edge Storage uploads + CDN Advanced Token Authentication for short-lived download URLs). PostgreSQL still stores `storage_key` only.
 
@@ -314,7 +314,7 @@ The current migration is `20261106170000_init`. Do not treat this section as a m
 | `token_ledger_entries.reverses_entry_id` | Token refund points at the debit |
 | Foreign key from ledger `payment_id` to `payments` | Purchase credits cannot name a missing payment |
 | `rider_identity_secrets` | Ciphertext, nonce, key version. No plaintext card number |
-| Vehicle columns or a `rider_vehicles` row | Category `TRICYCLE` or `CAR`, registration, make and model, colour, capacity |
+| Vehicle columns or a `rider_vehicles` row | Category `OKADA`, `PRAGYA`, or `ABOBOYAA`, registration, make and model, colour, capacity |
 | Vehicle photographs and documents | `storage_key` rows, bytes outside Postgres |
 | `rider_zone_approvals` | Separate approval per rider per zone |
 | Zone kind or parent | Administrative district versus activated subarea |
@@ -342,7 +342,7 @@ Keep the existing non-negative balance checks and the one-successful-fee, one-de
 - `POST /bookings/{id}/acknowledge` records passenger acknowledgement and does not change status.
 - `POST /bookings/{id}/disputes` is allowed for the passenger or the assigned rider for 24 hours after `COMPLETED` or `CANCELLED`.
 - Availability body is intent `OFFLINE` or `ONLINE`. The response includes the derived display state. Clients do not send `BUSY`, `ON_TRIP`, or `SUSPENDED`.
-- Onboarding accepts vehicle category, registration, make and model, colour, capacity, and document storage keys after upload. Category `MOTORCYCLE` is rejected.
+- Onboarding accepts vehicle category (`OKADA` \| `PRAGYA` \| `ABOBOYAA`), registration, make and model, colour, capacity, and document storage keys after upload. Legacy `TRICYCLE` / `CAR` codes are rejected.
 - Token purchase accepts only `STARTER`, `STANDARD`, or `PRO` until the catalog rows change.
 - Staff routes require a database grant, not merely `role === ADMIN`.
 - Zone writes require Super Admin or Operations Admin.
@@ -369,7 +369,7 @@ Socket event names already shared by the app and `events.ts` stay. Payloads gain
 **Confirmed.**
 
 - Geography: Atwima Kwanwoma District as the administrative area. Operations start in Ahenema Kokoben and selected covered subareas. Polygons are not yet sourced.
-- Recruitment target: 20 verified tricycle riders. Cars may also be approved. Motorcycles are out.
+- Recruitment target: 20 verified Okada / Pragya / Aboboyaa riders.
 - Audience: a closed set of selected passengers before any public launch.
 - Tokens: the provisional catalog in section 9.
 - Fee: GH₵1.00. Transport fare remains off-platform.
@@ -386,7 +386,7 @@ These phases order future work. They do not start it.
 4. Paystack fee and token purchase, webhook event rows, immutable refunds, locked wallet.
 5. Search batches, single-winner accept, unpaid 10-minute timeout, search 5-minute timeout.
 6. `IN_PROGRESS`, completion, acknowledgement, trip GPS log, 24-hour disputes.
-7. Flutter: remove local OTP `123456`, replace okada/pragya/aboboyaa with tricycle and car, consume `cyrlo_maps` at the pinned commit, and follow server status and derived availability.
+7. Flutter: remove local OTP `123456`, keep vehicle choices as Okada / Pragya / Aboboyaa (`OKADA` \| `PRAGYA` \| `ABOBOYAA`), consume `cyrlo_maps` at the pinned commit, and follow server status and derived availability.
 8. Notifications after commit: push, in-app, SMS for OTP.
 
 Zone polygons are an operational input to phase 5, not a guess in the repository.
@@ -398,7 +398,7 @@ Zone polygons are an operational input to phase 5, not a guess in the repository
 - Whether a rider may go offline during `OFFER_PENDING`.
 - MFA method.
 - Encryption key manager, identity retention period.
-- Vehicle document checklist beyond photographs, and capacity limits.
+- Vehicle document checklist beyond photographs.
 - Which SMS messages are critical besides OTP. Push vendor.
 - Sourced and verified polygons, and the subarea list besides Ahenema Kokoben.
 - How long trip GPS points are kept after the dispute window.

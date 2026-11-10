@@ -28,7 +28,7 @@ Exit: a restarted app restores the session, a wrong code fails, and a phone cann
 
 ## 3. Rider onboarding and admin review
 
-- `POST /riders/onboarding` writes the profile, an empty wallet, and the launch vehicle (`TRICYCLE` or `CAR`). Motorcycle is rejected. The current three-string schema is not the target.
+- `POST /riders/onboarding` writes the profile, an empty wallet, and the launch vehicle (`OKADA`, `PRAGYA`, or `ABOBOYAA`).
 - Document upload waits on the object-storage choice. Images do not go into PostgreSQL. The Ghana Card number is encrypted, never plaintext.
 - `POST /admin/riders/{id}/review` and suspend, with audit rows.
 - The approval screen leaves the waiting state because the API says `APPROVED`, not because a local method was called.

@@ -114,7 +114,7 @@ See `docs/architecture/RIDER_ONBOARDING_MILESTONE_3.md`.
 | --- | --- | --- | --- |
 | POST/PATCH/GET | `/riders/onboarding` | PASSENGER or RIDER | Draft application; Ghana Card encrypted |
 | POST | `/riders/onboarding/submit` | PASSENGER or RIDER | → `PENDING_REVIEW` |
-| POST/PATCH | `/riders/vehicles` | PASSENGER or RIDER | `TRICYCLE` \| `CAR` only |
+| POST/PATCH | `/riders/vehicles` | PASSENGER or RIDER | `OKADA` \| `PRAGYA` \| `ABOBOYAA` |
 | POST | `/riders/documents` | PASSENGER or RIDER | multipart upload to private R2 |
 | GET/POST | `/admin/riders/...` | Ops (+ MFA for identity) | Review / signed docs / Ghana Card reveal |
 

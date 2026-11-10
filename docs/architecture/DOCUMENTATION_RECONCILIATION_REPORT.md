@@ -45,7 +45,7 @@ Not rewritten line by line: `CYRLO_MAPS_INTEGRATION.md` (already pins `d299ede` 
 | Rider cannot complete: token stays spent | Fee refund and token refund |
 | `IN_PROGRESS` was unresolved and omitted | `ACCEPTED → IN_PROGRESS → COMPLETED` |
 | Passenger might complete the trip | Only the assigned rider starts and completes. Passenger confirmation is an acknowledgement |
-| Okada, pragya, aboboyaa | Tricycle primary, car supported, motorcycle excluded |
+| Okada, pragya, aboboyaa | Okada, Pragya, Aboboyaa (`OKADA` \| `PRAGYA` \| `ABOBOYAA`) |
 | Token catalog unresolved | `STARTER`, `STANDARD`, `PRO` as provisional server config |
 | One `ADMIN` role as the staff model | Four dashboard roles, explicit refund permission, MFA, no self-promotion |
 | `shouldRefundBookingFee` / `shouldRefundToken` as the policy | Replace them. Do not add flags |
@@ -56,7 +56,7 @@ Not rewritten line by line: `CYRLO_MAPS_INTEGRATION.md` (already pins `d299ede` 
 
 ## Confirmed decisions incorporated
 
-Booking fee 100 pesewas. Transport fare off-platform. Unpaid timeout 10 minutes. Search 5 minutes, starting at `SEARCHING` only. Radius 5 km straight line. GPS 30 seconds. Batches of at most 3, then further batches. Rejected and timed-out riders are not re-offered the same booking. First valid accept wins in one transaction. One token only after assignment. Search expiry stops outstanding offers. Status list including `IN_PROGRESS`. Refund matrix in the master spec. Immutable originals and separate refund records. Manual Ghana Card review. Encrypted identity, private object storage, no identity fields on ordinary rider APIs. Tricycle and car. Derived availability. Zone model for Atwima Kwanwoma and a closed Ahenema Kokoben pilot, without invented polygons. 24-hour disputes. Push, in-app, and SMS for OTP. Notifications outside the money transaction. HS256, active-user checks, ownership checks, webhook event rows, status history, wallet row locks.
+Booking fee 100 pesewas. Transport fare off-platform. Unpaid timeout 10 minutes. Search 5 minutes, starting at `SEARCHING` only. Radius 5 km straight line. GPS 30 seconds. Batches of at most 3, then further batches. Rejected and timed-out riders are not re-offered the same booking. First valid accept wins in one transaction. One token only after assignment. Search expiry stops outstanding offers. Status list including `IN_PROGRESS`. Refund matrix in the master spec. Immutable originals and separate refund records. Manual Ghana Card review. Encrypted identity, private object storage, no identity fields on ordinary rider APIs. Okada, Pragya, Aboboyaa. Derived availability. Zone model for Atwima Kwanwoma and a closed Ahenema Kokoben pilot, without invented polygons. 24-hour disputes. Push, in-app, and SMS for OTP. Notifications outside the money transaction. HS256, active-user checks, ownership checks, webhook event rows, status history, wallet row locks.
 
 ## Remaining unresolved decisions
 

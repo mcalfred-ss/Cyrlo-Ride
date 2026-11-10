@@ -126,14 +126,14 @@ describe('booking payment postgres flows', () => {
       bookings.create(passenger.id, {
         pickup: { latitude: 6.7, longitude: -1.625 },
         destination: { latitude: 6.701, longitude: -1.626 },
-        vehicleCategory: 'TRICYCLE',
+        vehicleCategory: 'PRAGYA',
       }),
     ).rejects.toMatchObject({ message: /outside the active service area/ });
 
     const created = (await bookings.create(passenger.id, {
       pickup: { latitude: 6.685, longitude: -1.625 },
       destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'CAR',
+      vehicleCategory: 'OKADA',
       pickupLabel: 'In zone',
     })) as {
       id: string;
@@ -189,7 +189,7 @@ describe('booking payment postgres flows', () => {
     const lateBooking = (await bookings.create(passenger.id, {
       pickup: { latitude: 6.685, longitude: -1.625 },
       destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'TRICYCLE',
+      vehicleCategory: 'PRAGYA',
     })) as { id: string; payment: { reference: string } };
 
     now = new Date('2026-11-07T12:20:00.000Z');
@@ -273,7 +273,7 @@ describe('booking payment postgres flows', () => {
     const created = (await bookings.create(passenger.id, {
       pickup: { latitude: 6.685, longitude: -1.625 },
       destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'TRICYCLE',
+      vehicleCategory: 'PRAGYA',
     })) as { id: string; payment: { reference: string } };
 
     const eventDataId = `crash-recovery-${created.id}`;
@@ -362,7 +362,7 @@ describe('booking payment postgres flows', () => {
     const created = (await bookings.create(passenger.id, {
       pickup: { latitude: 6.685, longitude: -1.625 },
       destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'TRICYCLE',
+      vehicleCategory: 'PRAGYA',
     })) as { id: string; payment: { reference: string } };
 
     // Simulate crash after payment SUCCESS, before SEARCHING.
@@ -456,7 +456,7 @@ describe('booking payment postgres flows', () => {
     const created = (await bookings.create(passenger.id, {
       pickup: { latitude: 6.685, longitude: -1.625 },
       destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'TRICYCLE',
+      vehicleCategory: 'PRAGYA',
     })) as { id: string; payment: { reference: string } };
 
     const body = Buffer.from(

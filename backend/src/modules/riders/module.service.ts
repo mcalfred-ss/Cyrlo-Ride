@@ -887,8 +887,8 @@ export class RidersServiceImpl implements RidersService {
   }
 }
 
-function assertCapacity(category: 'TRICYCLE' | 'CAR', capacity: number) {
-  const max = category === 'TRICYCLE' ? 4 : 7;
+function assertCapacity(category: 'OKADA' | 'PRAGYA' | 'ABOBOYAA', capacity: number) {
+  const max = category === 'OKADA' ? 1 : 4;
   if (capacity < 1 || capacity > max) {
     throw new AppError({
       status: 400,

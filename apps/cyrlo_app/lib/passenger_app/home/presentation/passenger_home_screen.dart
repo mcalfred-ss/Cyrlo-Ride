@@ -10,10 +10,10 @@ import '../../../features/auth/application/signup_controller.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/ride_session/show_passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
+import '../../../shared/widgets/cyrlo_button.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
-import '../../../shared/widgets/cyrlo_button.dart';
 import 'live_booking_flow.dart';
 import 'nearby_rider_card.dart';
 import 'notification_bell_button.dart';
@@ -64,7 +64,7 @@ class PassengerHomeScreen extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Text(
                         riders.isEmpty
-                            ? 'Request a ride — we match a nearby rider after payment'
+                            ? 'Book an Okada, Pragya, or Aboboyaa'
                             : 'Riders near you right now',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
@@ -83,100 +83,96 @@ class PassengerHomeScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: AppSpacing.lg),
-            Row(
-              children: [
-                Text(
-                  'Available nearby',
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    color: AppColors.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: AppColors.brandLight,
-                    borderRadius: BorderRadius.circular(AppRadii.pill),
-                  ),
-                  child: Text(
-                    '$availableCount online',
-                    style: theme.textTheme.labelMedium?.copyWith(
-                      color: AppColors.onBrandLight,
+            CyrloButton(
+              key: const Key('request-live-ride'),
+              label: 'Book a ride',
+              onPressed: () => startLiveBookingFlow(
+                context: context,
+                ref: ref,
+              ),
+            ),
+            if (shareContact) ...[
+              const SizedBox(height: AppSpacing.md),
+              ActiveContactCard(
+                title: '${activeRequest!.kindLabel} requested',
+                subtitle:
+                    'Your rider’s number is shared for this pickup. Open Map to mark where they should meet you.',
+                phoneE164: activeRequest.riderPhoneE164,
+                contactLabel: 'Rider number',
+                onCancel: () {
+                  ref.read(activeRideRequestProvider.notifier).markCancelled();
+                  ref.read(selectedNearbyRiderProvider.notifier).clear();
+                },
+              ),
+            ],
+            if (riders.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Row(
+                children: [
+                  Text(
+                    'Available nearby',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: AppColors.textPrimary,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Expanded(
-              child: ListView(
-                children: [
-                  CyrloButton(
-                    key: const Key('request-live-ride'),
-                    label: 'Request a ride',
-                    onPressed: () => startLiveBookingFlow(
-                      context: context,
-                      ref: ref,
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: AppColors.brandLight,
+                      borderRadius: BorderRadius.circular(AppRadii.pill),
+                    ),
+                    child: Text(
+                      '$availableCount online',
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        color: AppColors.onBrandLight,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  if (shareContact) ...[
-                    ActiveContactCard(
-                      title: '${activeRequest!.kindLabel} requested',
-                      subtitle:
-                          'Rider number is shared for this pickup. Open Map to mark where they should meet you. The rider ends the trip after drop-off.',
-                      phoneE164: activeRequest.riderPhoneE164,
-                      contactLabel: 'Rider number',
-                      onCancel: () {
-                        ref.read(activeRideRequestProvider.notifier).markCancelled();
-                        ref.read(selectedNearbyRiderProvider.notifier).clear();
-                      },
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                  ],
-                  if (riders.isEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: AppSpacing.sm),
-                      child: Text(
-                        'Live nearby markers are not available yet. Matching still finds a rider after you pay.',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
-                          height: 1.4,
-                        ),
-                      ),
-                    ),
-                  ...[
-                    for (var i = 0; i < riders.length; i++) ...[
-                      NearbyRiderCard(
-                        key: Key('nearby-rider-${riders[i].id}'),
-                        rider: riders[i],
-                        onRequest: () {
-                          startRequestRideFlow(
-                            context: context,
-                            ref: ref,
-                            rider: riders[i],
-                          );
-                        },
-                        onOpenMap: () {
-                          ref
-                              .read(selectedNearbyRiderProvider.notifier)
-                              .select(riders[i]);
-                          context.go(AppRoutes.passengerMap);
-                        },
-                        onOpenProfile: () {
-                          context.push(
-                            AppRoutes.passengerRiderDetailPath(riders[i].id),
-                          );
-                        },
-                      ),
-                      if (i != riders.length - 1)
-                        const SizedBox(height: AppSpacing.sm),
-                    ],
-                  ],
                 ],
               ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            Expanded(
+              child: riders.isEmpty
+                  ? const SizedBox.shrink()
+                  : ListView(
+                      children: [
+                        for (var i = 0; i < riders.length; i++) ...[
+                          NearbyRiderCard(
+                            key: Key('nearby-rider-${riders[i].id}'),
+                            rider: riders[i],
+                            onRequest: () {
+                              startRequestRideFlow(
+                                context: context,
+                                ref: ref,
+                                rider: riders[i],
+                              );
+                            },
+                            onOpenMap: () {
+                              ref
+                                  .read(selectedNearbyRiderProvider.notifier)
+                                  .select(riders[i]);
+                              context.go(AppRoutes.passengerMap);
+                            },
+                            onOpenProfile: () {
+                              context.push(
+                                AppRoutes.passengerRiderDetailPath(
+                                  riders[i].id,
+                                ),
+                              );
+                            },
+                          ),
+                          if (i != riders.length - 1)
+                            const SizedBox(height: AppSpacing.sm),
+                        ],
+                      ],
+                    ),
             ),
           ],
         ),

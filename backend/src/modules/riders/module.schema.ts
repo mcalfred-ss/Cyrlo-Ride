@@ -1,6 +1,10 @@
 import { z } from 'zod';
 
-export const vehicleCategorySchema = z.enum(['TRICYCLE', 'CAR']);
+export const vehicleCategorySchema = z.enum(['OKADA', 'PRAGYA', 'ABOBOYAA']);
+
+export function maxCapacityForCategory(category: z.infer<typeof vehicleCategorySchema>): number {
+  return category === 'OKADA' ? 1 : 4;
+}
 
 export const startRiderOnboardingSchema = z
   .object({
@@ -41,7 +45,7 @@ export const createVehicleSchema = z
   })
   .strict()
   .superRefine((value, ctx) => {
-    const max = value.category === 'TRICYCLE' ? 4 : 7;
+    const max = maxCapacityForCategory(value.category);
     const min = 1;
     if (value.capacity < min || value.capacity > max) {
       ctx.addIssue({

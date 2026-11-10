@@ -26,23 +26,33 @@ class DriverTypeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           ChoiceCard(
-            key: const Key('driver-tricycle'),
-            illustrationAsset: AppIllustrations.vehiclePragya,
-            title: 'Tricycle',
-            subtitle: 'Pragya / three-wheeler',
+            key: const Key('driver-okada'),
+            illustrationAsset: AppIllustrations.vehicleOkada,
+            title: 'Okada',
+            subtitle: 'Motorcycle',
             onTap: () => ref
                 .read(signupProvider.notifier)
-                .chooseVehicleCategory(VehicleCategory.tricycle),
+                .chooseVehicleCategory(VehicleCategory.okada),
           ),
           const SizedBox(height: AppSpacing.sm),
           ChoiceCard(
-            key: const Key('driver-car'),
-            illustrationAsset: AppIllustrations.vehicleOkada,
-            title: 'Car',
-            subtitle: 'Passenger car',
+            key: const Key('driver-pragya'),
+            illustrationAsset: AppIllustrations.vehiclePragya,
+            title: 'Pragya',
+            subtitle: 'Three-wheeler',
             onTap: () => ref
                 .read(signupProvider.notifier)
-                .chooseVehicleCategory(VehicleCategory.car),
+                .chooseVehicleCategory(VehicleCategory.pragya),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          ChoiceCard(
+            key: const Key('driver-aboboyaa'),
+            illustrationAsset: AppIllustrations.vehicleAboboyaa,
+            title: 'Aboboyaa',
+            subtitle: 'Cargo three-wheeler',
+            onTap: () => ref
+                .read(signupProvider.notifier)
+                .chooseVehicleCategory(VehicleCategory.aboboyaa),
           ),
           const SizedBox(height: AppSpacing.lg),
           Center(

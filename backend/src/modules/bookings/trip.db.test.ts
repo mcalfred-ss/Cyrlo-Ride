@@ -44,7 +44,7 @@ async function seedAcceptedBooking() {
       passengerId: passenger.id,
       riderId: rider.id,
       status: 'ACCEPTED',
-      vehicleCategory: 'TRICYCLE',
+      vehicleCategory: 'PRAGYA',
       pickupLatitude: 6.685,
       pickupLongitude: -1.625,
       destinationLatitude: 6.686,

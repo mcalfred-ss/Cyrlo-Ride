@@ -142,7 +142,7 @@ Bearer, role `RIDER`. Body:
 
 Proposed `data`: `{ "verificationStatus": "PENDING_REVIEW", "availability": "OFFLINE" }`.
 
-This schema does not accept vehicle category, make, colour, capacity, or document keys. The current UI collects okada, pragya, or aboboyaa and does not send them. **Target:** `TRICYCLE` or `CAR` only. Motorcycle is excluded. See `CYRLO_RIDE_MASTER_SPEC.md`.
+Vehicle onboarding accepts category `OKADA` \| `PRAGYA` \| `ABOBOYAA`, registration, make, model, colour, capacity, and document keys. See `CYRLO_RIDE_MASTER_SPEC.md`.
 
 ### `POST /riders/availability`
 

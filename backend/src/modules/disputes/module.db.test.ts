@@ -45,7 +45,7 @@ async function seedCompletedBooking(completedAt = new Date()) {
       passengerId: passenger.id,
       riderId: rider.id,
       status: 'COMPLETED',
-      vehicleCategory: 'CAR',
+      vehicleCategory: 'OKADA',
       pickupLatitude: 6.68,
       pickupLongitude: -1.62,
       destinationLatitude: 6.69,

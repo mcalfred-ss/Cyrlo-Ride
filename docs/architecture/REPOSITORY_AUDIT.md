@@ -1,6 +1,6 @@
 # Cyrlo Ride repository audit
 
-This audit describes the repository as inspected. It is not the approved product target. Launch vehicles, booking statuses, staff roles, and refunds are in `CYRLO_RIDE_MASTER_SPEC.md`. The okada, pragya, and aboboyaa choices below are the current Flutter draft only.
+This audit describes the repository as inspected at the time it was written. Launch vehicles, booking statuses, staff roles, and refunds are in `CYRLO_RIDE_MASTER_SPEC.md` (Okada / Pragya / Aboboyaa).
 
 Inspection date: 2026-11-06. Scope is the working tree on `main` at `83597ad` (`Center the signup screens on shared cards and accept 123456 as the test code`). This document records what is in the repository. It does not describe a target that has not been built.
 

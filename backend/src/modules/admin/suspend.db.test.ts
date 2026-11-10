@@ -87,7 +87,7 @@ describe('admin suspend postgres consistency', () => {
         passengerId,
         riderId,
         status: 'IN_PROGRESS',
-        vehicleCategory: 'CAR',
+        vehicleCategory: 'OKADA',
         pickupLatitude: 5.6,
         pickupLongitude: -0.18,
         destinationLatitude: 5.61,

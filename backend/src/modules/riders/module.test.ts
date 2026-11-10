@@ -58,10 +58,10 @@ describe('rider eligibility', () => {
 });
 
 describe('vehicle category validation', () => {
-  it('accepts TRICYCLE and CAR and rejects unsupported categories', () => {
+  it('accepts OKADA, PRAGYA, ABOBOYAA and rejects legacy or over-capacity values', () => {
     expect(
       createVehicleSchema.safeParse({
-        category: 'TRICYCLE',
+        category: 'PRAGYA',
         registrationNumber: 'GR-1234-25',
         make: 'TVS',
         model: 'King',
@@ -78,15 +78,45 @@ describe('vehicle category validation', () => {
         colour: 'Red',
         capacity: 1,
       }).success,
+    ).toBe(true);
+    expect(
+      createVehicleSchema.safeParse({
+        category: 'ABOBOYAA',
+        registrationNumber: 'AB-1',
+        make: 'Cargo',
+        model: 'Z',
+        colour: 'Blue',
+        capacity: 4,
+      }).success,
+    ).toBe(true);
+    expect(
+      createVehicleSchema.safeParse({
+        category: 'TRICYCLE',
+        registrationNumber: 'GR-1',
+        make: 'TVS',
+        model: 'King',
+        colour: 'Yellow',
+        capacity: 3,
+      }).success,
     ).toBe(false);
     expect(
       createVehicleSchema.safeParse({
         category: 'CAR',
-        registrationNumber: 'GR-1',
+        registrationNumber: 'GR-2',
         make: 'Toyota',
         model: 'Corolla',
         colour: 'Silver',
-        capacity: 20,
+        capacity: 4,
+      }).success,
+    ).toBe(false);
+    expect(
+      createVehicleSchema.safeParse({
+        category: 'OKADA',
+        registrationNumber: 'M-2',
+        make: 'X',
+        model: 'Y',
+        colour: 'Red',
+        capacity: 2,
       }).success,
     ).toBe(false);
   });
@@ -145,7 +175,7 @@ describe('rider onboarding service', () => {
     });
 
     const vehicle = (await service.createVehicle(userId, {
-      category: 'TRICYCLE',
+      category: 'PRAGYA',
       registrationNumber: 'GR-555-25',
       make: 'Bajaj',
       model: 'RE',
@@ -247,7 +277,7 @@ describe('rider onboarding service', () => {
     await repo.updateProfile(userId, { verificationStatus: 'APPROVED' });
     await repo.createVehicle({
       riderId: userId,
-      category: 'CAR',
+      category: 'OKADA',
       registrationNumber: 'GR-1',
       make: 'Toyota',
       model: 'Yaris',
@@ -278,7 +308,7 @@ describe('rider onboarding service', () => {
       ghanaCardNumber: 'GHA-987654321-0',
     });
     const vehicle = (await service.createVehicle(a, {
-      category: 'CAR',
+      category: 'OKADA',
       registrationNumber: 'GR-9',
       make: 'Honda',
       model: 'Fit',

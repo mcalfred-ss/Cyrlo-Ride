@@ -36,8 +36,8 @@ class AccountScreen extends ConsumerWidget {
 
   String _driverLabel(DriverKind? kind) {
     return switch (kind) {
-      DriverKind.okada => 'Car',
-      DriverKind.pragya => 'Tricycle',
+      DriverKind.okada => 'Okada',
+      DriverKind.pragya => 'Pragya',
       DriverKind.aboboyaa => 'Aboboyaa',
       null => '—',
     };
@@ -45,12 +45,7 @@ class AccountScreen extends ConsumerWidget {
 
   String _vehicleCategoryLabel(SignupDraft draft) {
     final category = draft.vehicleCategory;
-    if (category != null) {
-      return switch (category) {
-        VehicleCategory.tricycle => 'Tricycle',
-        VehicleCategory.car => 'Car',
-      };
-    }
+    if (category != null) return category.label;
     return _driverLabel(draft.driverKind);
   }
 

@@ -49,8 +49,8 @@ class ActiveRideRequest {
   }
 
   String get kindLabel => switch (kind) {
-        DriverKind.okada => 'Car',
-        DriverKind.pragya => 'Tricycle',
+        DriverKind.okada => 'Okada',
+        DriverKind.pragya => 'Pragya',
         DriverKind.aboboyaa => 'Aboboyaa',
       };
 
@@ -103,8 +103,9 @@ class ActiveRideRequest {
   static DriverKind kindFromCategory(String? category) {
     final parsed = VehicleCategoryApi.fromApi(category);
     return switch (parsed) {
-      VehicleCategory.car => DriverKind.okada,
-      VehicleCategory.tricycle || null => DriverKind.pragya,
+      VehicleCategory.okada => DriverKind.okada,
+      VehicleCategory.aboboyaa => DriverKind.aboboyaa,
+      VehicleCategory.pragya || null => DriverKind.pragya,
     };
   }
 

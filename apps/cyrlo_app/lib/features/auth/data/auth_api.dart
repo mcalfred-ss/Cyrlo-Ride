@@ -97,6 +97,7 @@ class LiveAuthApi implements AuthApi {
       final response = await _client.dio.post(
         ApiPaths.refreshSession,
         data: {'refreshToken': refreshToken},
+        options: Options(extra: const {'skipAuthRefresh': true}),
       );
       final data = _dataMap(response.data);
       // Refresh may omit user; caller merges with existing session user.

@@ -28,7 +28,8 @@ const envSchema = z
     JWT_ACCESS_SECRET: z.string().min(32),
     JWT_REFRESH_SECRET: z.string().min(32),
     JWT_ACCESS_TTL_SECONDS: z.coerce.number().int().positive().default(900),
-    JWT_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(2_592_000),
+    // 90 days — riders/passengers stay signed in until they log out or the refresh lapses.
+    JWT_REFRESH_TTL_SECONDS: z.coerce.number().int().positive().default(7_776_000),
     JWT_ISSUER: z.string().min(1).default('cyrlo-ride'),
     JWT_AUDIENCE: z.string().min(1).default('cyrlo-ride-clients'),
     OTP_TTL_SECONDS: z.coerce.number().int().positive().default(300),

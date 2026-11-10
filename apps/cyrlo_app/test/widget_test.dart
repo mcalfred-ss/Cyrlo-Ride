@@ -109,11 +109,7 @@ void main() {
 
     await verifyOtpAndContinue(tester);
 
-    await tester.tap(find.byKey(const Key('driver-aboboyaa')));
-    await tester.pumpAndSettle();
-    expect(find.text('What do you drive?'), findsOneWidget);
-
-    await tester.tap(find.byKey(const Key('driver-okada')));
+    await tester.tap(find.byKey(const Key('driver-pragya')));
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byKey(const Key('rider-first-name')), 'Kwame');

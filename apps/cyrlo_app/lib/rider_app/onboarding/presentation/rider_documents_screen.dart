@@ -29,7 +29,7 @@ class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
   final _makeController = TextEditingController();
   final _modelController = TextEditingController();
   final _colourController = TextEditingController();
-  final _capacityController = TextEditingController(text: '3');
+  late final TextEditingController _capacityController;
 
   final Map<RiderDocumentKind, String?> _paths = {
     for (final kind in RiderDocumentKind.values) kind: null,
@@ -37,6 +37,15 @@ class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
 
   var _submitting = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final category = ref.read(signupProvider).vehicleCategory;
+    _capacityController = TextEditingController(
+      text: '${category?.defaultCapacity ?? 3}',
+    );
+  }
 
   @override
   void dispose() {
@@ -61,7 +70,9 @@ class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
   }
 
   Future<void> _submit() async {
+    final category = ref.read(signupProvider).vehicleCategory;
     final capacity = int.tryParse(_capacityController.text.trim());
+    final maxCapacity = category?.maxCapacity ?? 4;
     final missing = RiderDocumentKind.values
         .where((kind) => (_paths[kind] ?? '').isEmpty)
         .toList();
@@ -71,6 +82,7 @@ class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
         _colourController.text.trim().isEmpty ||
         capacity == null ||
         capacity < 1 ||
+        capacity > maxCapacity ||
         missing.isNotEmpty) {
       setState(() {
         _error = missing.isNotEmpty
@@ -115,11 +127,7 @@ class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
   @override
   Widget build(BuildContext context) {
     final category = ref.watch(signupProvider).vehicleCategory;
-    final categoryLabel = switch (category) {
-      VehicleCategory.tricycle => 'Tricycle',
-      VehicleCategory.car => 'Car',
-      null => 'Vehicle',
-    };
+    final categoryLabel = category?.label ?? 'Vehicle';
 
     return FlowScaffold(
       onBack: _submitting

@@ -144,7 +144,7 @@ otp_challenges (no FK; phone + purpose)
 | `token_ledger_entries.reverses_entry_id` | Token refund → debit |
 | FK ledger `payment_id` → `payments` | Purchase integrity |
 | `rider_identity_secrets` | Encrypted Ghana Card (not plaintext column) |
-| Vehicle category / vehicle row (`TRICYCLE` \| `CAR`) | Launch vehicles |
+| Vehicle category / vehicle row (`OKADA` \| `PRAGYA` \| `ABOBOYAA`) | Launch vehicles |
 | `rider_zone_approvals` | Per-zone rider approval |
 | `trip_location_points` | Dispute GPS trail |
 | `disputes` | 24-hour window |
@@ -189,7 +189,7 @@ All business HTTP handlers. Empty routers → `404 NOT_FOUND`. Services throw `5
 | --- | --- |
 | Auth | OTP request/verify, SMS send, refresh rotation/revocation, logout, secure session persistence |
 | Users | `GET/PATCH /users/me`, ownership checks |
-| Riders | Onboarding with `TRICYCLE`/`CAR`, documents, encrypted identity, availability intent, zone approvals |
+| Riders | Onboarding with `OKADA`/`PRAGYA`/`ABOBOYAA`, documents, encrypted identity, availability intent, zone approvals |
 | Admin RBAC | Four roles, grants table, MFA, explicit refund permission, audited suspend/reinstate |
 | Bookings | Target statuses, unpaid 10-minute timeout, search 5-minute clock, history rows, start/complete/`IN_PROGRESS`, passenger ack |
 | Matching | Eligibility query, 5 km filter, successive batches ≤3, exclude prior reject/timeout, locked single-winner accept |
@@ -214,7 +214,7 @@ All business HTTP handlers. Empty routers → `404 NOT_FOUND`. Services throw `5
 | Passenger cancel after accept | Fee kept, token refunded by boolean | **No automatic** fee or token refund; support review | Blocking (financial) |
 | Staff roles | `UserRole.ADMIN` only | `SUPER_ADMIN`, `OPERATIONS_ADMIN`, `FINANCE_ADMIN`, `SUPPORT_ADMIN` via grants | Blocking |
 | Availability | Stored `OFFLINE` / `AVAILABLE` / `BUSY` | Intent offline/online; display derived (`OFFER_PENDING`, `ON_TRIP`, `SUSPENDED`) | Blocking |
-| Vehicles | Description strings; Flutter okada/pragya/aboboyaa | `TRICYCLE`, `CAR`; motorcycle excluded | Blocking |
+| Vehicles | Okada / Pragya / Aboboyaa in Flutter and API | `OKADA`, `PRAGYA`, `ABOBOYAA` | Done |
 | Ghana Card | Plaintext column present | Encrypted secret store; never plaintext; never on ordinary APIs | Security risk |
 | Token packs | Client `packCode` string; no catalog | Server-owned STARTER/STANDARD/PRO table | Blocking |
 | Matching | No radius, batch, or timeout constants beyond GPS age | 5 km, batches of 3, successive batches, 5-minute search | Blocking |
@@ -230,7 +230,7 @@ Aligned with master spec §17, adjusted for financial safety first:
 1. **Replace booking/refund policy surface** — new transition module for target statuses; new refund decision function matching the matrix; leave legacy booleans unused. Schema migration for statuses/clocks/history when approved to migrate.
 2. **Auth sessions** — OTP, refresh rotation, HS256 pin, mount `authenticate` / ownership.
 3. **Staff grants + MFA decision** — before admin review routes go live.
-4. **Identity + vehicles + zone approvals** — encrypted Ghana Card path, object storage, `TRICYCLE`/`CAR`, per-zone approval.
+4. **Identity + vehicles + zone approvals** — encrypted Ghana Card path, object storage, `OKADA`/`PRAGYA`/`ABOBOYAA`, per-zone approval.
 5. **Paystack + wallet** — webhook events, immutable payments, locked ledger, `token_packs`, fee refund table.
 6. **Matching + search** — unpaid 10-minute job, search 5-minute job, eligibility, batches (blocked on Unresolved offer timeout/sort until decided).
 7. **Trip + disputes** — `IN_PROGRESS`, completion, ack, trip GPS log, 24-hour disputes.

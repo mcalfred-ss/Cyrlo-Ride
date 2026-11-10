@@ -131,7 +131,7 @@ export class MemoryRidersRepository {
 
   async createVehicle(input: {
     riderId: string;
-    category: 'TRICYCLE' | 'CAR';
+    category: 'OKADA' | 'PRAGYA' | 'ABOBOYAA';
     registrationNumber: string;
     make: string;
     model: string;

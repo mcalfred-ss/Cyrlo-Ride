@@ -215,8 +215,9 @@ enum RiderDocumentKind {
 }
 
 enum VehicleCategory {
-  TRICYCLE
-  CAR
+  OKADA
+  PRAGYA
+  ABOBOYAA
 }
 
 enum VehicleVerificationStatus {

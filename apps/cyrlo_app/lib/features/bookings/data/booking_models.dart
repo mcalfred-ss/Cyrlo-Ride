@@ -93,7 +93,7 @@ class Booking {
     return Booking(
       id: json['id'] as String,
       status: json['status'] as String,
-      vehicleCategory: json['vehicleCategory'] as String? ?? 'TRICYCLE',
+      vehicleCategory: json['vehicleCategory'] as String? ?? 'PRAGYA',
       pickup: _point(pickup),
       destination: _point(destination),
       bookingFeePesewas: (json['bookingFeePesewas'] as num?)?.toInt() ?? 100,

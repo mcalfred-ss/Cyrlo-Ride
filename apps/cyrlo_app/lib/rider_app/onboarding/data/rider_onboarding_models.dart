@@ -1,4 +1,4 @@
-enum VehicleCategory { tricycle, car }
+enum VehicleCategory { okada, pragya, aboboyaa }
 
 enum RiderDocumentKind {
   ghanaCard,
@@ -20,14 +20,26 @@ enum RiderVerificationStatus {
 
 extension VehicleCategoryApi on VehicleCategory {
   String get apiValue => switch (this) {
-        VehicleCategory.tricycle => 'TRICYCLE',
-        VehicleCategory.car => 'CAR',
+        VehicleCategory.okada => 'OKADA',
+        VehicleCategory.pragya => 'PRAGYA',
+        VehicleCategory.aboboyaa => 'ABOBOYAA',
       };
+
+  String get label => switch (this) {
+        VehicleCategory.okada => 'Okada',
+        VehicleCategory.pragya => 'Pragya',
+        VehicleCategory.aboboyaa => 'Aboboyaa',
+      };
+
+  int get defaultCapacity => this == VehicleCategory.okada ? 1 : 3;
+
+  int get maxCapacity => this == VehicleCategory.okada ? 1 : 4;
 
   static VehicleCategory? fromApi(String? raw) {
     return switch (raw) {
-      'TRICYCLE' => VehicleCategory.tricycle,
-      'CAR' => VehicleCategory.car,
+      'OKADA' || 'CAR' => VehicleCategory.okada,
+      'PRAGYA' || 'TRICYCLE' => VehicleCategory.pragya,
+      'ABOBOYAA' => VehicleCategory.aboboyaa,
       _ => null,
     };
   }
@@ -103,7 +115,7 @@ class RiderVehicleView {
     return RiderVehicleView(
       id: json['id'] as String,
       category: VehicleCategoryApi.fromApi(json['category'] as String?) ??
-          VehicleCategory.tricycle,
+          VehicleCategory.pragya,
       registrationNumber: json['registrationNumber'] as String? ?? '',
       make: json['make'] as String? ?? '',
       model: json['model'] as String? ?? '',

@@ -369,18 +369,20 @@ class SignupController extends Notifier<SignupDraft> {
 
   void chooseVehicleCategory(VehicleCategory category) {
     final kind = switch (category) {
-      VehicleCategory.tricycle => DriverKind.pragya,
-      VehicleCategory.car => DriverKind.okada,
+      VehicleCategory.okada => DriverKind.okada,
+      VehicleCategory.pragya => DriverKind.pragya,
+      VehicleCategory.aboboyaa => DriverKind.aboboyaa,
     };
     _set(state.copyWith(vehicleCategory: category, driverKind: kind));
   }
 
   @Deprecated('Use chooseVehicleCategory')
   void chooseDriver(DriverKind kind) {
-    if (kind == DriverKind.aboboyaa) return;
-    chooseVehicleCategory(
-      kind == DriverKind.okada ? VehicleCategory.car : VehicleCategory.tricycle,
-    );
+    chooseVehicleCategory(switch (kind) {
+      DriverKind.okada => VehicleCategory.okada,
+      DriverKind.pragya => VehicleCategory.pragya,
+      DriverKind.aboboyaa => VehicleCategory.aboboyaa,
+    });
   }
 
   /// Go back from rider details to vehicle type.

@@ -31,7 +31,7 @@ describe('create booking schema', () => {
       createBookingSchema.safeParse({
         pickup: { latitude: 6.685, longitude: -1.625 },
         destination: { latitude: 6.686, longitude: -1.626 },
-        vehicleCategory: 'TRICYCLE',
+        vehicleCategory: 'PRAGYA',
       }).success,
     ).toBe(true);
     expect(
@@ -45,14 +45,14 @@ describe('create booking schema', () => {
       createBookingSchema.safeParse({
         pickup: { latitude: 91, longitude: -1.625 },
         destination: { latitude: 6.686, longitude: -1.626 },
-        vehicleCategory: 'CAR',
+        vehicleCategory: 'OKADA',
       }).success,
     ).toBe(false);
     expect(
       createBookingSchema.safeParse({
         pickup: { latitude: 6.685, longitude: -1.625 },
         destination: { latitude: 6.686, longitude: -1.626 },
-        vehicleCategory: 'CAR',
+        vehicleCategory: 'OKADA',
         bookingFeePesewas: 50,
       }).success,
     ).toBe(false);

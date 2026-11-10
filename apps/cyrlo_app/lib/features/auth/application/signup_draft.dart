@@ -209,8 +209,9 @@ class SignupDraft {
         VehicleCategoryApi.fromApi(json['vehicleCategory'] as String?);
     if (vehicleCategory == null && driverKind != null) {
       vehicleCategory = switch (driverKind) {
-        DriverKind.pragya || DriverKind.aboboyaa => VehicleCategory.tricycle,
-        DriverKind.okada => VehicleCategory.car,
+        DriverKind.okada => VehicleCategory.okada,
+        DriverKind.pragya => VehicleCategory.pragya,
+        DriverKind.aboboyaa => VehicleCategory.aboboyaa,
       };
     }
 
