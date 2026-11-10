@@ -38,7 +38,7 @@ class NearbyRidersMapMotionController
 
   @override
   Map<String, MapRiderPose> build() {
-    final riders = ref.watch(nearbyRidersProvider);
+    final riders = ref.watch(nearbyRidersProvider).items;
     ref.onDispose(() {
       _timer?.cancel();
       _timer = null;
@@ -68,7 +68,7 @@ class NearbyRidersMapMotionController
     if (!_motion.shouldStart(now: now, lastMove: _lastMove)) return;
     _lastMove = now;
 
-    final riders = ref.read(nearbyRidersProvider);
+    final riders = ref.read(nearbyRidersProvider).items;
     if (riders.isEmpty) return;
 
     for (final rider in riders) {

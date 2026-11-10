@@ -7,6 +7,7 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../map/presentation/top_down_vehicle_painter.dart';
 import '../application/passenger_notifications_provider.dart';
 import '../domain/passenger_notification.dart';
@@ -43,7 +44,8 @@ class PassengerNotificationsSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final notifications = ref.watch(passengerNotificationsProvider);
+    final notificationsState = ref.watch(passengerNotificationsProvider);
+    final notifications = notificationsState.items;
     final unread = notifications.where((item) => !item.read).length;
     final theme = Theme.of(context);
     final height = MediaQuery.sizeOf(context).height * 0.72;
@@ -92,7 +94,9 @@ class PassengerNotificationsSheet extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  notifications.isEmpty
+                                  notificationsState.isLoading
+                                      ? 'Loading updates…'
+                                      : notifications.isEmpty
                                       ? 'Ride updates will show up here'
                                       : unread == 0
                                           ? 'You’re all caught up'
@@ -121,7 +125,12 @@ class PassengerNotificationsSheet extends ConsumerWidget {
                       ),
                     ),
                     Flexible(
-                      child: notifications.isEmpty
+                      child: notificationsState.isLoading
+                          ? const Padding(
+                              padding: EdgeInsets.fromLTRB(16, 4, 16, 20),
+                              child: SkeletonList(count: 4),
+                            )
+                          : notifications.isEmpty
                           ? Padding(
                               padding: const EdgeInsets.fromLTRB(24, 28, 24, 40),
                               child: Column(

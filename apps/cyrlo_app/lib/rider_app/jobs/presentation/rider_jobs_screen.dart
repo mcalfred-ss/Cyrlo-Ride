@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/api_exception.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -13,7 +14,9 @@ import '../../../shared/ride_session/rider_accept_job.dart';
 import '../../../shared/ride_session/rider_cancel_accepted_ride.dart';
 import '../../../shared/widgets/active_contact_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
+import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/profile_avatar.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../availability/application/rider_availability_provider.dart';
 import 'rider_job_card.dart';
 
@@ -57,8 +60,11 @@ class RiderJobsScreen extends ConsumerWidget {
     WidgetRef ref,
     ActiveRideRequest job,
   ) async {
-    final waitingOthers =
-        ref.read(riderJobOffersProvider).where((item) => item.id != job.id).length;
+    final waitingOthers = ref
+        .read(riderJobOffersProvider)
+        .items
+        .where((item) => item.id != job.id)
+        .length;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -156,7 +162,8 @@ class RiderJobsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final offers = ref.watch(riderJobOffersProvider);
+    final offersState = ref.watch(riderJobOffersProvider);
+    final offers = offersState.items;
     final active = ref.watch(activeRideRequestProvider);
     final online = ref.watch(riderOnlineProvider);
     final theme = Theme.of(context);
@@ -226,30 +233,7 @@ class RiderJobsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             if (!online && !accepted)
-              Expanded(
-                child: _OfflineHome(
-                  onGoOnline: () async {
-                    try {
-                      await ref.read(riderOnlineProvider.notifier).goOnline();
-                    } catch (error) {
-                      if (!context.mounted) return;
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          behavior: SnackBarBehavior.floating,
-                          backgroundColor: AppColors.darkGrey,
-                          content: Text(
-                            '$error',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                ),
-              )
+              const Expanded(child: _OfflineHome())
             else ...[
               Row(
                 children: [
@@ -408,7 +392,9 @@ class RiderJobsScreen extends ConsumerWidget {
                           ),
                         ],
                       )
-                    : offers.isEmpty
+                    : offersState.isLoading
+                        ? const SkeletonList(count: 3)
+                        : offers.isEmpty
                         ? const _EmptyJobs()
                         : ListView.separated(
                             key: const Key('rider-jobs-list'),
@@ -442,32 +428,54 @@ class RiderJobsScreen extends ConsumerWidget {
   }
 }
 
-class _OfflineHome extends StatelessWidget {
-  const _OfflineHome({required this.onGoOnline});
+class _OfflineHome extends ConsumerStatefulWidget {
+  const _OfflineHome();
 
-  final VoidCallback onGoOnline;
+  @override
+  ConsumerState<_OfflineHome> createState() => _OfflineHomeState();
+}
+
+class _OfflineHomeState extends ConsumerState<_OfflineHome> {
+  var _busy = false;
+
+  Future<void> _goOnline() async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(riderOnlineProvider.notifier).goOnline();
+    } catch (error) {
+      if (!mounted) return;
+      final message = _goOnlineErrorMessage(error);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.yellow,
+          content: Text(
+            message,
+            style: const TextStyle(
+              color: AppColors.darkGrey,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppSpacing.lg),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 88,
-              height: 88,
-              decoration: BoxDecoration(
-                color: AppColors.yellow,
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: const Icon(
-                Icons.wifi_tethering_rounded,
-                color: AppColors.darkGrey,
-                size: 40,
-              ),
+            const IllustrationView(
+              asset: AppIllustrations.roleRider,
+              height: 180,
             ),
             const SizedBox(height: AppSpacing.lg),
             Text(
@@ -479,7 +487,7 @@ class _OfflineHome extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tap Go online when you’re ready to take pickup requests near you.',
+              'Turn on location, then tap Go online to take Pragya pickup requests near you.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppColors.textSecondary,
@@ -490,14 +498,37 @@ class _OfflineHome extends StatelessWidget {
             const SizedBox(height: AppSpacing.xl),
             CyrloButton(
               key: const Key('go-online'),
-              label: 'Go online',
-              onPressed: onGoOnline,
+              label: _busy ? 'Going online…' : 'Go online',
+              onPressed: _busy ? null : _goOnline,
             ),
           ],
         ),
       ),
     );
   }
+}
+
+String _goOnlineErrorMessage(Object error) {
+  if (error is ApiException) {
+    final reasons = error.details?['reasons'];
+    if (reasons is List && reasons.isNotEmpty) {
+      final codes = reasons.map((item) => '$item').toSet();
+      if (codes.contains('NO_APPROVED_ACTIVE_ZONE')) {
+        return 'Your zone isn’t active yet. Contact Cyrlo support.';
+      }
+      if (codes.contains('RIDER_NOT_APPROVED') ||
+          codes.contains('NO_APPROVED_VEHICLE')) {
+        return 'Your rider application still needs approval.';
+      }
+      if (codes.contains('NO_LOCATION') ||
+          codes.contains('GPS_NOT_SHARING') ||
+          codes.contains('GPS_NOT_FRESH')) {
+        return 'Turn on location and try again.';
+      }
+    }
+    return error.message;
+  }
+  return 'Could not go online. Try again.';
 }
 
 class _AcceptedJobBanner extends StatelessWidget {

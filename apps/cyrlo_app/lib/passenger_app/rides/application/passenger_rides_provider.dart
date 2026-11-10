@@ -3,39 +3,52 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../features/auth/application/auth_session.dart';
 import '../../../features/bookings/data/booking_models.dart';
 import '../../../features/bookings/data/bookings_api.dart';
+import '../../../shared/models/loadable_list.dart';
 import '../../../shared/ride_session/active_ride_request.dart';
 import '../domain/passenger_ride.dart';
 
 /// Ride history from the live bookings API.
 final passengerRidesProvider =
-    NotifierProvider<PassengerRidesController, List<PassengerRide>>(
+    NotifierProvider<PassengerRidesController, LoadableList<PassengerRide>>(
   PassengerRidesController.new,
 );
 
-class PassengerRidesController extends Notifier<List<PassengerRide>> {
+class PassengerRidesController extends Notifier<LoadableList<PassengerRide>> {
   @override
-  List<PassengerRide> build() {
+  LoadableList<PassengerRide> build() {
     Future.microtask(refresh);
-    return const [];
+    return const LoadableList(isLoading: true);
   }
 
   Future<void> refresh() async {
     final session = ref.read(authSessionProvider);
-    if (session == null) return;
+    if (session == null) {
+      state = const LoadableList(isLoading: false);
+      return;
+    }
+    if (state.items.isEmpty) {
+      state = state.copyWith(isLoading: true);
+    }
     try {
       final page = await ref.read(bookingsApiProvider).list(
             accessToken: session.accessToken,
           );
-      state = [
-        for (final booking in page.items) _fromBooking(booking),
-      ];
+      state = LoadableList(
+        items: [
+          for (final booking in page.items) _fromBooking(booking),
+        ],
+        isLoading: false,
+      );
     } catch (_) {
-      // Keep last snapshot.
+      state = state.copyWith(isLoading: false);
     }
   }
 
   void prepend(PassengerRide ride) {
-    state = [ride, ...state.where((item) => item.id != ride.id)];
+    state = LoadableList(
+      items: [ride, ...state.items.where((item) => item.id != ride.id)],
+      isLoading: false,
+    );
   }
 
   void upsertBooking(Booking booking) {
@@ -47,25 +60,31 @@ class PassengerRidesController extends Notifier<List<PassengerRide>> {
     required int rating,
     String? comment,
   }) {
-    state = [
-      for (final ride in state)
-        if (ride.id == rideId)
-          ride.copyWith(
-            rating: rating,
-            reviewComment:
-                comment?.trim().isEmpty == true ? null : comment?.trim(),
-            needsReview: false,
-          )
-        else
-          ride,
-    ];
+    state = LoadableList(
+      items: [
+        for (final ride in state.items)
+          if (ride.id == rideId)
+            ride.copyWith(
+              rating: rating,
+              reviewComment:
+                  comment?.trim().isEmpty == true ? null : comment?.trim(),
+              needsReview: false,
+            )
+          else
+            ride,
+      ],
+      isLoading: false,
+    );
   }
 
   void dismissReviewPrompt(String rideId) {
-    state = [
-      for (final ride in state)
-        if (ride.id == rideId) ride.copyWith(needsReview: false) else ride,
-    ];
+    state = LoadableList(
+      items: [
+        for (final ride in state.items)
+          if (ride.id == rideId) ride.copyWith(needsReview: false) else ride,
+      ],
+      isLoading: false,
+    );
   }
 
   PassengerRide _fromBooking(Booking booking) {

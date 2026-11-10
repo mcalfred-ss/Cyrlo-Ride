@@ -5,6 +5,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/ride_session/pending_ride_review.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../application/passenger_rides_provider.dart';
 import '../domain/passenger_ride.dart';
 import 'rate_rider_sheet.dart';
@@ -34,7 +35,8 @@ class PassengerRidesScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final rides = ref.watch(passengerRidesProvider);
+    final ridesState = ref.watch(passengerRidesProvider);
+    final rides = ridesState.items;
     final awaitingRate =
         rides.where((ride) => ride.canRate).toList(growable: false);
     final ongoing = rides
@@ -78,7 +80,9 @@ class PassengerRidesScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             Expanded(
-              child: rides.isEmpty
+              child: ridesState.isLoading
+                  ? const SkeletonList(count: 4)
+                  : rides.isEmpty
                   ? const _EmptyRides()
                   : ListView(
                       key: const Key('rides-history-list'),

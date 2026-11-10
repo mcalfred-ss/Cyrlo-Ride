@@ -7,6 +7,7 @@ import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/account/presentation/in_app_web_screen.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../application/rider_token_provider.dart';
 import '../domain/rider_token.dart';
 
@@ -111,55 +112,71 @@ class RiderTokenScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             Expanded(
-              child: ListView(
-                children: [
-                  _BalanceCard(balance: wallet.balance),
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Buy tokens',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  for (var i = 0; i < wallet.packages.length; i++) ...[
-                    _PackageCard(
-                      pack: wallet.packages[i],
-                      index: i,
-                      onBuy: () => _buyPackage(context, ref, wallet.packages[i]),
-                    ),
-                    if (i != wallet.packages.length - 1)
-                      const SizedBox(height: AppSpacing.sm),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Recent activity',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  const SizedBox(height: AppSpacing.sm),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: AppColors.surface,
-                      borderRadius: BorderRadius.circular(AppRadii.lg),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Column(
+              child: wallet.isLoading
+                  ? const TokenWalletSkeleton()
+                  : ListView(
                       children: [
-                        for (var i = 0; i < wallet.activity.length; i++) ...[
-                          _ActivityRow(item: wallet.activity[i]),
-                          if (i != wallet.activity.length - 1)
-                            const Divider(height: 1),
+                        _BalanceCard(balance: wallet.balance),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Buy tokens',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        for (var i = 0; i < wallet.packages.length; i++) ...[
+                          _PackageCard(
+                            pack: wallet.packages[i],
+                            index: i,
+                            onBuy: () =>
+                                _buyPackage(context, ref, wallet.packages[i]),
+                          ),
+                          if (i != wallet.packages.length - 1)
+                            const SizedBox(height: AppSpacing.sm),
                         ],
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Recent activity',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        DecoratedBox(
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            borderRadius: BorderRadius.circular(AppRadii.lg),
+                            border: Border.all(color: AppColors.border),
+                          ),
+                          child: wallet.activity.isEmpty
+                              ? Padding(
+                                  padding: const EdgeInsets.all(AppSpacing.lg),
+                                  child: Text(
+                                    'No token activity yet.',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                )
+                              : Column(
+                                  children: [
+                                    for (var i = 0;
+                                        i < wallet.activity.length;
+                                        i++) ...[
+                                      _ActivityRow(item: wallet.activity[i]),
+                                      if (i != wallet.activity.length - 1)
+                                        const Divider(height: 1),
+                                    ],
+                                  ],
+                                ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                ],
-              ),
             ),
           ],
         ),

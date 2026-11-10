@@ -146,10 +146,20 @@ async function upsertApprovedPragyaRider(
     update: { tokenBalance: 50 },
   });
 
-  const zone = await prisma.serviceZone.findFirst({
+  let zone = await prisma.serviceZone.findFirst({
     where: { isActive: true },
     orderBy: { createdAt: 'asc' },
   });
+  if (!zone) {
+    zone = await prisma.serviceZone.findFirst({ orderBy: { createdAt: 'asc' } });
+    if (zone) {
+      zone = await prisma.serviceZone.update({
+        where: { id: zone.id },
+        data: { isActive: true },
+      });
+      console.log(`  ! Activated service zone "${zone.name}" so review riders can go online`);
+    }
+  }
   if (zone) {
     await prisma.riderZoneApproval.upsert({
       where: {
@@ -168,6 +178,8 @@ async function upsertApprovedPragyaRider(
         reason: 'seed-review-accounts',
       },
     });
+  } else {
+    console.warn('  ! No service zone found — riders cannot go online until a zone exists');
   }
 }
 

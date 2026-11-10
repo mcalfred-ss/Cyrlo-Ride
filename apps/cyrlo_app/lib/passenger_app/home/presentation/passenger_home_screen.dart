@@ -10,6 +10,8 @@ import '../../../features/auth/application/signup_controller.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/ride_session/show_passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
+import '../../../shared/widgets/illustration_view.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
@@ -24,7 +26,8 @@ class PassengerHomeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = ref.watch(signupProvider);
-    final riders = ref.watch(nearbyRidersProvider);
+    final ridersState = ref.watch(nearbyRidersProvider);
+    final riders = ridersState.items;
     final activeRequest = ref.watch(activeRideRequestProvider);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final shareContact = activeRequest?.sharesContact == true;
@@ -61,7 +64,9 @@ class PassengerHomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        riders.isEmpty
+                        ridersState.isLoading
+                            ? 'Finding Pragya nearby…'
+                            : riders.isEmpty
                             ? 'No Pragya riders nearby yet'
                             : 'Tap a Pragya to request',
                         style: theme.textTheme.bodyLarge?.copyWith(
@@ -94,7 +99,7 @@ class PassengerHomeScreen extends ConsumerWidget {
                 },
               ),
             ],
-            if (riders.isNotEmpty) ...[
+            if (!ridersState.isLoading && riders.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
               Row(
                 children: [
@@ -128,8 +133,10 @@ class PassengerHomeScreen extends ConsumerWidget {
               const SizedBox(height: AppSpacing.sm),
             ],
             Expanded(
-              child: riders.isEmpty
-                  ? const SizedBox.shrink()
+              child: ridersState.isLoading
+                  ? const SkeletonList(count: 4)
+                  : riders.isEmpty
+                  ? const _EmptyNearbyState()
                   : ListView(
                       children: [
                         for (var i = 0; i < riders.length; i++) ...[
@@ -162,6 +169,48 @@ class PassengerHomeScreen extends ConsumerWidget {
                         ],
                       ],
                     ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyNearbyState extends StatelessWidget {
+  const _EmptyNearbyState();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Center(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(8, 24, 8, 32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const IllustrationView(
+              asset: AppIllustrations.nearbyMap,
+              height: 200,
+            ),
+            const SizedBox(height: AppSpacing.lg),
+            Text(
+              'No Pragya nearby yet',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'We’re onboarding Pragya riders in your area. When one comes online near you, they’ll show up here to request.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: AppColors.textSecondary,
+                height: 1.4,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ],
         ),

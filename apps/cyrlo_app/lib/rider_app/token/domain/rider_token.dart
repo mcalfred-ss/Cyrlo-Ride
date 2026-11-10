@@ -39,9 +39,13 @@ class RiderTokenWallet {
     required this.balance,
     required this.packages,
     required this.activity,
+    this.isLoading = false,
   });
 
   final int balance;
   final List<TokenPackage> packages;
   final List<TokenActivity> activity;
+  final bool isLoading;
+
+  bool get hasContent => packages.isNotEmpty || balance > 0 || activity.isNotEmpty;
 }

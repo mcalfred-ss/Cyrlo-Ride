@@ -10,6 +10,7 @@ import '../../passenger_app/home/domain/nearby_rider.dart';
 import '../../rider_app/availability/application/rider_availability_provider.dart';
 import '../../rider_app/ops/rider_ops_api.dart';
 import '../models/geo_point.dart';
+import '../models/loadable_list.dart';
 import 'active_ride_request.dart';
 
 final activeRideRequestProvider =
@@ -86,16 +87,17 @@ class ActiveRideRequestController extends Notifier<ActiveRideRequest?> {
 }
 
 /// Pending pickup offers on the rider Jobs tab (polled from matching API).
-final riderJobOffersProvider =
-    NotifierProvider<RiderJobOffersController, List<ActiveRideRequest>>(
+final riderJobOffersProvider = NotifierProvider<RiderJobOffersController,
+    LoadableList<ActiveRideRequest>>(
   RiderJobOffersController.new,
 );
 
-class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
+class RiderJobOffersController
+    extends Notifier<LoadableList<ActiveRideRequest>> {
   Timer? _poll;
 
   @override
-  List<ActiveRideRequest> build() {
+  LoadableList<ActiveRideRequest> build() {
     final draft = ref.watch(signupProvider);
     final online = ref.watch(riderOnlineProvider);
     ref.onDispose(() {
@@ -106,33 +108,39 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
     if (draft.role != RideRole.rider || !online) {
       _poll?.cancel();
       _poll = null;
-      return const [];
+      return const LoadableList(isLoading: false);
     }
 
     _poll ??= Timer.periodic(const Duration(seconds: 8), (_) {
       unawaited(refresh());
     });
     Future.microtask(refresh);
-    return const [];
+    return const LoadableList(isLoading: true);
   }
 
   Future<void> refresh() async {
     final session = ref.read(authSessionProvider);
     final online = ref.read(riderOnlineProvider);
     if (session == null || !online) {
-      state = const [];
+      state = const LoadableList(isLoading: false);
       return;
+    }
+    if (state.items.isEmpty) {
+      state = state.copyWith(isLoading: true);
     }
     try {
       final offers =
           await ref.read(riderOpsApiProvider).listOffers(session.accessToken);
-      state = [
-        for (final offer in offers)
-          if (offer.status == 'PENDING')
-            ActiveRideRequest.fromMatchingOffer(offer),
-      ];
+      state = LoadableList(
+        items: [
+          for (final offer in offers)
+            if (offer.status == 'PENDING')
+              ActiveRideRequest.fromMatchingOffer(offer),
+        ],
+        isLoading: false,
+      );
     } catch (_) {
-      // Keep last known offers on transient failures.
+      state = state.copyWith(isLoading: false);
     }
   }
 
@@ -150,10 +158,13 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
             );
       } catch (_) {}
     }
-    state = [
-      for (final job in state)
-        if (job.id != id) job,
-    ];
+    state = LoadableList(
+      items: [
+        for (final job in state.items)
+          if (job.id != id) job,
+      ],
+      isLoading: false,
+    );
   }
 
   /// Accepts [id] via matching API and clears sibling local offers.
@@ -161,7 +172,7 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
     final session = ref.read(authSessionProvider);
     ActiveRideRequest? accepted;
     final bumped = <ActiveRideRequest>[];
-    for (final job in state) {
+    for (final job in state.items) {
       if (job.id == id) {
         accepted = job;
       } else {
@@ -184,7 +195,7 @@ class RiderJobOffersController extends Notifier<List<ActiveRideRequest>> {
       accepted = accepted.copyWith(status: ActiveRideStatus.ongoing);
     }
 
-    state = const [];
+    state = const LoadableList(isLoading: false);
     ref.read(previewRiderJobProvider.notifier).clear();
     ref.read(activeRideRequestProvider.notifier).accept(accepted);
     return AcceptJobOutcome(accepted: accepted, bumped: bumped);

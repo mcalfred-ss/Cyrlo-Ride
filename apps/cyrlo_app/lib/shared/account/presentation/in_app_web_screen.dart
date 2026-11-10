@@ -6,8 +6,11 @@ import 'package:webview_windows/webview_windows.dart' as windows_wv;
 
 import '../../../core/constants/app_colors.dart';
 import '../../widgets/cyrlo_button.dart';
+import '../../widgets/skeleton.dart';
+import 'in_app_web_host_stub.dart'
+    if (dart.library.io) 'in_app_web_host_io.dart' as host;
 
-/// Full-screen in-app browser for hosted legal / support pages.
+/// Full-screen in-app browser for Paystack checkout and legal pages.
 class InAppWebScreen extends StatefulWidget {
   const InAppWebScreen({
     super.key,
@@ -20,14 +23,17 @@ class InAppWebScreen extends StatefulWidget {
 
   static bool get usesMobileWebView {
     if (kIsWeb) return false;
-    return defaultTargetPlatform == TargetPlatform.android ||
+    return host.isIoAndroid ||
+        host.isIoIOS ||
+        host.isIoMacOS ||
+        defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
   }
 
   static bool get usesWindowsWebView {
     if (kIsWeb) return false;
-    return defaultTargetPlatform == TargetPlatform.windows;
+    return host.isIoWindows || defaultTargetPlatform == TargetPlatform.windows;
   }
 
   @override
@@ -45,12 +51,16 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
   @override
   void initState() {
     super.initState();
-    if (InAppWebScreen.usesMobileWebView) {
-      _initMobileWebView();
-    } else if (InAppWebScreen.usesWindowsWebView) {
+    if (InAppWebScreen.usesWindowsWebView) {
       _initWindowsWebView();
+    } else if (InAppWebScreen.usesMobileWebView) {
+      _initMobileWebView();
     } else {
+      // Prefer an in-app browser sheet over bouncing to a full external browser.
       _loading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        unawaited(_openInAppBrowser());
+      });
     }
   }
 
@@ -94,11 +104,14 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
         setState(() {
           _loading = false;
           _error =
-              'Microsoft Edge WebView2 is required to open this page in the app.';
+              'Install Microsoft Edge WebView2 Runtime to pay and open pages in the app.';
         });
         return;
       }
       await controller.initialize();
+      await controller.setPopupWindowPolicy(
+        windows_wv.WebviewPopupWindowPolicy.sameWindow,
+      );
       controller.loadingState.listen((state) {
         if (!mounted) return;
         setState(() {
@@ -120,11 +133,12 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
         _loading = false;
         _error = null;
       });
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = 'Could not open this page in the app.';
+        _windowsReady = false;
+        _error = 'Could not open this page in the app. ${error.runtimeType}';
       });
     }
   }
@@ -135,18 +149,25 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
     super.dispose();
   }
 
-  Future<void> _openExternal() async {
+  Future<void> _openInAppBrowser() async {
     setState(() => _openingExternal = true);
     try {
       final uri = Uri.parse(widget.url);
+      final inApp = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+      if (inApp) {
+        if (mounted) Navigator.of(context).maybePop();
+        return;
+      }
       final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
       if (!mounted) return;
       if (!ok) {
-        setState(() => _error = 'Could not open the browser.');
+        setState(() => _error = 'Could not open the payment page.');
+      } else {
+        Navigator.of(context).maybePop();
       }
     } catch (_) {
       if (!mounted) return;
-      setState(() => _error = 'Could not open the browser.');
+      setState(() => _error = 'Could not open the payment page.');
     } finally {
       if (mounted) setState(() => _openingExternal = false);
     }
@@ -175,28 +196,31 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
   }
 
   Widget _buildBody(ThemeData theme) {
-    if (_mobileController != null) {
-      return _buildMobile(theme);
-    }
     if (InAppWebScreen.usesWindowsWebView) {
       return _buildWindows(theme);
     }
-    return _buildExternalFallback(theme);
+    if (_mobileController != null) {
+      return _buildMobile(theme);
+    }
+    return _buildFallback(theme);
   }
 
   Widget _buildMobile(ThemeData theme) {
     return Stack(
       children: [
         if (_error == null) WebViewWidget(controller: _mobileController!),
-        if (_error != null) _errorPane(theme, onRetry: () {
-          setState(() {
-            _error = null;
-            _loading = true;
-          });
-          _mobileController!.loadRequest(Uri.parse(widget.url));
-        }),
-        if (_loading && _error == null)
-          const LinearProgressIndicator(minHeight: 2),
+        if (_error != null)
+          _errorPane(
+            theme,
+            onRetry: () {
+              setState(() {
+                _error = null;
+                _loading = true;
+              });
+              _mobileController!.loadRequest(Uri.parse(widget.url));
+            },
+          ),
+        if (_loading && _error == null) const WebPageSkeleton(),
       ],
     );
   }
@@ -213,16 +237,16 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
           });
           _initWindowsWebView();
         },
-        showExternal: true,
+        showContinue: true,
       );
     }
     if (!_windowsReady || _windowsController == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const WebPageSkeleton();
     }
     return Stack(
       children: [
         windows_wv.Webview(_windowsController!),
-        if (_loading) const LinearProgressIndicator(minHeight: 2),
+        if (_loading) const WebPageSkeleton(),
       ],
     );
   }
@@ -230,7 +254,7 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
   Widget _errorPane(
     ThemeData theme, {
     required VoidCallback onRetry,
-    bool showExternal = false,
+    bool showContinue = false,
   }) {
     return Center(
       child: Padding(
@@ -247,15 +271,16 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            FilledButton(
+            CyrloButton(
+              label: 'Retry in app',
               onPressed: onRetry,
-              child: const Text('Retry'),
             ),
-            if (showExternal) ...[
+            if (showContinue) ...[
               const SizedBox(height: 8),
-              TextButton(
-                onPressed: _openingExternal ? null : _openExternal,
-                child: Text(_openingExternal ? 'Opening…' : 'Open in browser'),
+              CyrloButton(
+                label: _openingExternal ? 'Opening…' : 'Continue',
+                variant: CyrloButtonVariant.outlined,
+                onPressed: _openingExternal ? null : _openInAppBrowser,
               ),
             ],
           ],
@@ -264,7 +289,7 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
     );
   }
 
-  Widget _buildExternalFallback(ThemeData theme) {
+  Widget _buildFallback(ThemeData theme) {
     return Padding(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -281,7 +306,7 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'This page opens in your browser on this device.',
+            'Opening secure checkout…',
             textAlign: TextAlign.center,
             style: theme.textTheme.bodyLarge?.copyWith(
               color: AppColors.textSecondary,
@@ -301,12 +326,16 @@ class _InAppWebScreenState extends State<InAppWebScreen> {
           ],
           const Spacer(),
           CyrloButton(
-            key: const Key('open-external-web'),
-            label: _openingExternal ? 'Opening…' : 'Open in browser',
-            onPressed: _openingExternal ? null : _openExternal,
+            key: const Key('open-in-app-web'),
+            label: _openingExternal ? 'Opening…' : 'Continue checkout',
+            onPressed: _openingExternal ? null : _openInAppBrowser,
           ),
         ],
       ),
     );
   }
+}
+
+void unawaited(Future<void> future) {
+  future.then((_) {}, onError: (_) {});
 }

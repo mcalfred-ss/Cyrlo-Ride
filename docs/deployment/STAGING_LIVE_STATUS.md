@@ -99,7 +99,7 @@ OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS=60
 | SMS OTP (Vynfy) | Done |
 | Backups + restore drill | Done (local cron + 41-table restore drill); **re-run `setup-staging-backup.sh` after deploy** for hourly+daily + Bunny `db-backups/` — see [`database-backups.md`](./database-backups.md) |
 | Single matching writer | Done (one API systemd unit) |
-| Live polygons | Done (staging) — zone **Kokobin** created, currently **inactive** pending activate |
+| Live polygons | Done (staging) — zone **Kokobin** created and **activated** for review/QA riders |
 | Refund/dispute policy ack | Done — `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md` |
 | Terms / Privacy hosted | Done — `https://eqostack.com/cyrlo/terms` · `https://eqostack.com/cyrlo/privacy` (Nginx on eqostack.com → `/var/www/cyrlo-legal/`) |
 

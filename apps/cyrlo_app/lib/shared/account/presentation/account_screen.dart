@@ -11,6 +11,7 @@ import '../../../features/auth/application/signup_draft.dart';
 import '../../../rider_app/onboarding/data/rider_onboarding_models.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
+import '../../../shared/widgets/skeleton.dart';
 import 'help_support_screen.dart';
 import 'in_app_web_screen.dart';
 
@@ -148,6 +149,7 @@ class AccountScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final draft = ref.watch(signupProvider);
+    final bootstrapReady = ref.watch(authBootstrapProvider);
     final themePreference = ref.watch(themePreferenceProvider);
     final theme = Theme.of(context);
     final isPassenger = role == RideRole.passenger;
@@ -195,7 +197,9 @@ class AccountScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              isPassenger
+              !bootstrapReady
+                  ? 'Loading your profile…'
+                  : isPassenger
                   ? 'Your passenger profile and settings.'
                   : 'Your rider profile, vehicle, and settings.',
               style: theme.textTheme.bodyLarge?.copyWith(
@@ -206,7 +210,9 @@ class AccountScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             Expanded(
-              child: ListView(
+              child: !bootstrapReady
+                  ? const AccountSkeleton()
+                  : ListView(
                 children: [
                   _ProfileHeaderCard(
                     name: name,

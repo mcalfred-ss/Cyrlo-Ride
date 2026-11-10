@@ -103,7 +103,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   @override
   Widget build(BuildContext context) {
     final pins = ref.watch(tripPinProvider);
-    final nearbyRiders = ref.watch(nearbyRidersProvider);
+    final nearbyRiders = ref.watch(nearbyRidersProvider).items;
     final mapPoses = ref.watch(nearbyRidersMapMotionProvider);
     final movingRiders = ridersWithMapPoses(nearbyRiders, mapPoses);
     final selectedRider = ref.watch(selectedNearbyRiderProvider);

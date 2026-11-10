@@ -16,6 +16,7 @@ import '../../../shared/models/geo_point.dart';
 import '../../../shared/ride_session/active_ride_request.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
+import '../../../shared/widgets/skeleton.dart';
 import '../../map/application/trip_pin_controller.dart';
 import '../../rides/application/passenger_rides_provider.dart';
 
@@ -52,7 +53,16 @@ Future<void> startLiveBookingFlow({
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (context) => const Center(child: CircularProgressIndicator()),
+    builder: (context) => Center(
+      child: Material(
+        color: Colors.transparent,
+        child: SizedBox(
+          width: 280,
+          height: 160,
+          child: SkeletonBox(height: 160),
+        ),
+      ),
+    ),
   );
 
   try {

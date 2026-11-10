@@ -46,8 +46,11 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
   }
 
   Future<void> _confirmAccept(ActiveRideRequest job) async {
-    final waitingOthers =
-        ref.read(riderJobOffersProvider).where((item) => item.id != job.id).length;
+    final waitingOthers = ref
+        .read(riderJobOffersProvider)
+        .items
+        .where((item) => item.id != job.id)
+        .length;
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(

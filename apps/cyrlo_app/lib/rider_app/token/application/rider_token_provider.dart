@@ -18,12 +18,28 @@ class RiderTokenController extends Notifier<RiderTokenWallet> {
       balance: 0,
       packages: [],
       activity: [],
+      isLoading: true,
     );
   }
 
   Future<void> refresh() async {
     final session = ref.read(authSessionProvider);
-    if (session == null) return;
+    if (session == null) {
+      state = const RiderTokenWallet(
+        balance: 0,
+        packages: [],
+        activity: [],
+        isLoading: false,
+      );
+      return;
+    }
+    final keep = state;
+    state = RiderTokenWallet(
+      balance: keep.balance,
+      packages: keep.packages,
+      activity: keep.activity,
+      isLoading: !keep.hasContent,
+    );
     final api = ref.read(walletApiProvider);
     try {
       final balance = await api.balance(session.accessToken);
@@ -54,9 +70,15 @@ class RiderTokenController extends Notifier<RiderTokenWallet> {
               occurredAt: entry.createdAt.toLocal(),
             ),
         ],
+        isLoading: false,
       );
     } catch (_) {
-      // Keep previous wallet snapshot on transient failure.
+      state = RiderTokenWallet(
+        balance: keep.balance,
+        packages: keep.packages,
+        activity: keep.activity,
+        isLoading: false,
+      );
     }
   }
 
