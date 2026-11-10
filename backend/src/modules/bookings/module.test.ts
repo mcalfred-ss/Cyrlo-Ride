@@ -195,7 +195,7 @@ describe('paystack memory client', () => {
   it('initializes with server-owned amount only', async () => {
     const client = new MemoryPaystackClient();
     const result = await client.initializeTransaction({
-      email: 'passenger+x@payments.cyrlo.local',
+      email: 'passenger+x@payments.eqostack.com',
       amountPesewas: 100,
       currency: 'GHS',
       reference: `bf_${randomUUID().replace(/-/g, '')}`,

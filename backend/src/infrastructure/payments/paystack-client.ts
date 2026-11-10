@@ -324,11 +324,14 @@ export function hashWebhookPayload(rawBody: Buffer): string {
   return createHash('sha256').update(rawBody).digest('hex');
 }
 
-/** Synthetic email for Paystack when only phone identity exists. */
+/**
+ * Synthetic email for Paystack when only phone identity exists.
+ * Paystack rejects reserved TLDs like `.local`, so use a real owned domain.
+ */
 export function passengerPaymentEmail(userId: string): string {
-  return `passenger+${userId.replace(/-/g, '')}@payments.cyrlo.local`;
+  return `passenger+${userId.replace(/-/g, '')}@payments.eqostack.com`;
 }
 
 export function riderPaymentEmail(userId: string): string {
-  return `rider+${userId.replace(/-/g, '')}@payments.cyrlo.local`;
+  return `rider+${userId.replace(/-/g, '')}@payments.eqostack.com`;
 }
