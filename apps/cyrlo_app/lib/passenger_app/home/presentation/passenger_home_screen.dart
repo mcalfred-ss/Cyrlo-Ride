@@ -13,6 +13,8 @@ import '../../../shared/widgets/active_contact_card.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
+import '../../../shared/widgets/cyrlo_button.dart';
+import 'live_booking_flow.dart';
 import 'nearby_rider_card.dart';
 import 'notification_bell_button.dart';
 import 'passenger_notifications_sheet.dart';
@@ -61,7 +63,9 @@ class PassengerHomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Riders near you right now',
+                        riders.isEmpty
+                            ? 'Request a ride — we match a nearby rider after payment'
+                            : 'Riders near you right now',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
@@ -109,6 +113,15 @@ class PassengerHomeScreen extends ConsumerWidget {
             Expanded(
               child: ListView(
                 children: [
+                  CyrloButton(
+                    key: const Key('request-live-ride'),
+                    label: 'Request a ride',
+                    onPressed: () => startLiveBookingFlow(
+                      context: context,
+                      ref: ref,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
                   if (shareContact) ...[
                     ActiveContactCard(
                       title: '${activeRequest!.kindLabel} requested',
@@ -123,6 +136,17 @@ class PassengerHomeScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
                   ],
+                  if (riders.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpacing.sm),
+                      child: Text(
+                        'Live nearby markers are not available yet. Matching still finds a rider after you pay.',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: AppColors.textSecondary,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
                   ...[
                     for (var i = 0; i < riders.length; i++) ...[
                       NearbyRiderCard(

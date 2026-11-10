@@ -1,11 +1,14 @@
+import '../../../rider_app/onboarding/data/rider_onboarding_models.dart';
 import '../../../shared/models/geo_point.dart';
 
 enum RideRole { passenger, rider }
 
+/// Passenger map sprite kinds (kept for nearby/map UI until supply API returns categories).
 enum DriverKind { okada, pragya, aboboyaa }
 
 enum PassengerGender { male, female }
 
+@Deprecated('Use RiderDocumentKind paths on SignupDraft instead')
 enum RiderIdType { driversLicense, ghanaCard }
 
 class SignupDraft {
@@ -28,13 +31,26 @@ class SignupDraft {
     this.riderGender,
     this.riderLocation,
     this.riderLocationPoint,
-    this.riderIdType,
-    this.riderIdFrontPath,
+    this.riderDriversLicenceNumber,
+    this.riderDriversLicenceExpiry,
+    this.riderGhanaCardNumber,
+    this.vehicleCategory,
     this.riderVehicleNumber,
-    this.riderSelfiePath,
+    this.riderVehicleMake,
+    this.riderVehicleModel,
+    this.riderVehicleColour,
+    this.riderVehicleCapacity,
+    this.docGhanaCardPath,
+    this.docDriversLicencePath,
+    this.docRiderPhotoPath,
+    this.docVehiclePhotoPath,
+    this.docVehicleRegistrationPath,
+    this.docRoadworthinessPath,
+    this.docInsurancePath,
     this.driverKind,
     this.applicationSubmitted = false,
     this.riderApproved = false,
+    this.riderRejectionReason,
     this.accountReady = false,
   });
 
@@ -58,13 +74,26 @@ class SignupDraft {
   final PassengerGender? riderGender;
   final String? riderLocation;
   final GeoPoint? riderLocationPoint;
-  final RiderIdType? riderIdType;
-  final String? riderIdFrontPath;
+  final String? riderDriversLicenceNumber;
+  final DateTime? riderDriversLicenceExpiry;
+  final String? riderGhanaCardNumber;
+  final VehicleCategory? vehicleCategory;
   final String? riderVehicleNumber;
-  final String? riderSelfiePath;
+  final String? riderVehicleMake;
+  final String? riderVehicleModel;
+  final String? riderVehicleColour;
+  final int? riderVehicleCapacity;
+  final String? docGhanaCardPath;
+  final String? docDriversLicencePath;
+  final String? docRiderPhotoPath;
+  final String? docVehiclePhotoPath;
+  final String? docVehicleRegistrationPath;
+  final String? docRoadworthinessPath;
+  final String? docInsurancePath;
   final DriverKind? driverKind;
   final bool applicationSubmitted;
   final bool riderApproved;
+  final String? riderRejectionReason;
 
   bool get hasPassengerProfile =>
       passengerFirstName != null &&
@@ -76,15 +105,24 @@ class SignupDraft {
   bool get hasRiderProfile =>
       riderFirstName != null &&
       riderLastName != null &&
-      riderDateOfBirth != null &&
-      riderGender != null &&
-      riderLocation != null;
+      riderDriversLicenceNumber != null &&
+      riderDriversLicenceExpiry != null &&
+      riderGhanaCardNumber != null;
 
   bool get hasRiderDocuments =>
-      riderIdType != null &&
-      riderIdFrontPath != null &&
+      vehicleCategory != null &&
       riderVehicleNumber != null &&
-      riderSelfiePath != null;
+      riderVehicleMake != null &&
+      riderVehicleModel != null &&
+      riderVehicleColour != null &&
+      riderVehicleCapacity != null &&
+      docGhanaCardPath != null &&
+      docDriversLicencePath != null &&
+      docRiderPhotoPath != null &&
+      docVehiclePhotoPath != null &&
+      docVehicleRegistrationPath != null &&
+      docRoadworthinessPath != null &&
+      docInsurancePath != null;
 
   String? get passengerName {
     if (passengerFirstName == null || passengerLastName == null) return null;
@@ -119,13 +157,27 @@ class SignupDraft {
         'riderGender': riderGender?.name,
         'riderLocation': riderLocation,
         'riderLocationPoint': riderLocationPoint?.toJson(),
-        'riderIdType': riderIdType?.name,
-        'riderIdFrontPath': riderIdFrontPath,
+        'riderDriversLicenceNumber': riderDriversLicenceNumber,
+        'riderDriversLicenceExpiry':
+            riderDriversLicenceExpiry?.toIso8601String(),
+        'riderGhanaCardNumber': riderGhanaCardNumber,
+        'vehicleCategory': vehicleCategory?.apiValue,
         'riderVehicleNumber': riderVehicleNumber,
-        'riderSelfiePath': riderSelfiePath,
+        'riderVehicleMake': riderVehicleMake,
+        'riderVehicleModel': riderVehicleModel,
+        'riderVehicleColour': riderVehicleColour,
+        'riderVehicleCapacity': riderVehicleCapacity,
+        'docGhanaCardPath': docGhanaCardPath,
+        'docDriversLicencePath': docDriversLicencePath,
+        'docRiderPhotoPath': docRiderPhotoPath,
+        'docVehiclePhotoPath': docVehiclePhotoPath,
+        'docVehicleRegistrationPath': docVehicleRegistrationPath,
+        'docRoadworthinessPath': docRoadworthinessPath,
+        'docInsurancePath': docInsurancePath,
         'driverKind': driverKind?.name,
         'applicationSubmitted': applicationSubmitted,
         'riderApproved': riderApproved,
+        'riderRejectionReason': riderRejectionReason,
         'accountReady': accountReady,
       };
 
@@ -147,16 +199,19 @@ class SignupDraft {
       riderGender = PassengerGender.values.asNameMap()[rg];
     }
 
-    RiderIdType? riderIdType;
-    final idType = json['riderIdType'] as String?;
-    if (idType != null) {
-      riderIdType = RiderIdType.values.asNameMap()[idType];
-    }
-
     DriverKind? driverKind;
     final kind = json['driverKind'] as String?;
     if (kind != null) {
       driverKind = DriverKind.values.asNameMap()[kind];
+    }
+
+    VehicleCategory? vehicleCategory =
+        VehicleCategoryApi.fromApi(json['vehicleCategory'] as String?);
+    if (vehicleCategory == null && driverKind != null) {
+      vehicleCategory = switch (driverKind) {
+        DriverKind.pragya || DriverKind.aboboyaa => VehicleCategory.tricycle,
+        DriverKind.okada => VehicleCategory.car,
+      };
     }
 
     GeoPoint? passengerPoint;
@@ -194,13 +249,36 @@ class SignupDraft {
       riderGender: riderGender,
       riderLocation: json['riderLocation'] as String?,
       riderLocationPoint: riderPoint,
-      riderIdType: riderIdType,
-      riderIdFrontPath: json['riderIdFrontPath'] as String?,
+      riderDriversLicenceNumber: json['riderDriversLicenceNumber'] as String?,
+      riderDriversLicenceExpiry: DateTime.tryParse(
+        json['riderDriversLicenceExpiry'] as String? ?? '',
+      ),
+      riderGhanaCardNumber: json['riderGhanaCardNumber'] as String?,
+      vehicleCategory: vehicleCategory,
       riderVehicleNumber: json['riderVehicleNumber'] as String?,
-      riderSelfiePath: json['riderSelfiePath'] as String?,
+      riderVehicleMake: json['riderVehicleMake'] as String?,
+      riderVehicleModel: json['riderVehicleModel'] as String?,
+      riderVehicleColour: json['riderVehicleColour'] as String?,
+      riderVehicleCapacity: (json['riderVehicleCapacity'] as num?)?.toInt(),
+      docGhanaCardPath: json['docGhanaCardPath'] as String? ??
+          (json['riderIdType'] == 'ghanaCard'
+              ? json['riderIdFrontPath'] as String?
+              : null),
+      docDriversLicencePath: json['docDriversLicencePath'] as String? ??
+          (json['riderIdType'] == 'driversLicense'
+              ? json['riderIdFrontPath'] as String?
+              : null),
+      docRiderPhotoPath:
+          json['docRiderPhotoPath'] as String? ?? json['riderSelfiePath'] as String?,
+      docVehiclePhotoPath: json['docVehiclePhotoPath'] as String?,
+      docVehicleRegistrationPath:
+          json['docVehicleRegistrationPath'] as String?,
+      docRoadworthinessPath: json['docRoadworthinessPath'] as String?,
+      docInsurancePath: json['docInsurancePath'] as String?,
       driverKind: driverKind,
       applicationSubmitted: json['applicationSubmitted'] as bool? ?? false,
       riderApproved: json['riderApproved'] as bool? ?? false,
+      riderRejectionReason: json['riderRejectionReason'] as String?,
       accountReady: json['accountReady'] as bool? ?? false,
     );
   }
@@ -256,16 +334,30 @@ class SignupDraft {
     PassengerGender? riderGender,
     String? riderLocation,
     GeoPoint? riderLocationPoint,
-    RiderIdType? riderIdType,
-    String? riderIdFrontPath,
+    String? riderDriversLicenceNumber,
+    DateTime? riderDriversLicenceExpiry,
+    String? riderGhanaCardNumber,
+    VehicleCategory? vehicleCategory,
     String? riderVehicleNumber,
-    String? riderSelfiePath,
+    String? riderVehicleMake,
+    String? riderVehicleModel,
+    String? riderVehicleColour,
+    int? riderVehicleCapacity,
+    String? docGhanaCardPath,
+    String? docDriversLicencePath,
+    String? docRiderPhotoPath,
+    String? docVehiclePhotoPath,
+    String? docVehicleRegistrationPath,
+    String? docRoadworthinessPath,
+    String? docInsurancePath,
     DriverKind? driverKind,
     bool? applicationSubmitted,
     bool? riderApproved,
+    String? riderRejectionReason,
     bool clearRole = false,
     bool clearDriverKind = false,
     bool clearRiderProfile = false,
+    bool clearRejectionReason = false,
   }) {
     return SignupDraft(
       splashDone: splashDone ?? this.splashDone,
@@ -280,23 +372,53 @@ class SignupDraft {
       passengerDateOfBirth: passengerDateOfBirth ?? this.passengerDateOfBirth,
       passengerGender: passengerGender ?? this.passengerGender,
       passengerLocation: passengerLocation ?? this.passengerLocation,
-      passengerLocationPoint: passengerLocationPoint ?? this.passengerLocationPoint,
-      riderFirstName: clearRiderProfile ? null : (riderFirstName ?? this.riderFirstName),
-      riderLastName: clearRiderProfile ? null : (riderLastName ?? this.riderLastName),
-      riderDateOfBirth:
-          clearRiderProfile ? null : (riderDateOfBirth ?? this.riderDateOfBirth),
+      passengerLocationPoint:
+          passengerLocationPoint ?? this.passengerLocationPoint,
+      riderFirstName:
+          clearRiderProfile ? null : (riderFirstName ?? this.riderFirstName),
+      riderLastName:
+          clearRiderProfile ? null : (riderLastName ?? this.riderLastName),
+      riderDateOfBirth: clearRiderProfile
+          ? null
+          : (riderDateOfBirth ?? this.riderDateOfBirth),
       riderGender: clearRiderProfile ? null : (riderGender ?? this.riderGender),
-      riderLocation: clearRiderProfile ? null : (riderLocation ?? this.riderLocation),
-      riderLocationPoint:
-          clearRiderProfile ? null : (riderLocationPoint ?? this.riderLocationPoint),
-      riderIdType: riderIdType ?? this.riderIdType,
-      riderIdFrontPath: riderIdFrontPath ?? this.riderIdFrontPath,
+      riderLocation:
+          clearRiderProfile ? null : (riderLocation ?? this.riderLocation),
+      riderLocationPoint: clearRiderProfile
+          ? null
+          : (riderLocationPoint ?? this.riderLocationPoint),
+      riderDriversLicenceNumber: clearRiderProfile
+          ? null
+          : (riderDriversLicenceNumber ?? this.riderDriversLicenceNumber),
+      riderDriversLicenceExpiry: clearRiderProfile
+          ? null
+          : (riderDriversLicenceExpiry ?? this.riderDriversLicenceExpiry),
+      riderGhanaCardNumber: clearRiderProfile
+          ? null
+          : (riderGhanaCardNumber ?? this.riderGhanaCardNumber),
+      vehicleCategory:
+          clearDriverKind ? null : (vehicleCategory ?? this.vehicleCategory),
       riderVehicleNumber: riderVehicleNumber ?? this.riderVehicleNumber,
-      riderSelfiePath: riderSelfiePath ?? this.riderSelfiePath,
+      riderVehicleMake: riderVehicleMake ?? this.riderVehicleMake,
+      riderVehicleModel: riderVehicleModel ?? this.riderVehicleModel,
+      riderVehicleColour: riderVehicleColour ?? this.riderVehicleColour,
+      riderVehicleCapacity: riderVehicleCapacity ?? this.riderVehicleCapacity,
+      docGhanaCardPath: docGhanaCardPath ?? this.docGhanaCardPath,
+      docDriversLicencePath:
+          docDriversLicencePath ?? this.docDriversLicencePath,
+      docRiderPhotoPath: docRiderPhotoPath ?? this.docRiderPhotoPath,
+      docVehiclePhotoPath: docVehiclePhotoPath ?? this.docVehiclePhotoPath,
+      docVehicleRegistrationPath:
+          docVehicleRegistrationPath ?? this.docVehicleRegistrationPath,
+      docRoadworthinessPath:
+          docRoadworthinessPath ?? this.docRoadworthinessPath,
+      docInsurancePath: docInsurancePath ?? this.docInsurancePath,
       driverKind: clearDriverKind ? null : (driverKind ?? this.driverKind),
       applicationSubmitted: applicationSubmitted ?? this.applicationSubmitted,
       riderApproved: riderApproved ?? this.riderApproved,
+      riderRejectionReason: clearRejectionReason
+          ? null
+          : (riderRejectionReason ?? this.riderRejectionReason),
     );
   }
 }
-

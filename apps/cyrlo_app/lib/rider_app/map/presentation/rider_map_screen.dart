@@ -349,7 +349,7 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
                           ),
                         );
                         if (ok != true || !mounted) return;
-                        final result = endTripByRider(ref);
+                        final result = await endTripByRider(ref);
                         if (!mounted || !result.ended) return;
                         messenger.showSnackBar(
                           SnackBar(

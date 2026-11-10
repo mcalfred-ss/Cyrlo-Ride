@@ -8,6 +8,7 @@ import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_mode_provider.dart';
 import '../../../features/auth/application/signup_controller.dart';
 import '../../../features/auth/application/signup_draft.dart';
+import '../../../rider_app/onboarding/data/rider_onboarding_models.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import 'help_support_screen.dart';
@@ -35,19 +36,22 @@ class AccountScreen extends ConsumerWidget {
 
   String _driverLabel(DriverKind? kind) {
     return switch (kind) {
-      DriverKind.okada => 'Okada',
-      DriverKind.pragya => 'Pragya',
+      DriverKind.okada => 'Car',
+      DriverKind.pragya => 'Tricycle',
       DriverKind.aboboyaa => 'Aboboyaa',
       null => '—',
     };
   }
 
-  String _idTypeLabel(RiderIdType? type) {
-    return switch (type) {
-      RiderIdType.driversLicense => 'Driver’s license',
-      RiderIdType.ghanaCard => 'Ghana Card',
-      null => '—',
-    };
+  String _vehicleCategoryLabel(SignupDraft draft) {
+    final category = draft.vehicleCategory;
+    if (category != null) {
+      return switch (category) {
+        VehicleCategory.tricycle => 'Tricycle',
+        VehicleCategory.car => 'Car',
+      };
+    }
+    return _driverLabel(draft.driverKind);
   }
 
   Future<void> _confirmSignOut(BuildContext context, WidgetRef ref) async {
@@ -259,7 +263,7 @@ class AccountScreen extends ConsumerWidget {
                         _AccountDetailRow(
                           icon: Icons.two_wheeler_rounded,
                           label: 'Vehicle type',
-                          value: _driverLabel(draft.driverKind),
+                          value: _vehicleCategoryLabel(draft),
                         ),
                         _AccountDetailRow(
                           icon: Icons.pin_rounded,
@@ -268,8 +272,10 @@ class AccountScreen extends ConsumerWidget {
                         ),
                         _AccountDetailRow(
                           icon: Icons.badge_rounded,
-                          label: 'ID type',
-                          value: _idTypeLabel(draft.riderIdType),
+                          label: 'Ghana Card',
+                          value: draft.riderGhanaCardNumber != null
+                              ? 'On file'
+                              : '—',
                         ),
                         _AccountDetailRow(
                           icon: Icons.verified_rounded,

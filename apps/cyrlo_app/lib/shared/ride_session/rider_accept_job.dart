@@ -20,13 +20,12 @@ class RiderAcceptJobResult {
   final int smsSentCount;
 }
 
-/// Accepts one waiting job. Other same-window offers are dropped and those
-/// passengers are told the rider is busy (SMS + in-app).
+/// Accepts one waiting job via matching API.
 Future<RiderAcceptJobResult?> acceptJobAndReleaseSiblings(
   WidgetRef ref,
   String jobId,
 ) async {
-  final outcome = ref.read(riderJobOffersProvider.notifier).accept(jobId);
+  final outcome = await ref.read(riderJobOffersProvider.notifier).accept(jobId);
   if (outcome == null) return null;
 
   var smsSentCount = 0;
@@ -46,6 +45,7 @@ Future<bool> _notifyPassengerRiderBusy(
   WidgetRef ref,
   ActiveRideRequest job,
 ) async {
+  if (job.passengerPhoneE164.isEmpty) return false;
   final smsBody =
       'Cyrlo Ride: Your ${job.kindLabel} rider is busy with another pickup. '
       'Wait a bit, or request a different rider in the app.';

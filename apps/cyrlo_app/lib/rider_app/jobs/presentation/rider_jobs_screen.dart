@@ -49,7 +49,7 @@ class RiderJobsScreen extends ConsumerWidget {
       ),
     );
     if (ok != true) return;
-    ref.read(riderJobOffersProvider.notifier).decline(job.id);
+    await ref.read(riderJobOffersProvider.notifier).decline(job.id);
   }
 
   Future<void> _confirmAccept(
@@ -137,7 +137,21 @@ class RiderJobsScreen extends ConsumerWidget {
     );
     if (ok != true) return;
     ref.read(previewRiderJobProvider.notifier).clear();
-    ref.read(riderOnlineProvider.notifier).goOffline();
+    try {
+      await ref.read(riderOnlineProvider.notifier).goOffline();
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            '$error',
+            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
   }
 
   @override
@@ -212,9 +226,30 @@ class RiderJobsScreen extends ConsumerWidget {
             ),
             const SizedBox(height: AppSpacing.lg),
             if (!online && !accepted)
-              Expanded(child: _OfflineHome(onGoOnline: () {
-                ref.read(riderOnlineProvider.notifier).goOnline();
-              }))
+              Expanded(
+                child: _OfflineHome(
+                  onGoOnline: () async {
+                    try {
+                      await ref.read(riderOnlineProvider.notifier).goOnline();
+                    } catch (error) {
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          behavior: SnackBarBehavior.floating,
+                          backgroundColor: AppColors.darkGrey,
+                          content: Text(
+                            '$error',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                ),
+              )
             else ...[
               Row(
                 children: [
@@ -348,7 +383,7 @@ class RiderJobsScreen extends ConsumerWidget {
                                 ),
                               );
                               if (ok != true || !context.mounted) return;
-                              final result = endTripByRider(ref);
+                              final result = await endTripByRider(ref);
                               if (!context.mounted || !result.ended) return;
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(

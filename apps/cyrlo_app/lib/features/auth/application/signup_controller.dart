@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../core/errors/api_exception.dart';
 import '../../../core/utils/phone_numbers.dart';
+import '../../../rider_app/onboarding/data/rider_onboarding_api.dart';
+import '../../../rider_app/onboarding/data/rider_onboarding_models.dart';
 import '../../../shared/models/geo_point.dart';
 import '../data/auth_api.dart';
 import '../data/auth_models.dart';
@@ -86,13 +88,26 @@ class SignupController extends Notifier<SignupDraft> {
       riderGender: state.riderGender,
       riderLocation: state.riderLocation,
       riderLocationPoint: state.riderLocationPoint,
-      riderIdType: state.riderIdType,
-      riderIdFrontPath: state.riderIdFrontPath,
-      riderVehicleNumber: state.riderVehicleNumber,
-      riderSelfiePath: state.riderSelfiePath,
+      vehicleCategory: state.vehicleCategory,
       driverKind: state.driverKind,
+      riderDriversLicenceNumber: state.riderDriversLicenceNumber,
+      riderDriversLicenceExpiry: state.riderDriversLicenceExpiry,
+      riderGhanaCardNumber: state.riderGhanaCardNumber,
+      riderVehicleNumber: state.riderVehicleNumber,
+      riderVehicleMake: state.riderVehicleMake,
+      riderVehicleModel: state.riderVehicleModel,
+      riderVehicleColour: state.riderVehicleColour,
+      riderVehicleCapacity: state.riderVehicleCapacity,
+      docGhanaCardPath: state.docGhanaCardPath,
+      docDriversLicencePath: state.docDriversLicencePath,
+      docRiderPhotoPath: state.docRiderPhotoPath,
+      docVehiclePhotoPath: state.docVehiclePhotoPath,
+      docVehicleRegistrationPath: state.docVehicleRegistrationPath,
+      docRoadworthinessPath: state.docRoadworthinessPath,
+      docInsurancePath: state.docInsurancePath,
       applicationSubmitted: state.applicationSubmitted,
       riderApproved: state.riderApproved,
+      riderRejectionReason: state.riderRejectionReason,
     );
     _applyPassengerProfile(session.user.passengerProfile);
     unawaited(_persist());
@@ -123,26 +138,31 @@ class SignupController extends Notifier<SignupDraft> {
   }
 
   Future<void> _hydrateProfileFromApi(AuthSession session) async {
-    if (session.user.role != RideRole.passenger) return;
     try {
-      final me = await ref.read(authApiProvider).me(session.accessToken);
-      _applyPassengerProfile(me.passengerProfile);
-      if (me.displayName != null &&
-          me.displayName!.trim().isNotEmpty &&
-          !state.hasPassengerProfile) {
-        final fromName = SignupDraft.restoredSession(
-          phoneE164: me.phoneNumber,
-          role: me.role,
-          displayName: me.displayName,
-        );
-        state = state.copyWith(
-          passengerFirstName:
-              state.passengerFirstName ?? fromName.passengerFirstName,
-          passengerLastName:
-              state.passengerLastName ?? fromName.passengerLastName,
-        );
+      if (session.user.role == RideRole.passenger) {
+        final me = await ref.read(authApiProvider).me(session.accessToken);
+        _applyPassengerProfile(me.passengerProfile);
+        if (me.displayName != null &&
+            me.displayName!.trim().isNotEmpty &&
+            !state.hasPassengerProfile) {
+          final fromName = SignupDraft.restoredSession(
+            phoneE164: me.phoneNumber,
+            role: me.role,
+            displayName: me.displayName,
+          );
+          state = state.copyWith(
+            passengerFirstName:
+                state.passengerFirstName ?? fromName.passengerFirstName,
+            passengerLastName:
+                state.passengerLastName ?? fromName.passengerLastName,
+          );
+        }
+        await _persist();
+        return;
       }
-      await _persist();
+      if (session.user.role == RideRole.rider) {
+        await refreshRiderApplicationStatus();
+      }
     } catch (_) {
       // Offline / transient failures keep local draft; router may still ask
       // for passenger details when nothing is available.
@@ -249,29 +269,25 @@ class SignupController extends Notifier<SignupDraft> {
           role: role,
         );
     await ref.read(authSessionProvider.notifier).save(tokens);
-    final returning = !tokens.isNewUser || state.accountReady;
     _set(
       state.copyWith(
         otpVerified: true,
         phoneE164: tokens.user.phoneNumber,
         role: tokens.user.role,
         // Passengers only become "ready" after a complete profile exists
-        // (local or hydrated from GET /users/me).
+        // (local or hydrated from GET /users/me). Riders hydrate approval from API.
         accountReady: tokens.user.role == RideRole.passenger
             ? state.hasPassengerProfile
-            : returning,
-        applicationSubmitted: returning && tokens.user.role == RideRole.rider
-            ? true
-            : null,
-        riderApproved: returning && tokens.user.role == RideRole.rider
-            ? true
-            : null,
+            : false,
       ),
     );
     final session = ref.read(authSessionProvider);
     if (session != null) {
       await _hydrateProfileFromApi(session);
       if (state.hasPassengerProfile) {
+        _set(state.copyWith(accountReady: true));
+      }
+      if (tokens.user.role == RideRole.rider && state.riderApproved) {
         _set(state.copyWith(accountReady: true));
       }
     }
@@ -351,9 +367,20 @@ class SignupController extends Notifier<SignupDraft> {
     return true;
   }
 
+  void chooseVehicleCategory(VehicleCategory category) {
+    final kind = switch (category) {
+      VehicleCategory.tricycle => DriverKind.pragya,
+      VehicleCategory.car => DriverKind.okada,
+    };
+    _set(state.copyWith(vehicleCategory: category, driverKind: kind));
+  }
+
+  @Deprecated('Use chooseVehicleCategory')
   void chooseDriver(DriverKind kind) {
     if (kind == DriverKind.aboboyaa) return;
-    _set(state.copyWith(driverKind: kind));
+    chooseVehicleCategory(
+      kind == DriverKind.okada ? VehicleCategory.car : VehicleCategory.tricycle,
+    );
   }
 
   /// Go back from rider details to vehicle type.
@@ -369,65 +396,260 @@ class SignupController extends Notifier<SignupDraft> {
   bool saveRiderDetails({
     required String firstName,
     required String lastName,
-    required DateTime? dateOfBirth,
-    required PassengerGender? gender,
-    required String location,
+    required String driversLicenceNumber,
+    required DateTime? driversLicenceExpiry,
+    required String ghanaCardNumber,
+    DateTime? dateOfBirth,
+    PassengerGender? gender,
+    String location = '',
     GeoPoint? locationPoint,
   }) {
     final first = firstName.trim();
     final last = lastName.trim();
-    final place = location.trim();
+    final licence = driversLicenceNumber.trim();
+    final ghana = ghanaCardNumber.trim().toUpperCase();
+    final ghanaOk = RegExp(r'^GHA-\d{9}-\d$').hasMatch(ghana);
     if (first.length < 2) return false;
     if (last.length < 2) return false;
-    if (dateOfBirth == null) return false;
-    if (gender == null) return false;
-    if (place.length < 2) return false;
-    if (!_isAtLeast16(dateOfBirth)) return false;
+    if (licence.length < 5) return false;
+    if (driversLicenceExpiry == null) return false;
+    if (!ghanaOk) return false;
 
     _set(
       state.copyWith(
         riderFirstName: first,
         riderLastName: last,
+        riderDriversLicenceNumber: licence,
+        riderDriversLicenceExpiry: driversLicenceExpiry,
+        riderGhanaCardNumber: ghana,
         riderDateOfBirth: dateOfBirth,
         riderGender: gender,
-        riderLocation: place,
+        riderLocation: location.trim().isEmpty ? null : location.trim(),
         riderLocationPoint: locationPoint,
       ),
     );
     return true;
   }
 
-  bool submitRiderDocuments({
-    required RiderIdType? idType,
-    required String? idFrontPath,
-    required String vehicleNumber,
-    required String? selfiePath,
-  }) {
-    final plate = vehicleNumber.trim().toUpperCase();
-    if (state.driverKind == null) return false;
-    if (!state.hasRiderProfile) return false;
-    if (idType == null) return false;
-    if (idFrontPath == null || idFrontPath.isEmpty) return false;
-    if (plate.length < 3) return false;
-    if (selfiePath == null || selfiePath.isEmpty) return false;
+  /// Uploads onboarding + vehicle + documents, then submits for ops review.
+  Future<void> submitRiderOnboarding({
+    required String registrationNumber,
+    required String make,
+    required String model,
+    required String colour,
+    required int capacity,
+    required String ghanaCardPath,
+    required String driversLicencePath,
+    required String riderPhotoPath,
+    required String vehiclePhotoPath,
+    required String vehicleRegistrationPath,
+    required String roadworthinessPath,
+    required String insurancePath,
+  }) async {
+    final category = state.vehicleCategory;
+    final fullName = state.riderName;
+    final licence = state.riderDriversLicenceNumber;
+    final expiry = state.riderDriversLicenceExpiry;
+    final ghana = state.riderGhanaCardNumber;
+    if (category == null ||
+        fullName == null ||
+        licence == null ||
+        expiry == null ||
+        ghana == null) {
+      throw const ApiException(
+        code: 'ONBOARDING_INCOMPLETE',
+        message: 'Complete vehicle type and rider details first.',
+      );
+    }
 
-    _set(
-      state.copyWith(
-        riderIdType: idType,
-        riderIdFrontPath: idFrontPath,
-        riderVehicleNumber: plate,
-        riderSelfiePath: selfiePath,
-        applicationSubmitted: true,
-        // Approval comes from ops once onboarding API is wired.
-        riderApproved: false,
+    final plate = registrationNumber.trim().toUpperCase();
+    if (plate.length < 2 ||
+        make.trim().isEmpty ||
+        model.trim().isEmpty ||
+        colour.trim().isEmpty ||
+        capacity < 1) {
+      throw const ApiException(
+        code: 'VEHICLE_INVALID',
+        message: 'Enter complete vehicle details.',
+      );
+    }
+
+    final session = ref.read(authSessionProvider);
+    if (session == null) {
+      throw const ApiException(
+        code: 'UNAUTHORIZED',
+        message: 'Sign in again to submit your application.',
+      );
+    }
+
+    final api = ref.read(riderOnboardingApiProvider);
+    final token = session.accessToken;
+
+    try {
+      await api.startOnboarding(
+        accessToken: token,
+        fullName: fullName,
+        driversLicenceNumber: licence,
+        driversLicenceExpiry: expiry,
+        ghanaCardNumber: ghana,
+      );
+    } on ApiException catch (error) {
+      if (error.code != 'CONFLICT' && error.statusCode != 409) rethrow;
+      await api.updateOnboarding(
+        accessToken: token,
+        fullName: fullName,
+        driversLicenceNumber: licence,
+        driversLicenceExpiry: expiry,
+        ghanaCardNumber: ghana,
+      );
+    }
+
+    final vehicle = await api.createVehicle(
+      accessToken: token,
+      input: CreateVehicleInput(
+        category: category,
+        registrationNumber: plate,
+        make: make.trim(),
+        model: model.trim(),
+        colour: colour.trim(),
+        capacity: capacity,
       ),
     );
-    return true;
+
+    Future<void> upload(
+      RiderDocumentKind kind,
+      String path, {
+      String? vehicleId,
+    }) async {
+      await api.uploadDocument(
+        accessToken: token,
+        kind: kind,
+        filePath: path,
+        vehicleId: vehicleId,
+      );
+    }
+
+    await upload(RiderDocumentKind.ghanaCard, ghanaCardPath);
+    await upload(RiderDocumentKind.driversLicence, driversLicencePath);
+    await upload(RiderDocumentKind.riderPhoto, riderPhotoPath);
+    await upload(
+      RiderDocumentKind.vehiclePhoto,
+      vehiclePhotoPath,
+      vehicleId: vehicle.id,
+    );
+    await upload(
+      RiderDocumentKind.vehicleRegistration,
+      vehicleRegistrationPath,
+      vehicleId: vehicle.id,
+    );
+    await upload(
+      RiderDocumentKind.roadworthiness,
+      roadworthinessPath,
+      vehicleId: vehicle.id,
+    );
+    await upload(
+      RiderDocumentKind.insurance,
+      insurancePath,
+      vehicleId: vehicle.id,
+    );
+
+    final application = await api.submitApplication(token);
+    _applyApplication(application);
+    _set(
+      state.copyWith(
+        riderVehicleNumber: plate,
+        riderVehicleMake: make.trim(),
+        riderVehicleModel: model.trim(),
+        riderVehicleColour: colour.trim(),
+        riderVehicleCapacity: capacity,
+        docGhanaCardPath: ghanaCardPath,
+        docDriversLicencePath: driversLicencePath,
+        docRiderPhotoPath: riderPhotoPath,
+        docVehiclePhotoPath: vehiclePhotoPath,
+        docVehicleRegistrationPath: vehicleRegistrationPath,
+        docRoadworthinessPath: roadworthinessPath,
+        docInsurancePath: insurancePath,
+        applicationSubmitted: true,
+        riderApproved: application.isApproved,
+        clearRejectionReason: !application.isRejected,
+        riderRejectionReason: application.latestRejectionReason,
+      ),
+    );
+  }
+
+  Future<RiderApplicationView?> refreshRiderApplicationStatus() async {
+    final session = ref.read(authSessionProvider);
+    if (session == null || session.user.role != RideRole.rider) return null;
+    try {
+      final application = await ref
+          .read(riderOnboardingApiProvider)
+          .getMyApplication(session.accessToken);
+      _applyApplication(application);
+      return application;
+    } on ApiException catch (error) {
+      if (error.statusCode == 404 || error.code == 'NOT_FOUND') {
+        _set(
+          state.copyWith(
+            applicationSubmitted: false,
+            riderApproved: false,
+            accountReady: false,
+          ),
+        );
+        return null;
+      }
+      rethrow;
+    }
+  }
+
+  void _applyApplication(RiderApplicationView application) {
+    final approved = application.isApproved;
+    final submitted = application.isPendingReview ||
+        application.isApproved ||
+        application.isRejected ||
+        application.submittedAt != null;
+    _set(
+      state.copyWith(
+        applicationSubmitted: submitted,
+        riderApproved: approved,
+        accountReady: approved,
+        riderRejectionReason: application.latestRejectionReason,
+        clearRejectionReason: !application.isRejected,
+        riderFirstName: state.riderFirstName ??
+            application.fullName?.split(RegExp(r'\s+')).first,
+        riderLastName: state.riderLastName ??
+            (application.fullName == null
+                ? null
+                : application.fullName!
+                    .split(RegExp(r'\s+'))
+                    .skip(1)
+                    .join(' ')),
+        riderDriversLicenceNumber:
+            state.riderDriversLicenceNumber ?? application.driversLicenceNumber,
+        riderDriversLicenceExpiry:
+            state.riderDriversLicenceExpiry ?? application.driversLicenceExpiry,
+        vehicleCategory: state.vehicleCategory ??
+            (application.vehicles.isNotEmpty
+                ? application.vehicles.first.category
+                : null),
+      ),
+    );
   }
 
   /// Called when the backend marks the rider application approved.
   void markRiderApproved() {
-    _set(state.copyWith(riderApproved: true));
+    _set(state.copyWith(riderApproved: true, accountReady: true));
+  }
+
+  /// Allows rejected riders to edit and resubmit.
+  void resetForResubmit() {
+    _set(
+      state.copyWith(
+        applicationSubmitted: false,
+        riderApproved: false,
+        accountReady: false,
+        clearRejectionReason: true,
+      ),
+    );
   }
 
   Future<void> signOut() async {

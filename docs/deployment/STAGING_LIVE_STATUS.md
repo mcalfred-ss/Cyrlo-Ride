@@ -97,7 +97,7 @@ OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS=60
 | Bunny storage | Done (live upload + signed download verified) |
 | Identity / MFA keys | Done (`IDENTITY_ENCRYPTION_KEY_VERSION=1`) |
 | SMS OTP (Vynfy) | Done |
-| Backups + restore drill | Done (cron + 41-table restore drill) |
+| Backups + restore drill | Done (local cron + 41-table restore drill); **re-run `setup-staging-backup.sh` after deploy** for hourly+daily + Bunny `db-backups/` — see [`database-backups.md`](./database-backups.md) |
 | Single matching writer | Done (one API systemd unit) |
 | Live polygons | Done (staging) — zone **Kokobin** created, currently **inactive** pending activate |
 | Refund/dispute policy ack | Done — `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md` |

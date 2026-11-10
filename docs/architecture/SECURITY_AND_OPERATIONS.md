@@ -108,14 +108,14 @@ Write a row in the same transaction for: rider approve and reject, every Ghana C
 
 ## Database backup and recovery
 
-`backend/scripts/backup-postgres.sh` requires `DATABASE_URL`, writes a custom-format `pg_dump` under `/var/backups/cyrlo-ride` (override with `BACKUP_DIR`), and deletes files older than 14 days (`RETENTION_DAYS`). Postgres is intended to listen on localhost only. The API is the only application client.
+Full runbook: [`docs/deployment/database-backups.md`](../deployment/database-backups.md).
 
-Not done, and not done in this phase:
+`backend/scripts/backup-postgres.sh` requires `DATABASE_URL`, writes a custom-format `pg_dump` under `/var/backups/cyrlo-ride` (override with `BACKUP_DIR`), and uploads to Bunny Storage under `db-backups/` when `BUNNY_STORAGE_*` is set. Modes: `hourly` (~48h retention local + Bunny) and `daily` (30d). Cron via `/etc/cron.d/cyrlo-ride-backup` and wrapper `/usr/local/sbin/cyrlo-ride-backup.sh`. Postgres is intended to listen on localhost only. The API is the only application client.
 
-- Installing cron.
-- A restore drill (`pg_restore` into a spare database and a row-count check).
-- Off-server copy of the dumps. A disk on the same VPS is not a backup if the disk fails.
-- Point-in-time recovery. The script is a daily logical dump, so the recovery point is the last successful dump.
+Still not covered:
+
+- Point-in-time recovery (WAL / managed Postgres). Recovery point is the last successful dump (~1 hour RPO with hourly + Bunny).
+- Whole-droplet snapshots (enable separately in the VPS provider UI).
 
 ## Process controls already in the app
 

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../features/auth/application/auth_session.dart';
+import '../../features/bookings/data/bookings_api.dart';
 import '../../passenger_app/home/application/nearby_riders_provider.dart';
 import '../../passenger_app/home/application/passenger_notifications_provider.dart';
 import '../../passenger_app/home/domain/passenger_notification.dart';
@@ -23,13 +25,36 @@ class EndTripResult {
 }
 
 /// Rider marks drop-off done. Clears the live session and queues passenger rating.
-EndTripResult endTripByRider(WidgetRef ref) {
+Future<EndTripResult> endTripByRider(WidgetRef ref) async {
   final job = ref.read(activeRideRequestProvider);
   if (job == null || !job.isAccepted) {
     return const EndTripResult(ended: false);
   }
 
-  final rideId = 'completed-${job.id}';
+  final session = ref.read(authSessionProvider);
+  final bookingId = job.resolvedBookingId;
+  if (session != null) {
+    try {
+      // Ensure booking is IN_PROGRESS before complete when still ACCEPTED.
+      try {
+        await ref.read(bookingsApiProvider).start(
+              accessToken: session.accessToken,
+              bookingId: bookingId,
+            );
+      } catch (_) {
+        // Already in progress is fine.
+      }
+      final booking = await ref.read(bookingsApiProvider).complete(
+            accessToken: session.accessToken,
+            bookingId: bookingId,
+          );
+      ref.read(passengerRidesProvider.notifier).upsertBooking(booking);
+    } catch (_) {
+      // Fall through to local completion so the rider is not stuck.
+    }
+  }
+
+  final rideId = bookingId;
   final pickupLabel = _pickupLabel(job);
 
   ref.read(passengerRidesProvider.notifier).prepend(

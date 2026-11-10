@@ -2,9 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/api_exception.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../shared/account/presentation/in_app_web_screen.dart';
 import '../application/rider_token_provider.dart';
 import '../domain/rider_token.dart';
 
@@ -23,7 +25,7 @@ class RiderTokenScreen extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: Text('Buy ${pack.name}?'),
         content: Text(
-          'Add ${pack.tokens} tokens for ${pack.priceLabel}. Payment stays demo for now.',
+          'Add ${pack.tokens} tokens for ${pack.priceLabel}. You’ll pay with Paystack.',
           style: const TextStyle(height: 1.4),
         ),
         actions: [
@@ -34,23 +36,48 @@ class RiderTokenScreen extends ConsumerWidget {
           FilledButton(
             key: Key('confirm-buy-${pack.id}'),
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Buy pack'),
+            child: const Text('Continue to pay'),
           ),
         ],
       ),
     );
     if (ok != true || !context.mounted) return;
-    ref.read(riderTokenWalletProvider.notifier).buyPackage(pack);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.darkGrey,
-        content: Text(
-          '${pack.tokens} tokens added to your wallet.',
-          style: const TextStyle(fontWeight: FontWeight.w700),
+    try {
+      final url = await ref.read(riderTokenWalletProvider.notifier).buyPackage(pack);
+      if (!context.mounted) return;
+      await Navigator.of(context).push<void>(
+        MaterialPageRoute(
+          builder: (_) => InAppWebScreen(
+            title: 'Buy ${pack.name}',
+            url: url,
+          ),
         ),
-      ),
-    );
+      );
+      if (!context.mounted) return;
+      await ref.read(riderTokenWalletProvider.notifier).refresh();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            'If payment succeeded, your balance will update shortly.',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    } on ApiException catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            error.message,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
   }
 
   @override

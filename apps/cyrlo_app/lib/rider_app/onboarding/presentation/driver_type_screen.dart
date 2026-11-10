@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../features/auth/application/signup_controller.dart';
-import '../../../features/auth/application/signup_draft.dart';
 import '../../../shared/widgets/choice_card.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
 import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/screen_header.dart';
+import '../data/rider_onboarding_models.dart';
 
 class DriverTypeScreen extends ConsumerWidget {
   const DriverTypeScreen({super.key});
@@ -26,30 +26,23 @@ class DriverTypeScreen extends ConsumerWidget {
           ),
           const SizedBox(height: AppSpacing.xl),
           ChoiceCard(
-            key: const Key('driver-okada'),
-            illustrationAsset: AppIllustrations.vehicleOkada,
-            title: 'Okada driver',
-            subtitle: 'Motorcycle',
-            onTap: () =>
-                ref.read(signupProvider.notifier).chooseDriver(DriverKind.okada),
+            key: const Key('driver-tricycle'),
+            illustrationAsset: AppIllustrations.vehiclePragya,
+            title: 'Tricycle',
+            subtitle: 'Pragya / three-wheeler',
+            onTap: () => ref
+                .read(signupProvider.notifier)
+                .chooseVehicleCategory(VehicleCategory.tricycle),
           ),
           const SizedBox(height: AppSpacing.sm),
           ChoiceCard(
-            key: const Key('driver-pragya'),
-            illustrationAsset: AppIllustrations.vehiclePragya,
-            title: 'Pragya driver',
-            subtitle: 'Three-wheeler',
+            key: const Key('driver-car'),
+            illustrationAsset: AppIllustrations.vehicleOkada,
+            title: 'Car',
+            subtitle: 'Passenger car',
             onTap: () => ref
                 .read(signupProvider.notifier)
-                .chooseDriver(DriverKind.pragya),
-          ),
-          const SizedBox(height: AppSpacing.sm),
-          const ChoiceCard(
-            key: Key('driver-aboboyaa'),
-            illustrationAsset: AppIllustrations.vehicleAboboyaa,
-            title: 'Aboboyaa driver',
-            subtitle: 'Coming soon',
-            enabled: false,
+                .chooseVehicleCategory(VehicleCategory.car),
           ),
           const SizedBox(height: AppSpacing.lg),
           Center(

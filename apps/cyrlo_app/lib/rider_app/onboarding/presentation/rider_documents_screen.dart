@@ -5,328 +5,254 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/api_exception.dart';
 import '../../../core/media/document_pick_gateway.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../features/auth/application/signup_controller.dart';
-import '../../../features/auth/application/signup_draft.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/cyrlo_text_field.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
 import '../../../shared/widgets/screen_header.dart';
+import '../data/rider_onboarding_models.dart';
 
 class RiderDocumentsScreen extends ConsumerStatefulWidget {
   const RiderDocumentsScreen({super.key});
 
   @override
-  ConsumerState<RiderDocumentsScreen> createState() => _RiderDocumentsScreenState();
+  ConsumerState<RiderDocumentsScreen> createState() =>
+      _RiderDocumentsScreenState();
 }
 
 class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
-  final _vehicleController = TextEditingController();
-  RiderIdType? _idType;
-  String? _idFrontPath;
-  String? _selfiePath;
+  final _registrationController = TextEditingController();
+  final _makeController = TextEditingController();
+  final _modelController = TextEditingController();
+  final _colourController = TextEditingController();
+  final _capacityController = TextEditingController(text: '3');
+
+  final Map<RiderDocumentKind, String?> _paths = {
+    for (final kind in RiderDocumentKind.values) kind: null,
+  };
+
+  var _submitting = false;
   String? _error;
 
   @override
   void dispose() {
-    _vehicleController.dispose();
+    _registrationController.dispose();
+    _makeController.dispose();
+    _modelController.dispose();
+    _colourController.dispose();
+    _capacityController.dispose();
     super.dispose();
   }
 
-  Future<void> _pickIdFront() async {
-    final path = await ref.read(documentPickGatewayProvider).pickFromGallery();
-    if (!mounted || path == null) return;
-    setState(() {
-      _idFrontPath = path;
-      _error = null;
-    });
-  }
-
-  Future<void> _pickSelfie() async {
+  Future<void> _pick(RiderDocumentKind kind) async {
     final gateway = ref.read(documentPickGatewayProvider);
-    final path = await gateway.pickFromCamera() ?? await gateway.pickFromGallery();
+    final path = kind == RiderDocumentKind.riderPhoto
+        ? await gateway.pickFromCamera() ?? await gateway.pickFromGallery()
+        : await gateway.pickFromGallery();
     if (!mounted || path == null) return;
     setState(() {
-      _selfiePath = path;
+      _paths[kind] = path;
       _error = null;
     });
   }
 
-  void _submit() {
-    final ok = ref.read(signupProvider.notifier).submitRiderDocuments(
-      idType: _idType,
-      idFrontPath: _idFrontPath,
-      vehicleNumber: _vehicleController.text,
-      selfiePath: _selfiePath,
-    );
+  Future<void> _submit() async {
+    final capacity = int.tryParse(_capacityController.text.trim());
+    final missing = RiderDocumentKind.values
+        .where((kind) => (_paths[kind] ?? '').isEmpty)
+        .toList();
+    if (_registrationController.text.trim().length < 2 ||
+        _makeController.text.trim().isEmpty ||
+        _modelController.text.trim().isEmpty ||
+        _colourController.text.trim().isEmpty ||
+        capacity == null ||
+        capacity < 1 ||
+        missing.isNotEmpty) {
+      setState(() {
+        _error = missing.isNotEmpty
+            ? 'Upload: ${missing.first.label}.'
+            : 'Complete vehicle details and all documents.';
+      });
+      return;
+    }
+
     setState(() {
-      if (ok) {
-        _error = null;
-        return;
-      }
-      if (_idType == null) {
-        _error = 'Choose driver’s license or Ghana Card.';
-      } else if (_idFrontPath == null) {
-        _error = 'Upload the front of your ID.';
-      } else if (_vehicleController.text.trim().length < 3) {
-        _error = 'Enter your vehicle / car number.';
-      } else if (_selfiePath == null) {
-        _error = 'Add a clear selfie of yourself.';
-      } else {
-        _error = 'Complete your details first.';
-      }
+      _submitting = true;
+      _error = null;
     });
+
+    try {
+      await ref.read(signupProvider.notifier).submitRiderOnboarding(
+            registrationNumber: _registrationController.text,
+            make: _makeController.text,
+            model: _modelController.text,
+            colour: _colourController.text,
+            capacity: capacity,
+            ghanaCardPath: _paths[RiderDocumentKind.ghanaCard]!,
+            driversLicencePath: _paths[RiderDocumentKind.driversLicence]!,
+            riderPhotoPath: _paths[RiderDocumentKind.riderPhoto]!,
+            vehiclePhotoPath: _paths[RiderDocumentKind.vehiclePhoto]!,
+            vehicleRegistrationPath:
+                _paths[RiderDocumentKind.vehicleRegistration]!,
+            roadworthinessPath: _paths[RiderDocumentKind.roadworthiness]!,
+            insurancePath: _paths[RiderDocumentKind.insurance]!,
+          );
+    } on ApiException catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.message);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _error = 'Could not submit. Check your connection.');
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    final kind = ref.watch(signupProvider).driverKind;
-    final vehicle = switch (kind) {
-      DriverKind.okada => 'Okada',
-      DriverKind.pragya => 'Pragya',
-      DriverKind.aboboyaa || null => 'Vehicle',
+    final category = ref.watch(signupProvider).vehicleCategory;
+    final categoryLabel = switch (category) {
+      VehicleCategory.tricycle => 'Tricycle',
+      VehicleCategory.car => 'Car',
+      null => 'Vehicle',
     };
 
     return FlowScaffold(
-      onBack: () => ref.read(signupProvider.notifier).clearRiderProfile(),
+      onBack: _submitting
+          ? null
+          : () => ref.read(signupProvider.notifier).clearRiderProfile(),
       footer: CyrloButton(
         key: const Key('rider-submit'),
-        label: 'Submit for approval',
-        onPressed: _submit,
+        label: _submitting ? 'Submitting…' : 'Submit for approval',
+        onPressed: _submitting ? null : _submit,
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ScreenHeader(
-            title: 'Verify your ID',
+            title: 'Vehicle & documents',
             subtitle:
-                'Upload $vehicle papers so we can review you before you go online.',
+                'Upload required $categoryLabel photos and papers. Files go to secure storage.',
           ),
-          const SizedBox(height: AppSpacing.xl),
-          Text(
-            'ID type',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _IdTypeChip(
-                key: const Key('id-drivers-license'),
-                label: 'Driver’s license',
-                selected: _idType == RiderIdType.driversLicense,
-                onTap: () => setState(() => _idType = RiderIdType.driversLicense),
-              ),
-              _IdTypeChip(
-                key: const Key('id-ghana-card'),
-                label: 'Ghana Card',
-                selected: _idType == RiderIdType.ghanaCard,
-                onTap: () => setState(() => _idType = RiderIdType.ghanaCard),
-              ),
-            ],
-          ),
-          const SizedBox(height: AppSpacing.md),
-          _UploadTile(
-            key: const Key('upload-id-front'),
-            title: 'ID front',
-            subtitle: _idType == RiderIdType.ghanaCard
-                ? 'Clear photo of your Ghana Card front'
-                : 'Clear photo of your license front',
-            path: _idFrontPath,
-            icon: Icons.badge_rounded,
-            onTap: _pickIdFront,
-          ),
-          const SizedBox(height: AppSpacing.md),
+          const SizedBox(height: AppSpacing.lg),
           CyrloTextField(
-            fieldKey: const Key('rider-vehicle-number'),
-            controller: _vehicleController,
-            label: 'Vehicle / car number',
-            hint: 'GR 1234-25',
-            textInputAction: TextInputAction.done,
+            key: const Key('rider-registration'),
+            controller: _registrationController,
+            label: 'Registration number',
           ),
-          const SizedBox(height: AppSpacing.md),
-          _UploadTile(
-            key: const Key('upload-selfie'),
-            title: 'Selfie',
-            subtitle: 'Take a clear face photo of yourself',
-            path: _selfiePath,
-            icon: Icons.person_rounded,
-            onTap: _pickSelfie,
+          const SizedBox(height: AppSpacing.sm),
+          CyrloTextField(
+            key: const Key('rider-make'),
+            controller: _makeController,
+            label: 'Make',
           ),
-          if (_error != null) ...[
+          const SizedBox(height: AppSpacing.sm),
+          CyrloTextField(
+            key: const Key('rider-model'),
+            controller: _modelController,
+            label: 'Model',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          CyrloTextField(
+            key: const Key('rider-colour'),
+            controller: _colourController,
+            label: 'Colour',
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          CyrloTextField(
+            key: const Key('rider-capacity'),
+            controller: _capacityController,
+            label: 'Passenger capacity',
+            keyboardType: TextInputType.number,
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          for (final kind in RiderDocumentKind.values) ...[
+            _DocTile(
+              kind: kind,
+              path: _paths[kind],
+              onPick: _submitting ? null : () => _pick(kind),
+            ),
             const SizedBox(height: AppSpacing.sm),
+          ],
+          if (_error != null)
             Text(
               _error!,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: AppColors.error,
-                fontWeight: FontWeight.w700,
-              ),
+              style: const TextStyle(color: AppColors.error),
             ),
-          ],
         ],
       ),
     );
   }
 }
 
-class _IdTypeChip extends StatelessWidget {
-  const _IdTypeChip({
-    super.key,
-    required this.label,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(999),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? AppColors.yellow : AppColors.field,
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: selected ? AppColors.yellow : AppColors.border,
-            ),
-          ),
-          child: Text(
-            label,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: selected ? AppColors.darkGrey : AppColors.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _UploadTile extends StatelessWidget {
-  const _UploadTile({
-    super.key,
-    required this.title,
-    required this.subtitle,
+class _DocTile extends StatelessWidget {
+  const _DocTile({
+    required this.kind,
     required this.path,
-    required this.icon,
-    required this.onTap,
+    required this.onPick,
   });
 
-  final String title;
-  final String subtitle;
+  final RiderDocumentKind kind;
   final String? path;
-  final IconData icon;
-  final VoidCallback onTap;
+  final VoidCallback? onPick;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final hasFile = path != null && path!.isNotEmpty;
-
     return Material(
       color: AppColors.field,
-      borderRadius: BorderRadius.circular(AppRadii.lg),
+      borderRadius: BorderRadius.circular(AppRadii.md),
       child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(AppRadii.lg),
-        child: Ink(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AppRadii.lg),
-            border: Border.all(
-              color: hasFile ? AppColors.yellow : AppColors.border,
-              width: hasFile ? 1.6 : 1,
-            ),
-          ),
+        key: Key('doc-${kind.name}'),
+        onTap: onPick,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpacing.md),
           child: Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: SizedBox(
-                  width: 64,
-                  height: 64,
-                  child: hasFile
-                      ? _Preview(path: path!)
-                      : ColoredBox(
-                          color: AppColors.surface,
-                          child: Icon(icon, color: AppColors.textPrimary),
-                        ),
+              if (hasFile && !kIsWeb)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.file(
+                    File(path!),
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => const Icon(Icons.description),
+                  ),
+                )
+              else
+                Icon(
+                  hasFile ? Icons.check_circle : Icons.upload_file_rounded,
+                  color: hasFile ? AppColors.brand : AppColors.textSecondary,
                 ),
-              ),
-              const SizedBox(width: 12),
+              const SizedBox(width: AppSpacing.sm),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w800,
-                      ),
+                      kind.label,
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
-                    const SizedBox(height: 2),
                     Text(
-                      hasFile ? 'Photo added · tap to change' : subtitle,
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      hasFile ? 'Selected' : 'Tap to upload',
+                      style: TextStyle(
                         color: AppColors.textSecondary,
-                        fontWeight: FontWeight.w500,
+                        fontSize: 13,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(
-                hasFile ? Icons.check_circle_rounded : Icons.upload_rounded,
-                color: hasFile ? AppColors.yellow : AppColors.textSecondary,
-              ),
             ],
           ),
         ),
-      ),
-    );
-  }
-}
-
-class _Preview extends StatelessWidget {
-  const _Preview({required this.path});
-
-  final String path;
-
-  @override
-  Widget build(BuildContext context) {
-    if (kIsWeb || path.startsWith('demo/')) {
-      return ColoredBox(
-        color: AppColors.brandLight,
-        child: Icon(
-          path.contains('selfie') ? Icons.person_rounded : Icons.badge_rounded,
-          color: AppColors.onBrandLight,
-        ),
-      );
-    }
-
-    return Image.file(
-      File(path),
-      fit: BoxFit.cover,
-      errorBuilder: (context, error, stackTrace) => ColoredBox(
-        color: AppColors.brandLight,
-        child: Icon(Icons.image_rounded, color: AppColors.onBrandLight),
       ),
     );
   }

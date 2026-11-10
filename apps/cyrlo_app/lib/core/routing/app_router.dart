@@ -231,8 +231,10 @@ String? _requiredLocation(SignupDraft draft) {
     }
     return null;
   }
-  if (draft.accountReady) return null;
-  if (draft.driverKind == null) return AppRoutes.driverType;
+  if (draft.accountReady && draft.riderApproved) return null;
+  if (draft.vehicleCategory == null && draft.driverKind == null) {
+    return AppRoutes.driverType;
+  }
   if (!draft.hasRiderProfile) return AppRoutes.riderDetails;
   if (!draft.applicationSubmitted) return AppRoutes.riderDocuments;
   if (!draft.riderApproved) return AppRoutes.riderApproval;

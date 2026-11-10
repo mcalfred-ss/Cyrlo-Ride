@@ -163,28 +163,30 @@ Current packaging starts these inside the API when `NODE_ENV !== 'test'`:
 
 ## 5. Backup and recovery
 
-Script: `backend/scripts/backup-postgres.sh`
+Full runbook: [`docs/deployment/database-backups.md`](../deployment/database-backups.md).
+
+Script: `backend/scripts/backup-postgres.sh` (hourly + daily → `/var/backups/cyrlo-ride` + Bunny `db-backups/`).
 
 ```bash
-export DATABASE_URL='postgresql://…/cyrlo_ride_app'
-export BACKUP_DIR=/var/backups/cyrlo-ride
-export RETENTION_DAYS=14
-./backend/scripts/backup-postgres.sh
+# On VPS after deploy:
+sudo bash /var/www/cyrlo-ride-api/app/backend/scripts/setup-staging-backup.sh
+# Manual:
+/usr/local/sbin/cyrlo-ride-backup.sh hourly
+/usr/local/sbin/cyrlo-ride-backup.sh daily
 ```
 
-Produces custom-format `pg_dump` files. Schedule via cron on the DB host.
+Retention: hourly ~48h, daily 30d (local + Bunny). Confirm `Bunny upload OK` in `/var/backups/cyrlo-ride/backup.log`.
 
 ### Restore (outline)
 
-1. Stop writers (API/workers).  
-2. Create empty target DB or restore into a new database name.  
-3. `pg_restore --clean --if-exists -d "$DATABASE_URL" path/to/dump` (test on staging first).  
+1. Stop writers (`systemctl stop cyrlo-ride-api`).  
+2. Prefer restore into a throwaway DB first; for incident, recreate target DB.  
+3. `pg_restore --clean --if-exists --no-owner -d "$TARGET_URL" path/to/dump` (test on staging first).  
 4. Run `prisma migrate status` — expect up to date.  
 5. Verify payment/webhook/ledger row counts spot checks.  
 6. Resume API.
 
 **Note:** Dumps do not include encryption key material. Identity ciphertext is useless without `IDENTITY_ENCRYPTION_KEY`.
-
 ---
 
 ## 6. Health checks
@@ -249,7 +251,7 @@ Pilot is blocked until:
 - [x] Bunny.net storage + CDN token auth configured *(staging verified: upload + signed CDN download OK; zone `cyrloride`, host `jh.storage.bunnycdn.com`, CDN `cyrlo-ride-staging.b-cdn.net`)*  
 - [x] Identity + MFA keys in secrets manager *(staging: distinct 32-byte keys present; `IDENTITY_ENCRYPTION_KEY_VERSION=1` set; not placeholders)*  
 - [x] SMS path proven for OTP *(Vynfy ready on staging; sender `CYRLO RIDE`; OTPs previously delivered)*  
-- [x] Backups scheduled and restore drilled once *(daily 02:15 UTC cron; first dump + restore drill restored 41 public tables into throwaway DB then dropped)*  
+- [x] Backups scheduled and restore drilled once *(hourly `:05` + daily `03:15` UTC → local + Bunny `db-backups/`; first dump + restore drill restored 41 public tables into throwaway DB then dropped — re-run `setup-staging-backup.sh` after deploying the Bunny-capable script)*  
 - [x] Single matching writer topology agreed *(one systemd unit `cyrlo-ride-api` owns in-process matching/outbox/refund timers; do not scale API replicas until separate worker entrypoints exist)*  
 - [x] Open refund/dispute policies acknowledged *(see `docs/legal/PILOT_REFUND_AND_DISPUTE_POLICY.md`; hosted Terms/Privacy: `https://eqostack.com/cyrlo/terms` · `https://eqostack.com/cyrlo/privacy`; drafts in `docs/legal/`)*
 
@@ -265,6 +267,7 @@ Flutter integration can proceed earlier against staging with test keys and an ex
 | Env | `/etc/cyrlo-ride/ride.env` + `/etc/cyrlo-ride/providers.env` |
 | Deploy script | `ops/deploy/deploy-staging.sh` (see `ops/deploy/README.md`) |
 | CI | `.github/workflows/ci.yml` (tests only; deploy stays manual) |
-| Backup wrapper | `/usr/local/sbin/cyrlo-ride-backup.sh` |
-| Backup cron | `/etc/cron.d/cyrlo-ride-backup` (02:15 UTC daily) |
-| Backup dir | `/var/backups/cyrlo-ride` |
+| Backup wrapper | `/usr/local/sbin/cyrlo-ride-backup.sh` (`hourly` \| `daily`) |
+| Backup cron | `/etc/cron.d/cyrlo-ride-backup` (hourly `:05` UTC + daily `03:15` UTC) |
+| Backup dir | `/var/backups/cyrlo-ride` (+ Bunny zone `db-backups/`) |
+| Backup runbook | `docs/deployment/database-backups.md` |
