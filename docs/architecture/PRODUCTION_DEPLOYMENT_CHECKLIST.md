@@ -24,7 +24,7 @@ Copy `backend/.env.example` → `backend/.env` (or platform secrets). Production
 | `OTP_HASH_SECRET` | Yes | No placeholders in production |
 | `OTP_*` rate/TTL settings | Yes | Tune for abuse control |
 | `OTP_DEV_EXPOSE_CODE` | Must be false/ignored | Ignored when `NODE_ENV=production` |
-| `ADMIN_BOOTSTRAP_SECRET` | Optional | ≥32 chars to enable bootstrap; empty disables |
+| `OTP_STATIC_LOGINS` | Recommended for store review | `phone:code` allowlist; see `docs/deployment/REVIEW_TEST_ACCOUNTS.md` || `ADMIN_BOOTSTRAP_SECRET` | Optional | ≥32 chars to enable bootstrap; empty disables |
 | `ADMIN_MFA_ENCRYPTION_KEY` | Yes | 32-byte base64 AES key |
 | `ADMIN_MFA_*` / `TOTP_ISSUER` | Yes | MFA windows and issuer label |
 | `IDENTITY_ENCRYPTION_KEY` | Yes | 32-byte base64; **must differ** from MFA key |

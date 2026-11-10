@@ -15,7 +15,8 @@
     "test": "vitest run",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
-    "prisma:migrate": "prisma migrate dev"
+    "prisma:migrate": "prisma migrate dev",
+    "seed:review-accounts": "tsx scripts/seed-review-accounts.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",

@@ -22,17 +22,16 @@ class DriverTypeScreen extends ConsumerWidget {
         children: [
           const ScreenHeader(
             title: 'What do you drive?',
-            subtitle: 'Choose the vehicle you will use for rides.',
+            subtitle: 'We’re onboarding Pragya riders first. Other vehicles open soon.',
           ),
           const SizedBox(height: AppSpacing.xl),
           ChoiceCard(
             key: const Key('driver-okada'),
             illustrationAsset: AppIllustrations.vehicleOkada,
             title: 'Okada',
-            subtitle: 'Motorcycle',
-            onTap: () => ref
-                .read(signupProvider.notifier)
-                .chooseVehicleCategory(VehicleCategory.okada),
+            subtitle: 'Coming soon',
+            enabled: false,
+            onTap: null,
           ),
           const SizedBox(height: AppSpacing.sm),
           ChoiceCard(
@@ -49,10 +48,9 @@ class DriverTypeScreen extends ConsumerWidget {
             key: const Key('driver-aboboyaa'),
             illustrationAsset: AppIllustrations.vehicleAboboyaa,
             title: 'Aboboyaa',
-            subtitle: 'Cargo three-wheeler',
-            onTap: () => ref
-                .read(signupProvider.notifier)
-                .chooseVehicleCategory(VehicleCategory.aboboyaa),
+            subtitle: 'Coming soon',
+            enabled: false,
+            onTap: null,
           ),
           const SizedBox(height: AppSpacing.lg),
           Center(

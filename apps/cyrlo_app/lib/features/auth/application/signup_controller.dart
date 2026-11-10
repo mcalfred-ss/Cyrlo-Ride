@@ -368,21 +368,20 @@ class SignupController extends Notifier<SignupDraft> {
   }
 
   void chooseVehicleCategory(VehicleCategory category) {
-    final kind = switch (category) {
-      VehicleCategory.okada => DriverKind.okada,
-      VehicleCategory.pragya => DriverKind.pragya,
-      VehicleCategory.aboboyaa => DriverKind.aboboyaa,
-    };
-    _set(state.copyWith(vehicleCategory: category, driverKind: kind));
+    // Pilot: only Pragya riders are onboarded for now.
+    if (category != VehicleCategory.pragya) return;
+    _set(
+      state.copyWith(
+        vehicleCategory: VehicleCategory.pragya,
+        driverKind: DriverKind.pragya,
+      ),
+    );
   }
 
   @Deprecated('Use chooseVehicleCategory')
   void chooseDriver(DriverKind kind) {
-    chooseVehicleCategory(switch (kind) {
-      DriverKind.okada => VehicleCategory.okada,
-      DriverKind.pragya => VehicleCategory.pragya,
-      DriverKind.aboboyaa => VehicleCategory.aboboyaa,
-    });
+    if (kind != DriverKind.pragya) return;
+    chooseVehicleCategory(VehicleCategory.pragya);
   }
 
   /// Go back from rider details to vehicle type.

@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { canExposeDevelopmentOtp, env } from '../../config/env.js';
 import { AppError } from '../../common/errors/app-error.js';
 import { generateOtpCode, hashOtpCode } from '../../common/security/otp.js';
+import { staticOtpForPhone } from '../../common/security/static-otp.js';
 import {
   createRefreshToken,
   hashSecretValue,
@@ -54,6 +55,8 @@ export interface AuthServiceDeps {
   now?: () => Date;
   generateCode?: () => string;
   createFamilyId?: () => string;
+  /** Override for tests; defaults to OTP_STATIC_LOGINS allowlist. */
+  staticOtpFor?: (phoneNumber: string) => string | null;
 }
 
 export interface AuthService {
@@ -68,6 +71,7 @@ export class AuthServiceImpl implements AuthService {
   private readonly now: () => Date;
   private readonly generateCode: () => string;
   private readonly createFamilyId: () => string;
+  private readonly staticOtpFor: (phoneNumber: string) => string | null;
 
   constructor(
     private readonly repository: AuthStore,
@@ -76,11 +80,15 @@ export class AuthServiceImpl implements AuthService {
     this.now = deps.now ?? (() => new Date());
     this.generateCode = deps.generateCode ?? generateOtpCode;
     this.createFamilyId = deps.createFamilyId ?? (() => randomUUID());
+    this.staticOtpFor =
+      deps.staticOtpFor ??
+      ((phoneNumber) => staticOtpForPhone(phoneNumber, env.OTP_STATIC_LOGINS));
   }
 
   async requestOtp(input: RequestOtpInput): Promise<RequestOtpResult> {
     const now = this.now();
-    const code = this.generateCode();
+    const staticCode = this.staticOtpFor(input.phoneNumber);
+    const code = staticCode ?? this.generateCode();
     const codeHash = hashOtpCode(code, env.OTP_HASH_SECRET);
     const expiresAt = new Date(now.getTime() + env.OTP_TTL_SECONDS * 1000);
 
@@ -93,10 +101,13 @@ export class AuthServiceImpl implements AuthService {
       now,
     });
 
-    await this.deps.sms.send({
-      to: input.phoneNumber,
-      body: `Your Cyrlo Ride code is ${code}. It expires in ${env.OTP_TTL_SECONDS / 60} minutes.`,
-    });
+    // Store-review / QA allowlist: fixed code, no SMS (reviewers use the published OTP).
+    if (!staticCode) {
+      await this.deps.sms.send({
+        to: input.phoneNumber,
+        body: `Your Cyrlo Ride code is ${code}. It expires in ${env.OTP_TTL_SECONDS / 60} minutes.`,
+      });
+    }
 
     const result: RequestOtpResult = {
       expiresIn: env.OTP_TTL_SECONDS,

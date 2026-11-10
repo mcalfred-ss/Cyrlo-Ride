@@ -48,6 +48,28 @@ describe('OTP authentication', () => {
     expect(store.otpChallenges[0]?.codeHash).not.toContain('123456');
   });
 
+  it('uses a fixed OTP for allowlisted phones and skips SMS', async () => {
+    const reviewPhone = '+233555010011';
+    const sms = new DevelopmentSmsProvider();
+    const service = new AuthServiceImpl(store, {
+      sms,
+      now: () => new Date('2026-01-01T00:00:00.000Z'),
+      generateCode: () => '999999',
+      staticOtpFor: (value) => (value === reviewPhone ? '246810' : null),
+    });
+
+    await service.requestOtp({ phoneNumber: reviewPhone });
+    expect(sms.sent).toHaveLength(0);
+
+    const session = await service.verifyOtp({
+      phoneNumber: reviewPhone,
+      code: '246810',
+      role: 'PASSENGER',
+    });
+    expect(session.user.phoneNumber).toBe(reviewPhone);
+    expect(session.isNewUser).toBe(true);
+  });
+
   it('verifies a valid OTP and establishes a session', async () => {
     const { service } = createService(store);
     await service.requestOtp({ phoneNumber: phone });

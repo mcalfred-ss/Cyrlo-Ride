@@ -40,6 +40,12 @@ const envSchema = z
       .enum(['true', 'false'])
       .default('false')
       .transform((value) => value === 'true'),
+    /**
+     * Comma-separated phone:code pairs for App Store / Play review and internal QA.
+     * Example: +233555010001:246810,+233555010002:246810
+     * Allowed in production — only those exact numbers skip SMS and use the fixed code.
+     */
+    OTP_STATIC_LOGINS: z.string().default(''),
     OTP_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
     OTP_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
     /** One-time Super Admin bootstrap secret. Empty disables bootstrap endpoint. */

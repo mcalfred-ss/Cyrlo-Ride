@@ -184,30 +184,20 @@ class _VehicleCategorySheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'Choose vehicle',
+              'Book a Pragya',
               style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
             ),
             const SizedBox(height: AppSpacing.sm),
-            const Text('We’ll match you with a nearby rider after you pay the fee.'),
+            const Text(
+              'We’re matching Pragya riders for now. Pay the fee to start the search.',
+            ),
             const SizedBox(height: AppSpacing.lg),
             CyrloButton(
-              key: const Key('book-okada'),
-              label: 'Okada',
-              onPressed: () => Navigator.pop(context, VehicleCategory.okada),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            CyrloButton(
               key: const Key('book-pragya'),
-              label: 'Pragya',
+              label: 'Continue',
               onPressed: () => Navigator.pop(context, VehicleCategory.pragya),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            CyrloButton(
-              key: const Key('book-aboboyaa'),
-              label: 'Aboboyaa',
-              onPressed: () => Navigator.pop(context, VehicleCategory.aboboyaa),
             ),
           ],
         ),

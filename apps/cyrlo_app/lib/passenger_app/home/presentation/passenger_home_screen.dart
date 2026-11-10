@@ -10,11 +10,9 @@ import '../../../features/auth/application/signup_controller.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/ride_session/show_passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
-import '../../../shared/widgets/cyrlo_button.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
-import 'live_booking_flow.dart';
 import 'nearby_rider_card.dart';
 import 'notification_bell_button.dart';
 import 'passenger_notifications_sheet.dart';
@@ -64,8 +62,8 @@ class PassengerHomeScreen extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Text(
                         riders.isEmpty
-                            ? 'Book an Okada, Pragya, or Aboboyaa'
-                            : 'Riders near you right now',
+                            ? 'No Pragya riders nearby yet'
+                            : 'Tap a Pragya to request',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
@@ -81,15 +79,6 @@ class PassengerHomeScreen extends ConsumerWidget {
                   onPressed: () => showPassengerNotificationsSheet(context),
                 ),
               ],
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            CyrloButton(
-              key: const Key('request-live-ride'),
-              label: 'Book a ride',
-              onPressed: () => startLiveBookingFlow(
-                context: context,
-                ref: ref,
-              ),
             ),
             if (shareContact) ...[
               const SizedBox(height: AppSpacing.md),
