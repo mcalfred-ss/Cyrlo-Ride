@@ -15,6 +15,27 @@ Staging uses Firebase project **`cirlo-ebdf5`** (apps registered for package/bun
    Done for `com.cyrloride.app`: Key ID `DF6ZT77N8Y`, Team ID `AWM6AHNR8J` (dev + production).
 5. **Project settings → Service accounts → Generate new private key** → save JSON privately (never commit).
 
+## 1b. Codemagic (once)
+
+`GoogleService-Info.plist` / `google-services.json` stay gitignored. Inject them in CI via secure group **`firebase_credentials`**:
+
+```powershell
+# From a machine that has the real files:
+[Convert]::ToBase64String([IO.File]::ReadAllBytes(
+  "apps\cyrlo_app\ios\Runner\GoogleService-Info.plist"))
+[Convert]::ToBase64String([IO.File]::ReadAllBytes(
+  "apps\cyrlo_app\android\app\google-services.json"))
+```
+
+In Codemagic → Application → Environment variables → group `firebase_credentials` (secure):
+
+| Variable | Value |
+|---|---|
+| `GOOGLE_SERVICE_INFO_PLIST_BASE64` | iOS plist base64 |
+| `GOOGLE_SERVICES_JSON_BASE64` | Android JSON base64 |
+
+`ios-app-store` and `android-play-store` workflows already decode these before building.
+
 ## 2. Staging API (VPS)
 
 Copy the service-account JSON to the host, then:

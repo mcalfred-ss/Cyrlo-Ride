@@ -9,6 +9,10 @@
 # 4. Code signing identities: App Store cert + profile for com.cyrloride.app
 # 5. Start "ios-app-store" workflow (manual or on tag)
 #
+# Firebase (firebase_credentials group) must define:
+#   GOOGLE_SERVICE_INFO_PLIST_BASE64  — base64 of apps/cyrlo_app/ios/Runner/GoogleService-Info.plist
+#   GOOGLE_SERVICES_JSON_BASE64       — base64 of apps/cyrlo_app/android/app/google-services.json
+#
 # Android (play_credentials group) must define:
 #   CM_KEYSTORE (base64), CM_KEYSTORE_PASSWORD, CM_KEY_PASSWORD, CM_KEY_ALIAS,
 #   GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
@@ -26,6 +30,8 @@ workflows:
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.cyrloride.app
+      groups:
+        - firebase_credentials
       vars:
         # Numeric App Store Connect Apple ID (App Information), NOT the bundle ID.
         # Optional for IPA upload; required only if you later add TestFlight build-number fetch.
@@ -33,6 +39,13 @@ workflows:
         BUNDLE_ID: com.cyrloride.app
         XCODE_PROJECT: apps/cyrlo_app/ios/Runner.xcodeproj
     scripts:
+      - name: Write Firebase iOS config
+        script: |
+          set -euo pipefail
+          : "${GOOGLE_SERVICE_INFO_PLIST_BASE64:?Missing GOOGLE_SERVICE_INFO_PLIST_BASE64 in firebase_credentials}"
+          PLIST_PATH="$CM_BUILD_DIR/apps/cyrlo_app/ios/Runner/GoogleService-Info.plist"
+          echo "$GOOGLE_SERVICE_INFO_PLIST_BASE64" | base64 --decode > "$PLIST_PATH"
+          test -s "$PLIST_PATH"
       - name: Enable SPM and fetch Flutter packages
         script: |
           set -euo pipefail
@@ -74,6 +87,7 @@ workflows:
       java: 17
       groups:
         - play_credentials
+        - firebase_credentials
       vars:
         PACKAGE_NAME: com.cyrloride.app
     scripts:
@@ -85,7 +99,8 @@ workflows:
           : "${CM_KEY_PASSWORD:?Missing CM_KEY_PASSWORD}"
           : "${CM_KEY_ALIAS:?Missing CM_KEY_ALIAS}"
           : "${GCLOUD_SERVICE_ACCOUNT_CREDENTIALS:?Missing GCLOUD_SERVICE_ACCOUNT_CREDENTIALS}"
-      - name: Set up Android keystore
+          : "${GOOGLE_SERVICES_JSON_BASE64:?Missing GOOGLE_SERVICES_JSON_BASE64 in firebase_credentials}"
+      - name: Set up Android keystore and Firebase config
         script: |
           set -euo pipefail
           KEYSTORE_PATH="$CM_BUILD_DIR/apps/cyrlo_app/android/upload-keystore.jks"
@@ -96,6 +111,9 @@ workflows:
             "keyAlias=$CM_KEY_ALIAS" \
             "storeFile=../upload-keystore.jks" \
             > "$CM_BUILD_DIR/apps/cyrlo_app/android/key.properties"
+          JSON_PATH="$CM_BUILD_DIR/apps/cyrlo_app/android/app/google-services.json"
+          echo "$GOOGLE_SERVICES_JSON_BASE64" | base64 --decode > "$JSON_PATH"
+          test -s "$JSON_PATH"
       - name: Get Flutter packages
         script: |
           set -euo pipefail
