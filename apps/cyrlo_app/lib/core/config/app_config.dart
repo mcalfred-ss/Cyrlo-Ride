@@ -63,4 +63,17 @@ abstract final class AppConfig {
     'SUPPORT_WHATSAPP_DISPLAY',
     defaultValue: '0246304492',
   );
+
+  /// Numeric App Store Connect Apple ID (App Information). Used for store
+  /// listing / review deep links on iOS.
+  static const appStoreId = String.fromEnvironment(
+    'APP_STORE_ID',
+    defaultValue: '6832739641',
+  );
+
+  /// Android applicationId / Play package name.
+  static const playStorePackageName = String.fromEnvironment(
+    'PLAY_STORE_PACKAGE_NAME',
+    defaultValue: 'com.cyrloride.app',
+  );
 }

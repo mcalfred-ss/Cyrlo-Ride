@@ -34,8 +34,8 @@ abstract final class AppColors {
   static const _inkDark = Color(0xFFF5F5F5);
   static const _inkDimLight = Color(0xFF6F6F6F);
   static const _inkDimDark = Color(0xFFB5B5B5);
-  static const _borderLight = Color(0xFFE4E4E4);
-  static const _borderDark = Color(0xFF4A4A4A);
+  static const _borderLight = Color(0xFFEEEEEE);
+  static const _borderDark = Color(0xFF333333);
   static const _fieldLight = Color(0xFFF3F3F3);
   static const _fieldDark = darkGreyRaised;
 

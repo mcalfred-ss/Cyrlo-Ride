@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../review/app_review_service.dart';
 import 'centered_frame.dart';
 
-class RoleShell extends StatelessWidget {
+class RoleShell extends StatefulWidget {
   const RoleShell({
     super.key,
     required this.navigationShell,
@@ -15,6 +16,25 @@ class RoleShell extends StatelessWidget {
   final List<NavigationDestination> destinations;
 
   @override
+  State<RoleShell> createState() => _RoleShellState();
+}
+
+class _RoleShellState extends State<RoleShell> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _bootstrapReviewPrompt());
+  }
+
+  Future<void> _bootstrapReviewPrompt() async {
+    await AppReviewService.recordLaunch();
+    // Let the home shell settle before asking.
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+    await AppReviewService.maybeAskForReview(context);
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -22,7 +42,7 @@ class RoleShell extends StatelessWidget {
         margin: 0,
         child: Column(
           children: [
-            Expanded(child: navigationShell),
+            Expanded(child: widget.navigationShell),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
               child: DecoratedBox(
@@ -40,14 +60,15 @@ class RoleShell extends StatelessWidget {
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(30),
                   child: NavigationBar(
-                    selectedIndex: navigationShell.currentIndex,
+                    selectedIndex: widget.navigationShell.currentIndex,
                     onDestinationSelected: (index) {
-                      navigationShell.goBranch(
+                      widget.navigationShell.goBranch(
                         index,
-                        initialLocation: index == navigationShell.currentIndex,
+                        initialLocation:
+                            index == widget.navigationShell.currentIndex,
                       );
                     },
-                    destinations: destinations,
+                    destinations: widget.destinations,
                   ),
                 ),
               ),

@@ -9,6 +9,7 @@ import '../../../core/theme/theme_mode_provider.dart';
 import '../../../features/auth/application/signup_controller.dart';
 import '../../../features/auth/application/signup_draft.dart';
 import '../../../rider_app/onboarding/data/rider_onboarding_models.dart';
+import '../../../shared/review/app_review_service.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/skeleton.dart';
@@ -333,6 +334,12 @@ class AccountScreen extends ConsumerWidget {
                         onTap: () => _openHelpSupport(context),
                       ),
                       _AccountActionRow(
+                        key: const Key('rate-cyrlo-ride'),
+                        icon: Icons.star_rate_rounded,
+                        label: 'Rate Cyrlo Ride',
+                        onTap: () => AppReviewService.openStoreListing(),
+                      ),
+                      _AccountActionRow(
                         icon: Icons.privacy_tip_outlined,
                         label: 'Privacy policy',
                         onTap: () => _openInAppWeb(
@@ -406,7 +413,6 @@ class _ThemePreferencePicker extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: AppColors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.all(6),
@@ -494,7 +500,6 @@ class _ProfileHeaderCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: AppColors.border),
         boxShadow: [
           BoxShadow(
             color: AppColors.elevationShadow(lightAlpha: 0.05),
@@ -582,12 +587,24 @@ class _AccountSectionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(AppRadii.lg),
-        border: Border.all(color: AppColors.border),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Column(children: children),
       ),
+    );
+  }
+}
+
+class _AccountHairline extends StatelessWidget {
+  const _AccountHairline();
+
+  @override
+  Widget build(BuildContext context) {
+    return Divider(
+      height: 1,
+      thickness: 1,
+      color: AppColors.border.withValues(alpha: AppColors.isDark ? 0.55 : 0.7),
     );
   }
 }
@@ -649,7 +666,7 @@ class _AccountDetailRow extends StatelessWidget {
             ],
           ),
         ),
-        if (showDivider) const Divider(height: 1),
+        if (showDivider) const _AccountHairline(),
       ],
     );
   }
@@ -657,6 +674,7 @@ class _AccountDetailRow extends StatelessWidget {
 
 class _AccountActionRow extends StatelessWidget {
   const _AccountActionRow({
+    super.key,
     required this.icon,
     required this.label,
     required this.onTap,
@@ -707,7 +725,7 @@ class _AccountActionRow extends StatelessWidget {
             ),
           ),
         ),
-        if (showDivider) const Divider(height: 1),
+        if (showDivider) const _AccountHairline(),
       ],
     );
   }

@@ -16,7 +16,7 @@ abstract final class CyrloTheme {
     final surface = isDark ? AppColors.darkGrey : const Color(0xFFFFFFFF);
     final onSurface = isDark ? const Color(0xFFF5F5F5) : AppColors.darkGrey;
     final onSurfaceVariant = isDark ? const Color(0xFFB5B5B5) : const Color(0xFF6F6F6F);
-    final border = isDark ? const Color(0xFF4A4A4A) : const Color(0xFFE4E4E4);
+    final border = isDark ? const Color(0xFF333333) : const Color(0xFFEEEEEE);
     final brandContainer = isDark ? AppColors.brandLightDark : AppColors.brandLightLight;
     final field = isDark ? AppColors.darkGreyRaised : const Color(0xFFF3F3F3);
 

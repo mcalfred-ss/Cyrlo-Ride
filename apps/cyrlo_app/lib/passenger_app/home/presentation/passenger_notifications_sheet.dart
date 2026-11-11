@@ -6,9 +6,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_motion.dart';
 import '../../../core/theme/app_radii.dart';
-import '../../../core/theme/app_spacing.dart';
 import '../../../shared/widgets/skeleton.dart';
-import '../../map/presentation/top_down_vehicle_painter.dart';
 import '../application/passenger_notifications_provider.dart';
 import '../domain/passenger_notification.dart';
 
@@ -60,7 +58,8 @@ class PassengerNotificationsSheet extends ConsumerWidget {
           child: ConstrainedBox(
             constraints: BoxConstraints(maxHeight: height, maxWidth: 520),
             child: Material(
-              color: AppColors.surface,
+              // Soft shade so white push cards read like the sample list.
+              color: AppColors.surfaceAlt,
               borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
               clipBehavior: Clip.antiAlias,
               child: SafeArea(
@@ -164,11 +163,11 @@ class PassengerNotificationsSheet extends ConsumerWidget {
                               ),
                             )
                           : ListView.separated(
-                              padding: const EdgeInsets.fromLTRB(16, 4, 16, 20),
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                               shrinkWrap: true,
                               itemCount: notifications.length,
                               separatorBuilder: (context, index) =>
-                                  const SizedBox(height: AppSpacing.sm),
+                                  const SizedBox(height: 12),
                               itemBuilder: (context, index) {
                                 final item = notifications[index];
                                 return _NotificationTile(
@@ -205,30 +204,7 @@ class _NotificationTile extends StatelessWidget {
   final PassengerNotification notification;
   final VoidCallback onTap;
 
-  IconData get _icon => switch (notification.kind) {
-        PassengerNotificationKind.riderNearby => Icons.two_wheeler_rounded,
-        PassengerNotificationKind.rideUpdate => Icons.route_rounded,
-        PassengerNotificationKind.promo => Icons.auto_awesome_rounded,
-      };
-
-  Color get _iconBg {
-    final kind = notification.vehicleKind;
-    if (kind != null) return MapVehicleColors.primary(kind);
-    return switch (notification.kind) {
-      PassengerNotificationKind.riderNearby => MapVehicleColors.pragya,
-      PassengerNotificationKind.rideUpdate => AppColors.darkGrey,
-      PassengerNotificationKind.promo => AppColors.brandLight,
-    };
-  }
-
-  Color get _iconColor {
-    if (notification.vehicleKind != null) return Colors.white;
-    return switch (notification.kind) {
-      PassengerNotificationKind.riderNearby => Colors.white,
-      PassengerNotificationKind.rideUpdate => AppColors.yellow,
-      PassengerNotificationKind.promo => AppColors.onBrandLight,
-    };
-  }
+  static const _cardRadius = 22.0;
 
   String get _timeLabel {
     final diff = DateTime.now().difference(notification.createdAt);
@@ -239,16 +215,20 @@ class _NotificationTile extends StatelessWidget {
     return '${diff.inDays}d ago';
   }
 
-  String? get _actionHint => switch (notification.action) {
-        PassengerNotificationAction.home => 'Open Home',
-        PassengerNotificationAction.map => 'Open Map',
-        PassengerNotificationAction.none => null,
-      };
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final unread = !notification.read;
+    // Unread → brand-filled push card (sample green card, Cyrlo yellow).
+    // Read → light surface card with soft shadow (sample white cards).
+    final cardColor = unread ? AppColors.yellow : AppColors.surface;
+    final titleColor = unread ? AppColors.darkGrey : AppColors.textPrimary;
+    final bodyColor = unread
+        ? AppColors.darkGrey.withValues(alpha: 0.88)
+        : AppColors.textPrimary;
+    final timeColor = unread
+        ? AppColors.darkGrey.withValues(alpha: 0.72)
+        : AppColors.textSecondary;
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0.96, end: 1),
@@ -258,25 +238,32 @@ class _NotificationTile extends StatelessWidget {
         return Transform.scale(scale: scale, child: child);
       },
       child: Material(
-        color: unread ? AppColors.brandLight.withValues(alpha: 0.55) : AppColors.field,
-        borderRadius: BorderRadius.circular(AppRadii.lg),
+        color: cardColor,
+        elevation: unread ? 0 : 1.5,
+        shadowColor: AppColors.elevationShadow(
+          lightAlpha: 0.10,
+          darkAlpha: 0.35,
+        ),
+        borderRadius: BorderRadius.circular(_cardRadius),
         child: InkWell(
           key: Key('notification-${notification.id}'),
           onTap: onTap,
-          borderRadius: BorderRadius.circular(AppRadii.lg),
+          borderRadius: BorderRadius.circular(_cardRadius),
           child: Padding(
-            padding: const EdgeInsets.all(14),
+            padding: const EdgeInsets.fromLTRB(14, 14, 16, 14),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: _iconBg,
-                    borderRadius: BorderRadius.circular(14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(11),
+                  child: Image.asset(
+                    'assets/branding/app_icon.png',
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                    filterQuality: FilterQuality.high,
+                    semanticLabel: 'Cyrlo Ride',
                   ),
-                  child: Icon(_icon, color: _iconColor, size: 20),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -284,58 +271,37 @@ class _NotificationTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Expanded(
                             child: Text(
                               notification.title,
                               style: theme.textTheme.titleSmall?.copyWith(
-                                color: AppColors.textPrimary,
+                                color: titleColor,
                                 fontWeight: FontWeight.w800,
+                                height: 1.2,
                               ),
                             ),
                           ),
-                          if (unread)
-                            Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.only(left: 8, top: 4),
-                              decoration: const BoxDecoration(
-                                color: AppColors.tomato,
-                                shape: BoxShape.circle,
-                              ),
+                          const SizedBox(width: 10),
+                          Text(
+                            _timeLabel,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: timeColor,
+                              fontWeight: FontWeight.w500,
+                              height: 1.2,
                             ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Text(
                         notification.body,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: AppColors.textSecondary,
+                          color: bodyColor,
                           height: 1.35,
                           fontWeight: FontWeight.w500,
                         ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Text(
-                            _timeLabel,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          if (_actionHint != null) ...[
-                            const SizedBox(width: 10),
-                            Text(
-                              _actionHint!,
-                              style: theme.textTheme.labelMedium?.copyWith(
-                                color: AppColors.textPrimary,
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                          ],
-                        ],
                       ),
                     ],
                   ),

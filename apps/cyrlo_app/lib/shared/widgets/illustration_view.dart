@@ -73,7 +73,7 @@ class ThemedIllustrationImage extends StatelessWidget {
     required this.asset,
     this.width,
     this.height,
-    this.fit = BoxFit.contain,
+    this.fit = BoxFit.cover,
     this.alignment = Alignment.center,
     this.semanticLabel,
   });
@@ -136,13 +136,16 @@ class IllustrationView extends StatelessWidget {
           child: ColoredBox(
             // Light: soft white nest. Dark: transparent so art fills the card cleanly.
             color: isDark ? Colors.transparent : AppColors.illustrationNest,
-            child: ThemedIllustrationImage(
-              asset: asset,
-              height: height,
-              width: double.infinity,
-              // Cover fills the rounded box so dark art doesn’t sit as a second rectangle.
-              fit: isDark ? BoxFit.cover : BoxFit.contain,
-              semanticLabel: 'Illustration',
+            child: Transform.scale(
+              // JPG art ships with baked margins; scale past them so the subject fills the box.
+              scale: 1.28,
+              child: ThemedIllustrationImage(
+                asset: asset,
+                height: height,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                semanticLabel: 'Illustration',
+              ),
             ),
           ),
         ),
