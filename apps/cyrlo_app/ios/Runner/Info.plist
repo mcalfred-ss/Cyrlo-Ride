@@ -30,6 +30,10 @@
 	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Cyrlo Ride uses your location to set a pickup point and show nearby rides while you use the app.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Cyrlo Ride uses your location to set a pickup point and show nearby rides. Background access is only used if a linked map or location service requests it while a trip is active.</string>
+	<key>NSLocationAlwaysUsageDescription</key>
+	<string>Cyrlo Ride uses your location to set a pickup point and show nearby rides. Background access is only used if a linked map or location service requests it while a trip is active.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Cyrlo Ride needs the camera so riders can take a selfie for verification.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
