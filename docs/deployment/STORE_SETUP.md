@@ -57,6 +57,7 @@ Upload keystore lives only on this machine (gitignored):
 - `apps/cyrlo_app/android/upload-keystore.jks`
 - `apps/cyrlo_app/android/key.properties`
 - password backup: `apps/cyrlo_app/android/upload-keystore.credentials.txt` (offline backup required)
+- **Bunny off-site copy:** storage zone `cyrloride` → `android-signing/YYYY-MM-DD/upload-keystore.jks` (+ `upload-keystore.credentials.txt`). Download via Bunny dashboard or Storage API with the zone AccessKey — do not put this on the public CDN.
 
 Because the folder name has a space, build from the **D:** junction and keep caches on **D:**:
 
