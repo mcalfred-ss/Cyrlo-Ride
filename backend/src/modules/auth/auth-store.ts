@@ -4,6 +4,7 @@ import type { AuthRepository, AuthUser, IssuedRefreshSession } from './module.re
 export type AuthStore = Pick<
   AuthRepository,
   | 'createOtpChallenge'
+  | 'findOpenLoginOtp'
   | 'verifyOtpAndCreateSession'
   | 'rotateRefreshSession'
   | 'revokeRefreshSession'

@@ -96,13 +96,17 @@ const envSchema = z
      * Empty → development no-op outside production; fail-closed in production.
      * Do not confuse with PUSH_PROVIDER.
      */
+    /**
+     * SMS / OTP vendor. `vynfy` enables Vynfy SMS for notifications and
+     * Vynfy OTP APIs (`/otp/generate`, `/otp/verify`) for phone login.
+     */
     SMS_PROVIDER: z.string().default(''),
     /** Generic vendor key placeholder for non-Vynfy adapters (unused when SMS_PROVIDER=vynfy). */
     SMS_API_KEY: z.string().default(''),
     SMS_SENDER_ID: z.string().default('Cyrlo'),
-    /** Vynfy SMS API key — never commit; required when SMS_PROVIDER=vynfy. */
+    /** Vynfy API key — never commit; required when SMS_PROVIDER=vynfy (SMS + OTP APIs). */
     VYNFY_API_KEY: z.string().default(''),
-    /** Vynfy registered sender / brand ID — required when SMS_PROVIDER=vynfy. */
+    /** Vynfy registered sender / brand ID — required when SMS_PROVIDER=vynfy (SMS + OTP). */
     VYNFY_SENDER_ID: z.string().default(''),
     /**
      * Push adapter: `fcm` (HTTP v1) | `fcm-legacy` (deprecated server key) | empty (dev memory / prod fail-closed).

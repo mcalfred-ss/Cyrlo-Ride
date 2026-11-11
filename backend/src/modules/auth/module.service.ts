@@ -7,8 +7,13 @@ import { staticOtpForPhone } from '../../common/security/static-otp.js';
 import {
   createRefreshToken,
   hashSecretValue,
+  secretsMatch,
   signAccessToken,
 } from '../../common/security/tokens.js';
+import {
+  REMOTE_OTP_PLACEHOLDER,
+  type PhoneOtpProvider,
+} from '../../infrastructure/otp/phone-otp.provider.js';
 import type { SmsProvider } from '../../infrastructure/sms/sms.provider.js';
 import type {
   LogoutInput,
@@ -51,7 +56,16 @@ export interface LookupAccountResult {
 }
 
 export interface AuthServiceDeps {
-  sms: SmsProvider;
+  /**
+   * Phone OTP delivery. Prefer Vynfy OTP API when SMS_PROVIDER=vynfy;
+   * otherwise local code + SMS.
+   */
+  phoneOtp: PhoneOtpProvider;
+  /**
+   * @deprecated Kept for older call sites/tests that still inject `sms`.
+   * Prefer `phoneOtp`. Ignored when `phoneOtp` is provided.
+   */
+  sms?: SmsProvider;
   now?: () => Date;
   generateCode?: () => string;
   createFamilyId?: () => string;
@@ -72,6 +86,7 @@ export class AuthServiceImpl implements AuthService {
   private readonly generateCode: () => string;
   private readonly createFamilyId: () => string;
   private readonly staticOtpFor: (phoneNumber: string) => string | null;
+  private readonly phoneOtp: PhoneOtpProvider;
 
   constructor(
     private readonly repository: AuthStore,
@@ -83,39 +98,71 @@ export class AuthServiceImpl implements AuthService {
     this.staticOtpFor =
       deps.staticOtpFor ??
       ((phoneNumber) => staticOtpForPhone(phoneNumber, env.OTP_STATIC_LOGINS));
+    if (!deps.phoneOtp) {
+      throw new AppError({
+        status: 500,
+        code: 'INTERNAL_ERROR',
+        message: 'AuthService requires phoneOtp',
+      });
+    }
+    this.phoneOtp = deps.phoneOtp;
   }
 
   async requestOtp(input: RequestOtpInput): Promise<RequestOtpResult> {
     const now = this.now();
     const staticCode = this.staticOtpFor(input.phoneNumber);
-    const code = staticCode ?? this.generateCode();
-    const codeHash = hashOtpCode(code, env.OTP_HASH_SECRET);
+    const expiryMinutes = Math.max(1, Math.round(env.OTP_TTL_SECONDS / 60));
     const expiresAt = new Date(now.getTime() + env.OTP_TTL_SECONDS * 1000);
 
+    // Store-review / QA allowlist: fixed code, no vendor delivery.
+    if (staticCode) {
+      await this.repository.createOtpChallenge({
+        phoneNumber: input.phoneNumber,
+        codeHash: hashOtpCode(staticCode, env.OTP_HASH_SECRET),
+        expiresAt,
+        maxAttempts: env.OTP_MAX_ATTEMPTS,
+        cooldownSeconds: env.OTP_RESEND_COOLDOWN_SECONDS,
+        now,
+      });
+      return {
+        expiresIn: env.OTP_TTL_SECONDS,
+        resendAfter: env.OTP_RESEND_COOLDOWN_SECONDS,
+      };
+    }
+
+    const isRemoteProvider = typeof this.phoneOtp.verifyRemote === 'function';
+    const localCode = isRemoteProvider ? undefined : this.generateCode();
+    // Vynfy OTP verify allows max 3 attempts; keep local lock aligned.
+    const maxAttempts = isRemoteProvider
+      ? Math.min(env.OTP_MAX_ATTEMPTS, 3)
+      : env.OTP_MAX_ATTEMPTS;
+    const codeForHash = isRemoteProvider ? REMOTE_OTP_PLACEHOLDER : localCode!;
+
+    // Enforce cooldown / invalidate prior challenges before calling the vendor.
     await this.repository.createOtpChallenge({
       phoneNumber: input.phoneNumber,
-      codeHash,
+      codeHash: hashOtpCode(codeForHash, env.OTP_HASH_SECRET),
       expiresAt,
-      maxAttempts: env.OTP_MAX_ATTEMPTS,
+      maxAttempts,
       cooldownSeconds: env.OTP_RESEND_COOLDOWN_SECONDS,
       now,
     });
 
-    // Store-review / QA allowlist: fixed code, no SMS (reviewers use the published OTP).
-    if (!staticCode) {
-      await this.deps.sms.send({
-        to: input.phoneNumber,
-        body: `Your Cyrlo Ride code is ${code}. It expires in ${env.OTP_TTL_SECONDS / 60} minutes.`,
-      });
-    }
+    const delivery = await this.phoneOtp.request({
+      phoneNumber: input.phoneNumber,
+      localCode,
+      expiryMinutes,
+      length: 6,
+    });
 
     const result: RequestOtpResult = {
       expiresIn: env.OTP_TTL_SECONDS,
       resendAfter: env.OTP_RESEND_COOLDOWN_SECONDS,
     };
 
-    if (canExposeDevelopmentOtp(env)) {
-      result.developmentCode = code;
+    // Never expose a "development code" for remote OTP — we do not know it.
+    if (delivery.mode === 'local' && canExposeDevelopmentOtp(env)) {
+      result.developmentCode = delivery.code;
     }
 
     return result;
@@ -143,9 +190,51 @@ export class AuthServiceImpl implements AuthService {
     const refreshTokenHash = hashSecretValue(refreshToken, env.JWT_REFRESH_SECRET);
     const refreshExpiresAt = new Date(now.getTime() + env.JWT_REFRESH_TTL_SECONDS * 1000);
 
+    const remoteMarkerHash = hashOtpCode(REMOTE_OTP_PLACEHOLDER, env.OTP_HASH_SECRET);
+    const open = await this.repository.findOpenLoginOtp(input.phoneNumber);
+    const isRemoteChallenge =
+      open !== null &&
+      secretsMatch(open.codeHash, remoteMarkerHash) &&
+      typeof this.phoneOtp.verifyRemote === 'function';
+
+    let codeHash = hashOtpCode(input.code, env.OTP_HASH_SECRET);
+
+    if (isRemoteChallenge) {
+      try {
+        await this.phoneOtp.verifyRemote!({
+          phoneNumber: input.phoneNumber,
+          code: input.code,
+        });
+        // Challenge row stores the remote marker hash; consume with that proof.
+        codeHash = remoteMarkerHash;
+      } catch (error) {
+        // Bump local attempt counter, then surface the provider/local error.
+        try {
+          await this.repository.verifyOtpAndCreateSession({
+            phoneNumber: input.phoneNumber,
+            codeHash: hashOtpCode(`invalid:${randomUUID()}`, env.OTP_HASH_SECRET),
+            role: input.role,
+            refreshTokenHash,
+            refreshExpiresAt,
+            familyId,
+            now,
+          });
+        } catch (localError) {
+          if (
+            localError instanceof AppError &&
+            (localError.message === 'OTP attempts exhausted' ||
+              localError.message === 'OTP has expired')
+          ) {
+            throw localError;
+          }
+        }
+        throw error;
+      }
+    }
+
     const { user, created } = await this.repository.verifyOtpAndCreateSession({
       phoneNumber: input.phoneNumber,
-      codeHash: hashOtpCode(input.code, env.OTP_HASH_SECRET),
+      codeHash,
       role: input.role,
       refreshTokenHash,
       refreshExpiresAt,

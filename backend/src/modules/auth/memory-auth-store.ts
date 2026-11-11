@@ -49,6 +49,22 @@ export class MemoryAuthStore implements AuthStore {
     return user ? structuredClone(user) : null;
   }
 
+  async findOpenLoginOtp(
+    phoneNumber: string,
+  ): Promise<{ id: string; codeHash: string; expiresAt: Date; attempts: number; maxAttempts: number } | null> {
+    const challenge = [...this.otpChallenges]
+      .filter((row) => row.phoneNumber === phoneNumber && row.consumedAt === null)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    if (!challenge) return null;
+    return {
+      id: challenge.id,
+      codeHash: challenge.codeHash,
+      expiresAt: challenge.expiresAt,
+      attempts: challenge.attempts,
+      maxAttempts: challenge.maxAttempts,
+    };
+  }
+
   async createOtpChallenge(input: {
     phoneNumber: string;
     codeHash: string;

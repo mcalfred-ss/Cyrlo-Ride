@@ -20,7 +20,7 @@ export class UnconfiguredSmsProvider implements SmsProvider {
       status: 503,
       code: 'SERVICE_UNAVAILABLE',
       message:
-        'SMS provider is not configured. Set SMS_PROVIDER=vynfy with VYNFY_API_KEY and VYNFY_SENDER_ID for production OTP delivery.',
+        'SMS provider is not configured. Set SMS_PROVIDER=vynfy with VYNFY_API_KEY and VYNFY_SENDER_ID (auth OTP uses Vynfy /otp APIs).',
     });
   }
 

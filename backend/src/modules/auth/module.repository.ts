@@ -61,6 +61,27 @@ export class AuthRepository {
     });
   }
 
+  async findOpenLoginOtp(
+    phoneNumber: string,
+  ): Promise<{ id: string; codeHash: string; expiresAt: Date; attempts: number; maxAttempts: number } | null> {
+    const challenge = await this.prisma.otpChallenge.findFirst({
+      where: {
+        phoneNumber,
+        purpose: OtpPurpose.LOGIN,
+        consumedAt: null,
+      },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        codeHash: true,
+        expiresAt: true,
+        attempts: true,
+        maxAttempts: true,
+      },
+    });
+    return challenge;
+  }
+
   /**
    * Creates a new OTP challenge after enforcing resend cooldown and
    * invalidating prior open challenges for the same phone/purpose.

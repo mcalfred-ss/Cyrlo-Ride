@@ -11,8 +11,13 @@ import {
   verifyAccessToken,
 } from '../../common/security/tokens.js';
 import { env } from '../../config/env.js';
+import { SmsBackedPhoneOtpProvider } from '../../infrastructure/otp/phone-otp.provider.js';
+import {
+  VYNFY_OTP_GENERATE_URL,
+  VYNFY_OTP_VERIFY_URL,
+  VynfyOtpProvider,
+} from '../../infrastructure/otp/vynfy-otp.provider.js';
 import { DevelopmentSmsProvider } from '../../infrastructure/sms/sms.provider.js';
-import { VynfySmsProvider } from '../../infrastructure/sms/vynfy-sms.provider.js';
 import { MemoryAuthStore } from './memory-auth-store.js';
 import { AuthServiceImpl } from './module.service.js';
 
@@ -21,12 +26,14 @@ const tokenOptions = { issuer: env.JWT_ISSUER, audience: env.JWT_AUDIENCE };
 
 function createService(store: MemoryAuthStore, code = '123456', now = new Date('2026-01-01T00:00:00.000Z')) {
   const sms = new DevelopmentSmsProvider();
+  const phoneOtp = new SmsBackedPhoneOtpProvider(sms);
   const service = new AuthServiceImpl(store, {
+    phoneOtp,
     sms,
     now: () => now,
     generateCode: () => code,
   });
-  return { service, sms, now };
+  return { service, sms, phoneOtp, now };
 }
 
 describe('OTP authentication', () => {
@@ -52,6 +59,7 @@ describe('OTP authentication', () => {
     const reviewPhone = '+233555010011';
     const sms = new DevelopmentSmsProvider();
     const service = new AuthServiceImpl(store, {
+      phoneOtp: new SmsBackedPhoneOtpProvider(sms),
       sms,
       now: () => new Date('2026-01-01T00:00:00.000Z'),
       generateCode: () => '999999',
@@ -103,6 +111,7 @@ describe('OTP authentication', () => {
     let now = new Date('2026-01-01T00:00:00.000Z');
     const sms = new DevelopmentSmsProvider();
     const service = new AuthServiceImpl(store, {
+      phoneOtp: new SmsBackedPhoneOtpProvider(sms),
       sms,
       now: () => now,
       generateCode: () => '123456',
@@ -315,8 +324,10 @@ describe('refresh sessions', () => {
 
   it('rejects an expired refresh token', async () => {
     let now = new Date('2026-01-01T00:00:00.000Z');
+    const sms = new DevelopmentSmsProvider();
     const service = new AuthServiceImpl(store, {
-      sms: new DevelopmentSmsProvider(),
+      phoneOtp: new SmsBackedPhoneOtpProvider(sms),
+      sms,
       now: () => now,
       generateCode: () => '123456',
     });
@@ -420,35 +431,57 @@ describe('auth middleware helpers', () => {
     });
   });
 
-  it('still owns OTP generation/verification when SMS transport is Vynfy (mocked HTTP)', async () => {
+  it('uses Vynfy OTP generate/verify when the phone OTP provider is Vynfy (mocked HTTP)', async () => {
     const otpStore = new MemoryAuthStore();
-    const fetchImpl = vi.fn(
-      async () =>
-        new Response(JSON.stringify({ accepted: true }), {
+    const fetchImpl = vi.fn(async (url: string | URL | Request) => {
+      const href = String(url);
+      if (href === VYNFY_OTP_GENERATE_URL) {
+        return new Response(JSON.stringify({ success: true, otp_id: 42, message: 'OTP sent successfully' }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
-        }),
-    );
-    const sms = new VynfySmsProvider({
+        });
+      }
+      if (href === VYNFY_OTP_VERIFY_URL) {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            otp_id: 42,
+            message: 'OTP verified successfully',
+            phone_number: '233244123456',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      return new Response('not found', { status: 404 });
+    });
+    const phoneOtp = new VynfyOtpProvider({
       apiKey: 'test-vynfy-key-not-real',
       senderId: 'Cyrlo',
       fetchImpl,
     });
     const service = new AuthServiceImpl(otpStore, {
-      sms,
+      phoneOtp,
       now: () => new Date('2026-01-01T00:00:00.000Z'),
       generateCode: () => '654321',
     });
 
     await service.requestOtp({ phoneNumber: phone });
-    expect(fetchImpl).toHaveBeenCalledOnce();
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(String(fetchImpl.mock.calls[0]?.[0])).toBe(VYNFY_OTP_GENERATE_URL);
     const init = fetchImpl.mock.calls[0]?.[1] as RequestInit;
     const payload = JSON.parse(String(init.body)) as {
-      recipients: string[];
+      number: string;
+      sender_id: string;
       message: string;
+      medium: string;
+      otp_type: string;
     };
-    expect(payload.recipients).toEqual(['233244123456']);
-    expect(payload.message).toContain('654321');
+    expect(payload.number).toBe('233244123456');
+    expect(payload.sender_id).toBe('Cyrlo');
+    expect(payload.medium).toBe('sms');
+    expect(payload.otp_type).toBe('numeric');
+    expect(payload.message).toContain('%otp_code%');
+    expect(payload.message).not.toContain('654321');
 
     const session = await service.verifyOtp({
       phoneNumber: phone,
@@ -456,6 +489,14 @@ describe('auth middleware helpers', () => {
       role: 'PASSENGER',
     });
     expect(session.accessToken).toBeTruthy();
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(String(fetchImpl.mock.calls[1]?.[0])).toBe(VYNFY_OTP_VERIFY_URL);
+    const verifyPayload = JSON.parse(String((fetchImpl.mock.calls[1]?.[1] as RequestInit).body)) as {
+      number: string;
+      code: string;
+    };
+    expect(verifyPayload).toEqual({ number: '233244123456', code: '654321' });
+
     await expect(
       service.verifyOtp({ phoneNumber: phone, code: '654321', role: 'PASSENGER' }),
     ).rejects.toMatchObject({ message: 'OTP is invalid' });
