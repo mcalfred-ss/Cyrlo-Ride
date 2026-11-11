@@ -50,22 +50,28 @@ cd apps/cyrlo_app
 dart run flutter_launcher_icons
 ```
 
-### Android signing (Play upload key)
+### Android (local AAB — not Codemagic)
 
-```bash
-cd apps/cyrlo_app/android
-keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
-cp key.properties.example key.properties
-# fill storePassword / keyPassword / paths
-```
+Upload keystore lives only on this machine (gitignored):
 
-Build:
+- `apps/cyrlo_app/android/upload-keystore.jks`
+- `apps/cyrlo_app/android/key.properties`
+- password backup: `apps/cyrlo_app/android/upload-keystore.credentials.txt` (offline backup required)
 
-```bash
-cd apps/cyrlo_app
+Because the folder name has a space, build from the **D:** junction and keep caches on **D:**:
+
+```powershell
+$env:GRADLE_USER_HOME = "D:\DevCaches\gradle"
+$env:PUB_CACHE = "D:\DevCaches\pub-cache"
+cd D:\Projects\CyrloRide2\apps\cyrlo_app
 flutter build appbundle --release
-# output: build/app/outputs/bundle/release/app-release.aab
 ```
+
+AAB output:
+
+`D:\Projects\CyrloRide2\apps\cyrlo_app\build\app\outputs\bundle\release\app-release.aab`
+
+Upload that file in Play Console → Cyrlo Ride → Production/Internal testing → Create release.
 
 ### iOS (App Store) — Codemagic upload
 
