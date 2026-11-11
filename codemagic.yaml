@@ -6,7 +6,12 @@
 # 2. Team settings → codemagic.yaml as config
 # 3. Integrations → Developer Portal: reuse existing key named "Cyrlo"
 #    (Key ID 75V72728X4 — do not create another unless .p8 is lost)
-# 4. Start "ios-app-store" workflow (manual or on tag)
+# 4. Code signing identities: App Store cert + profile for com.cyrloride.app
+# 5. Start "ios-app-store" workflow (manual or on tag)
+#
+# Android (play_credentials group) must define:
+#   CM_KEYSTORE (base64), CM_KEYSTORE_PASSWORD, CM_KEY_PASSWORD, CM_KEY_ALIAS,
+#   GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
 
 workflows:
   ios-app-store:
@@ -18,30 +23,42 @@ workflows:
     environment:
       flutter: stable
       xcode: latest
-      cocoapods: default
       ios_signing:
         distribution_type: app_store
         bundle_identifier: com.cyrloride.app
       vars:
-        APP_STORE_APPLE_ID: com.cyrloride.app
+        # Numeric App Store Connect Apple ID (App Information), NOT the bundle ID.
+        # Optional for IPA upload; required only if you later add TestFlight build-number fetch.
+        # APP_STORE_APPLE_ID: 0123456789
+        BUNDLE_ID: com.cyrloride.app
+        XCODE_PROJECT: apps/cyrlo_app/ios/Runner.xcodeproj
     scripts:
-      - name: Get Flutter packages
+      - name: Enable SPM and fetch Flutter packages
         script: |
+          set -euo pipefail
           cd apps/cyrlo_app
+          flutter config --enable-swift-package-manager
           flutter pub get
-          # Project uses Flutter Swift Package Manager plugins (no Podfile).
+          # Generates Flutter/ephemeral SPM packages referenced by Runner.xcodeproj.
           flutter build ios --config-only --release
       - name: Set up code signing
         script: |
-          xcode-project use-profiles
+          set -euo pipefail
+          xcode-project use-profiles --project "$XCODE_PROJECT"
       - name: Build IPA
         script: |
+          set -euo pipefail
           cd apps/cyrlo_app
+          # PROJECT_BUILD_NUMBER is unique per Codemagic build (avoids CFBundleVersion conflicts).
+          BUILD_NUMBER="${PROJECT_BUILD_NUMBER:-1}"
           flutter build ipa --release \
+            --build-name=1.0.0 \
+            --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - apps/cyrlo_app/build/ios/ipa/*.ipa
       - apps/cyrlo_app/build/ios/archive/*.xcarchive
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
@@ -60,8 +77,17 @@ workflows:
       vars:
         PACKAGE_NAME: com.cyrloride.app
     scripts:
+      - name: Preflight Play credentials
+        script: |
+          set -euo pipefail
+          : "${CM_KEYSTORE:?Missing CM_KEYSTORE in play_credentials}"
+          : "${CM_KEYSTORE_PASSWORD:?Missing CM_KEYSTORE_PASSWORD}"
+          : "${CM_KEY_PASSWORD:?Missing CM_KEY_PASSWORD}"
+          : "${CM_KEY_ALIAS:?Missing CM_KEY_ALIAS}"
+          : "${GCLOUD_SERVICE_ACCOUNT_CREDENTIALS:?Missing GCLOUD_SERVICE_ACCOUNT_CREDENTIALS}"
       - name: Set up Android keystore
         script: |
+          set -euo pipefail
           KEYSTORE_PATH="$CM_BUILD_DIR/apps/cyrlo_app/android/upload-keystore.jks"
           echo "$CM_KEYSTORE" | base64 --decode > "$KEYSTORE_PATH"
           printf '%s\n' \
@@ -72,12 +98,17 @@ workflows:
             > "$CM_BUILD_DIR/apps/cyrlo_app/android/key.properties"
       - name: Get Flutter packages
         script: |
+          set -euo pipefail
           cd apps/cyrlo_app
           flutter pub get
       - name: Build App Bundle
         script: |
+          set -euo pipefail
           cd apps/cyrlo_app
-          flutter build appbundle --release
+          BUILD_NUMBER="${PROJECT_BUILD_NUMBER:-1}"
+          flutter build appbundle --release \
+            --build-name=1.0.0 \
+            --build-number="$BUILD_NUMBER"
     artifacts:
       - apps/cyrlo_app/build/app/outputs/bundle/release/*.aab
     publishing:

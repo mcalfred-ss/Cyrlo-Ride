@@ -79,8 +79,16 @@ Repo config: root `codemagic.yaml` (workflow `ios-app-store`).
    - Connect Apple Developer team
    - Add App Store Connect API key (reuse existing **Codemagic** key — do not create another unless `.p8` is lost)
    - Integration name must match `codemagic.yaml` (`Cyrlo` — already connected)
-4. Code signing identities: let Codemagic create/fetch **App Store** distribution cert + profile for `com.cyrloride.app`
-5. Run workflow **Cyrlo Ride iOS (App Store)** → IPA goes to **TestFlight**
+4. Code signing identities: **App Store** distribution cert + provisioning profile for `com.cyrloride.app` (not `online.cyrlo.app`)
+5. App Store Connect must already have an iOS app record for `com.cyrloride.app` (first version can be incomplete; Codemagic uploads the IPA / TestFlight build)
+6. Run workflow **Cyrlo Ride iOS (App Store)** → IPA goes to **TestFlight**
+
+**CI notes (avoid re-fails):**
+
+- This app uses **Flutter Swift Package Manager** (no `Podfile`). Do not add a CocoaPods install step.
+- `APP_STORE_APPLE_ID` in Codemagic must be the **numeric** Apple ID from App Store Connect → App Information — never the bundle ID.
+- Build numbers come from Codemagic `PROJECT_BUILD_NUMBER` so TestFlight won’t reject duplicate `CFBundleVersion`.
+- 1024 app icon is RGB (no alpha). Export compliance is declared in `Info.plist` (`ITSAppUsesNonExemptEncryption=false`).
 
 **In App Store Connect after a green build:**
 
