@@ -138,7 +138,9 @@ Collect for app functionality (not tracking):
 - [ ] Ghana counsel review of Terms/Privacy (still drafts for counsel)  
 - [ ] Test OTP on release builds against staging/production API  
 - [ ] Confirm Paystack live vs test for store build  
-- [ ] FCM later for push (optional for v1; in-app notifications already work)  
+- [ ] Drop Firebase `google-services.json` / `GoogleService-Info.plist` into the app (see [`FCM_PUSH_SETUP.md`](./FCM_PUSH_SETUP.md))
+- [x] Enable staging `PUSH_PROVIDER=fcm` + service-account mount (`cirlo-ebdf5`)
+- [x] Upload APNs Auth Key to Firebase Cloud Messaging (iOS) — Key ID `DF6ZT77N8Y`, Team `AWM6AHNR8J`
 
 ## Build dart-defines (optional production)
 

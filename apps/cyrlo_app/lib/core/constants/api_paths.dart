@@ -52,4 +52,9 @@ abstract final class ApiPaths {
   static const mapsPlacesSearch = '/maps/places/search';
   static const mapsRoutes = '/maps/routes';
   static const mapsRouteEstimate = '/maps/routes/estimate';
+
+  static const notificationDevices = '/notifications/devices';
+  static String notificationDevice(String deviceId) =>
+      '/notifications/devices/$deviceId';
+  static const notificationPreferences = '/notifications/preferences';
 }

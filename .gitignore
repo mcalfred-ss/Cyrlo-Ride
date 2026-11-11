@@ -35,6 +35,13 @@ coverage/
 **/android/key.properties
 **/android/upload-keystore.jks
 **/android/*.keystore
+**/android/app/google-services.json
+**/ios/Runner/GoogleService-Info.plist
+**/firebase-adminsdk*.json
+**/secrets/firebase-adminsdk.json
+/secrets/
+**/*.p8
+**/AuthKey_*.p8
 
 # Logs and databases
 *.log

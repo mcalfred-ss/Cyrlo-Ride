@@ -6,6 +6,7 @@ import 'core/routing/app_router.dart';
 import 'core/theme/cyrlo_theme.dart';
 import 'core/theme/theme_mode_provider.dart';
 import 'shared/providers/core_providers.dart';
+import 'shared/push/push_lifecycle.dart';
 
 class CyrloApp extends ConsumerWidget {
   const CyrloApp({super.key});
@@ -14,6 +15,7 @@ class CyrloApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(apiClientProvider);
     ref.watch(realtimeClientProvider);
+    ref.watch(pushLifecycleProvider);
     final router = ref.watch(appRouterProvider);
     final themePreference = ref.watch(themePreferenceProvider);
     return MaterialApp.router(

@@ -52,7 +52,7 @@ workflows:
           # PROJECT_BUILD_NUMBER is unique per Codemagic build (avoids CFBundleVersion conflicts).
           BUILD_NUMBER="${PROJECT_BUILD_NUMBER:-1}"
           flutter build ipa --release \
-            --build-name=1.0.0 \
+            --build-name=1.0.1 \
             --build-number="$BUILD_NUMBER" \
             --export-options-plist=/Users/builder/export_options.plist
     artifacts:
@@ -107,7 +107,7 @@ workflows:
           cd apps/cyrlo_app
           BUILD_NUMBER="${PROJECT_BUILD_NUMBER:-1}"
           flutter build appbundle --release \
-            --build-name=1.0.0 \
+            --build-name=1.0.1 \
             --build-number="$BUILD_NUMBER"
     artifacts:
       - apps/cyrlo_app/build/app/outputs/bundle/release/*.aab

@@ -9,6 +9,7 @@ import '../../../core/utils/phone_numbers.dart';
 import '../../../rider_app/onboarding/data/rider_onboarding_api.dart';
 import '../../../rider_app/onboarding/data/rider_onboarding_models.dart';
 import '../../../shared/models/geo_point.dart';
+import '../../../shared/push/push_messaging.dart';
 import '../data/auth_api.dart';
 import '../data/auth_models.dart';
 import 'auth_session.dart';
@@ -62,6 +63,11 @@ class SignupController extends Notifier<SignupDraft> {
     }
     if (session != null) {
       unawaited(_hydrateProfileFromApi(session));
+    }
+    // Always play the branded splash once per cold start, even for
+    // returning sessions that already persisted splashDone=true.
+    if (state.splashDone) {
+      state = state.copyWith(splashDone: false);
     }
     ref.read(authBootstrapProvider.notifier).markReady();
   }
@@ -654,6 +660,7 @@ class SignupController extends Notifier<SignupDraft> {
   }
 
   Future<void> signOut() async {
+    await ref.read(pushMessagingControllerProvider).deactivateOnSignOut();
     await ref.read(authSessionProvider.notifier).clear();
     await _clearPersisted();
     state = SignupDraft(
@@ -665,6 +672,7 @@ class SignupController extends Notifier<SignupDraft> {
 
   /// Clears local profile data and remote session.
   Future<void> deleteAccount() async {
+    await ref.read(pushMessagingControllerProvider).deactivateOnSignOut();
     await ref.read(authSessionProvider.notifier).clear();
     await _clearPersisted();
     state = SignupDraft(

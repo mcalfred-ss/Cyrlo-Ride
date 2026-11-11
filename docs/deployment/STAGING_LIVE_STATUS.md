@@ -109,6 +109,6 @@ OBJECT_STORAGE_SIGNED_URL_TTL_SECONDS=60
 - Activate Kokobin zone when ready for pilot rides.
 - Wire Flutter bookings / nearby / matching to live APIs.
 
-- FCM push not configured.
+- FCM live on staging (`PUSH_PROVIDER=fcm`, project `cirlo-ebdf5`); Flutter configs + APNs auth key for `com.cyrloride.app` — see [`FCM_PUSH_SETUP.md`](./FCM_PUSH_SETUP.md).
 - Rider onboarding POST APIs still incomplete.
 - Passenger profile: `PATCH /users/me` + hydrate on login (deploy migration `20261109180000_passenger_profile_details`).
