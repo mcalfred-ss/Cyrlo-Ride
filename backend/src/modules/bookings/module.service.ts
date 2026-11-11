@@ -18,6 +18,7 @@ import {
 import type { AuditService } from '../audit/module.service.js';
 import { WalletRepository } from '../wallet/module.repository.js';
 import { assertBookingTransition, decideRefunds } from './booking-rules.js';
+import { decideUnpaidConnectionFeeCancel } from './connection-fee-lifecycle.js';
 import type {
   CancelBookingInput,
   CreateBookingInput,
@@ -35,6 +36,21 @@ export interface BookingsServiceDeps {
   prisma: PrismaClient;
   paystack?: PaystackClient;
   now?: () => Date;
+}
+
+export type MatchingDispatch = {
+  dispatchForBooking(bookingId: string): Promise<unknown>;
+};
+
+export interface ConnectionFeeCheckout {
+  paymentId: string;
+  amountPesewas: number;
+  currency: string;
+  status: string;
+  reference: string;
+  authorizationUrl: string;
+  accessCode: string;
+  paymentExpiresAt: string;
 }
 
 export interface BookingsService {
@@ -67,8 +83,13 @@ export interface BookingsService {
     input: PassengerCancelAfterAcceptInput,
     ip?: string,
   ): Promise<unknown>;
-  /** System job: expire unpaid AWAITING_PAYMENT past deadline. */
+  /** System job: expire unpaid AWAITING_PAYMENT (legacy) + unpaid connection fees after accept. */
   expireUnpaidBookings(now?: Date): Promise<{ expired: number }>;
+  /** After rider accept: create/idempotent GH₵1 connection-fee checkout (MemoryPaystack in tests). */
+  initiateConnectionFeeAfterAccept(
+    bookingId: string,
+    passengerId: string,
+  ): Promise<ConnectionFeeCheckout>;
   markSearchingAfterFeeSuccess(bookingId: string, now?: Date): Promise<unknown>;
   markPaymentFailed(bookingId: string, reason: string): Promise<unknown>;
   requestFeeRefund(input: {
@@ -92,12 +113,15 @@ export interface BookingsService {
     bookingId: string,
     ip?: string,
   ): Promise<unknown>;
+  /** Late-bound matching dispatch so create can offer riders immediately. */
+  attachMatching(matching: MatchingDispatch): void;
 }
 
 export class BookingsServiceImpl implements BookingsService {
   private readonly now: () => Date;
   private readonly paystack: PaystackClient;
   private readonly wallet: WalletRepository;
+  private matching: MatchingDispatch | null = null;
 
   constructor(
     private readonly repository: BookingsRepository,
@@ -106,6 +130,10 @@ export class BookingsServiceImpl implements BookingsService {
     this.now = deps.now ?? (() => new Date());
     this.paystack = deps.paystack ?? createPaystackClient();
     this.wallet = new WalletRepository(deps.prisma);
+  }
+
+  attachMatching(matching: MatchingDispatch): void {
+    this.matching = matching;
   }
 
   async create(passengerId: string, input: CreateBookingInput, ip?: string) {
@@ -145,34 +173,20 @@ export class BookingsServiceImpl implements BookingsService {
     }
 
     const now = this.now();
-    const paymentExpiresAt = new Date(now.getTime() + BOOKING_PAYMENT_TIMEOUT_MS);
-    const providerReference = `bf_${randomUUID().replace(/-/g, '')}`;
+    const searchExpiresAt = new Date(now.getTime() + BOOKING_SEARCH_TIMEOUT_MS);
 
-    const { booking, payment } = await this.repository.createBookingWithFeePayment({
+    const booking = await this.repository.createPickupOnlySearchingBooking({
       passengerId,
       serviceZoneId: zone.id,
       vehicleCategory: input.vehicleCategory,
       pickupLatitude: input.pickup.latitude,
       pickupLongitude: input.pickup.longitude,
-      destinationLatitude: input.destination.latitude,
-      destinationLongitude: input.destination.longitude,
+      destinationLatitude: input.destination?.latitude ?? null,
+      destinationLongitude: input.destination?.longitude ?? null,
       pickupLabel: input.pickupLabel,
       destinationLabel: input.destinationLabel,
       bookingFeePesewas: BOOKING_FEE_PESEWAS,
-      paymentExpiresAt,
-      providerReference,
-    });
-
-    const init = await this.paystack.initializeTransaction({
-      email: passengerPaymentEmail(passengerId),
-      amountPesewas: BOOKING_FEE_PESEWAS,
-      currency: 'GHS',
-      reference: providerReference,
-      metadata: {
-        bookingId: booking.id,
-        paymentId: payment.id,
-        purpose: 'BOOKING_FEE',
-      },
+      searchExpiresAt,
     });
 
     await this.deps.audit.record({
@@ -185,29 +199,28 @@ export class BookingsServiceImpl implements BookingsService {
         serviceZoneId: zone.id,
         vehicleCategory: booking.vehicleCategory,
         bookingFeePesewas: BOOKING_FEE_PESEWAS,
+        connectionFeeTiming: 'on_accept',
+        destinationRequired: false,
       },
       ipAddress: ip,
     });
 
     enqueueInAppNotification(this.deps.prisma, {
       userId: passengerId,
-      title: 'Booking awaiting payment',
-      body: 'Pay the GH₵1.00 booking fee within 10 minutes to start searching for a rider.',
-      data: { bookingId: booking.id, status: 'AWAITING_PAYMENT' },
+      title: 'Looking for a rider',
+      body: 'Nearby riders have been notified. Agree destination and transport fare with your rider after they accept. Cyrlo’s GH₵1 connection fee is collected when a rider accepts.',
+      data: { bookingId: booking.id, status: 'SEARCHING' },
     });
+
+    void this.matching?.dispatchForBooking(booking.id).catch(() => undefined);
 
     return {
       ...toBookingView(booking),
-      payment: {
-        paymentId: payment.id,
-        amountPesewas: BOOKING_FEE_PESEWAS,
-        currency: 'GHS',
-        status: payment.status,
-        reference: init.reference,
-        authorizationUrl: init.authorizationUrl,
-        accessCode: init.accessCode,
-        paymentExpiresAt: paymentExpiresAt.toISOString(),
-      },
+      /** No Paystack checkout at create — fee starts after rider acceptance. */
+      payment: null,
+      connectionFeePesewas: BOOKING_FEE_PESEWAS,
+      connectionFeeNote:
+        'GH₵1 Cyrlo connection fee is charged when a rider accepts. Transport fare is agreed directly with the rider.',
     };
   }
 
@@ -812,7 +825,10 @@ export class BookingsServiceImpl implements BookingsService {
   }
 
   async expireUnpaidBookings(now = this.now()) {
-    const due = await this.deps.prisma.booking.findMany({
+    let expired = 0;
+
+    // Legacy fee-before-search rows.
+    const legacyDue = await this.deps.prisma.booking.findMany({
       where: {
         status: 'AWAITING_PAYMENT',
         paymentExpiresAt: { lte: now },
@@ -820,8 +836,7 @@ export class BookingsServiceImpl implements BookingsService {
       select: { id: true, passengerId: true },
       take: 100,
     });
-    let expired = 0;
-    for (const row of due) {
+    for (const row of legacyDue) {
       const updated = await this.repository.transitionBooking({
         bookingId: row.id,
         fromStatuses: ['AWAITING_PAYMENT'],
@@ -842,7 +857,323 @@ export class BookingsServiceImpl implements BookingsService {
         data: { bookingId: row.id, status: 'PAYMENT_FAILED' },
       });
     }
+
+    // Destination-free: accepted, fee deadline passed, still unpaid.
+    const acceptedDue = await this.deps.prisma.booking.findMany({
+      where: {
+        status: 'ACCEPTED',
+        paymentExpiresAt: { lte: now },
+        payments: {
+          none: { purpose: 'BOOKING_FEE', status: 'SUCCESS' },
+        },
+      },
+      select: { id: true, passengerId: true, riderId: true },
+      take: 50,
+    });
+    for (const row of acceptedDue) {
+      const cancelled = await this.cancelAcceptedForUnpaidConnectionFee(row.id, now);
+      if (cancelled) expired += 1;
+    }
+
+    // Reconciliation: ACCEPTED without paymentExpiresAt (should not happen after P0 accept txn).
+    const orphans = await this.deps.prisma.booking.findMany({
+      where: {
+        status: 'ACCEPTED',
+        paymentExpiresAt: null,
+        payments: { none: { purpose: 'BOOKING_FEE', status: 'SUCCESS' } },
+      },
+      select: { id: true, passengerId: true },
+      take: 20,
+    });
+    for (const row of orphans) {
+      const paymentExpiresAt = new Date(now.getTime() + BOOKING_PAYMENT_TIMEOUT_MS);
+      await this.deps.prisma.booking.update({
+        where: { id: row.id },
+        data: { paymentExpiresAt },
+      });
+      await this.repository.ensureConnectionFeePayment({
+        bookingId: row.id,
+        passengerId: row.passengerId,
+        providerReference: `bf_${randomUUID().replace(/-/g, '')}`,
+        paymentExpiresAt,
+        amountPesewas: BOOKING_FEE_PESEWAS,
+      });
+    }
+
     return { expired };
+  }
+
+  /**
+   * Initialize (or retry) Paystack checkout for an existing PENDING connection-fee row.
+   * Payment row + paymentExpiresAt are created atomically on accept — this never invents SUCCESS.
+   * Uses MemoryPaystackClient in automated tests (no live network).
+   */
+  async initiateConnectionFeeAfterAccept(
+    bookingId: string,
+    passengerId: string,
+  ): Promise<ConnectionFeeCheckout> {
+    const booking = await this.repository.findBookingById(bookingId);
+    if (!booking || booking.passengerId !== passengerId) {
+      throw new AppError({ status: 404, code: 'NOT_FOUND', message: 'Booking not found' });
+    }
+    if (booking.status !== 'ACCEPTED' && booking.status !== 'IN_PROGRESS') {
+      throw new AppError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Connection fee is only collected after a rider accepts',
+      });
+    }
+
+    const success = booking.payments.find(
+      (p) => p.purpose === 'BOOKING_FEE' && p.status === 'SUCCESS',
+    );
+    if (success) {
+      throw new AppError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Connection fee was already paid for this booking',
+      });
+    }
+
+    const now = this.now();
+    const paymentExpiresAt =
+      booking.paymentExpiresAt && booking.paymentExpiresAt.getTime() > now.getTime()
+        ? booking.paymentExpiresAt
+        : new Date(now.getTime() + BOOKING_PAYMENT_TIMEOUT_MS);
+
+    // Prefer the accept-txn row; ensure is idempotent fallback (same booking-fee:{id} key).
+    const existingPending = booking.payments.find(
+      (p) => p.purpose === 'BOOKING_FEE' && p.status === 'PENDING',
+    );
+    const providerReference =
+      existingPending?.providerReference ?? `bf_${randomUUID().replace(/-/g, '')}`;
+
+    const { payment } = await this.repository.ensureConnectionFeePayment({
+      bookingId,
+      passengerId,
+      providerReference,
+      paymentExpiresAt,
+      amountPesewas: BOOKING_FEE_PESEWAS,
+    });
+
+    if (payment.status === 'SUCCESS') {
+      throw new AppError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Connection fee was already paid for this booking',
+      });
+    }
+    if (payment.status === 'ABANDONED') {
+      throw new AppError({
+        status: 409,
+        code: 'CONFLICT',
+        message: 'Connection fee window was closed for this booking',
+      });
+    }
+    if (payment.amountPesewas !== BOOKING_FEE_PESEWAS) {
+      throw new AppError({
+        status: 500,
+        code: 'INTERNAL_ERROR',
+        message: 'Stored connection fee amount is invalid',
+      });
+    }
+
+    if (!booking.paymentExpiresAt) {
+      await this.deps.prisma.booking.update({
+        where: { id: bookingId },
+        data: { paymentExpiresAt },
+      });
+    }
+
+    const reference = payment.providerReference ?? providerReference;
+    if (!payment.providerReference) {
+      await this.deps.prisma.payment.update({
+        where: { id: payment.id },
+        data: { providerReference: reference },
+      });
+    }
+
+    try {
+      const init = await this.paystack.initializeTransaction({
+        email: passengerPaymentEmail(passengerId),
+        amountPesewas: BOOKING_FEE_PESEWAS,
+        currency: 'GHS',
+        reference,
+        metadata: {
+          bookingId,
+          paymentId: payment.id,
+          purpose: 'BOOKING_FEE',
+          feeType: 'connection_fee',
+        },
+      });
+
+      enqueueInAppNotification(this.deps.prisma, {
+        userId: passengerId,
+        title: 'Pay GH₵1 connection fee',
+        body: 'A rider accepted your request. Pay Cyrlo’s GH₵1 connection fee (not the transport fare). Agree destination and fare with your rider directly.',
+        data: {
+          bookingId,
+          status: booking.status,
+          paymentId: payment.id,
+          authorizationUrl: init.authorizationUrl,
+          amountPesewas: BOOKING_FEE_PESEWAS,
+        },
+        dedupeKey: `connection_fee_checkout:${bookingId}:${payment.id}`,
+      });
+
+      return {
+        paymentId: payment.id,
+        amountPesewas: BOOKING_FEE_PESEWAS,
+        currency: 'GHS',
+        status: payment.status,
+        reference: init.reference,
+        authorizationUrl: init.authorizationUrl,
+        accessCode: init.accessCode,
+        paymentExpiresAt: paymentExpiresAt.toISOString(),
+      };
+    } catch (error) {
+      // Keep PENDING + deadline; do not mark SUCCESS. Expiry will cancel if unpaid.
+      const message =
+        error instanceof AppError
+          ? error.message
+          : 'Connection fee checkout could not be started. Retry from the app.';
+      enqueueInAppNotification(this.deps.prisma, {
+        userId: passengerId,
+        title: 'Connection fee checkout failed',
+        body: `${message} Your rider is assigned — pay GH₵1 within the time window or the connection will cancel.`,
+        data: {
+          bookingId,
+          status: booking.status,
+          paymentId: payment.id,
+          connectionFeeInitFailed: true,
+        },
+        dedupeKey: `connection_fee_init_failed:${bookingId}`,
+      });
+      if (booking.riderId) {
+        enqueueInAppNotification(this.deps.prisma, {
+          userId: booking.riderId,
+          title: 'Passenger checkout delayed',
+          body: 'The passenger could not open the GH₵1 connection-fee checkout yet. Stay available — the booking remains assigned until the fee window ends.',
+          data: { bookingId, status: booking.status },
+          dedupeKey: `connection_fee_init_failed_rider:${bookingId}`,
+        });
+      }
+      throw new AppError({
+        status: 502,
+        code: 'PAYMENT_VERIFICATION_FAILED',
+        message,
+        details: {
+          bookingId,
+          paymentId: payment.id,
+          paymentStatus: payment.status,
+          retryable: true,
+        },
+      });
+    }
+  }
+
+  /**
+   * Cancel ACCEPTED when connection fee unpaid past deadline.
+   * Locks booking then fee payments; SUCCESS under lock aborts cancel (paid wins).
+   */
+  private async cancelAcceptedForUnpaidConnectionFee(bookingId: string, now: Date) {
+    const result = await this.deps.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT id FROM bookings WHERE id = ${bookingId}::uuid FOR UPDATE`;
+      const current = await tx.booking.findUnique({ where: { id: bookingId } });
+      if (!current || !current.riderId) {
+        return { outcome: 'abort' as const, reason: 'not_accepted' as const };
+      }
+
+      await tx.$executeRaw`
+        SELECT id FROM payments
+        WHERE booking_id = ${bookingId}::uuid AND purpose = 'BOOKING_FEE'
+        FOR UPDATE
+      `;
+      const feeRows = await tx.payment.findMany({
+        where: { bookingId, purpose: 'BOOKING_FEE' },
+        select: { id: true, status: true, amountPesewas: true },
+      });
+      const debit = await tx.tokenLedgerEntry.findFirst({
+        where: { bookingId, riderId: current.riderId, type: 'DEDUCTION' },
+        select: { id: true },
+      });
+
+      const decision = decideUnpaidConnectionFeeCancel({
+        bookingStatus: current.status as 'ACCEPTED',
+        paymentStatuses: feeRows.map((r) => r.status as 'PENDING' | 'SUCCESS' | 'FAILED' | 'ABANDONED'),
+        paymentExpiresAt: current.paymentExpiresAt,
+        now,
+        tokenDebited: Boolean(debit),
+      });
+      if (decision.action === 'abort') {
+        return { outcome: 'abort' as const, reason: decision.reason };
+      }
+
+      const moved = await tx.booking.updateMany({
+        where: { id: bookingId, status: 'ACCEPTED' },
+        data: {
+          status: 'CANCELLED',
+          cancelledAt: now,
+          cancellationReason: 'connection_fee_unpaid_timeout',
+          cancellationActorType: 'SYSTEM',
+        },
+      });
+      if (moved.count !== 1) {
+        return { outcome: 'abort' as const, reason: 'not_accepted' as const };
+      }
+      await tx.bookingStatusHistory.create({
+        data: {
+          bookingId,
+          fromStatus: 'ACCEPTED',
+          toStatus: 'CANCELLED',
+          actorType: 'SYSTEM',
+          reason: 'connection_fee_unpaid_timeout',
+        },
+      });
+      if (decision.abandonPending) {
+        await tx.payment.updateMany({
+          where: { bookingId, purpose: 'BOOKING_FEE', status: 'PENDING' },
+          data: { status: 'ABANDONED' },
+        });
+      }
+      let tokenReversalId: string | null = null;
+      if (decision.reverseToken) {
+        const entry = await this.wallet.reverseAcceptanceDebitInTx(tx, {
+          riderId: current.riderId,
+          bookingId,
+          reason: 'connection_fee_unpaid_timeout',
+        });
+        tokenReversalId = entry.id;
+      }
+      await this.repository.releaseRiderIfIdle(tx, current.riderId);
+      return {
+        outcome: 'cancelled' as const,
+        riderId: current.riderId,
+        passengerId: current.passengerId,
+        tokenReversalId,
+      };
+    });
+
+    if (result.outcome !== 'cancelled') return false;
+
+    enqueueInAppNotification(this.deps.prisma, {
+      userId: result.passengerId,
+      title: 'Connection fee unpaid',
+      body: 'The GH₵1 connection fee was not paid in time, so the ride connection was cancelled.',
+      data: { bookingId, status: 'CANCELLED' },
+    });
+    enqueueInAppNotification(this.deps.prisma, {
+      userId: result.riderId,
+      title: 'Booking cancelled',
+      body: 'The passenger did not complete the connection fee. Your token was restored.',
+      data: { bookingId, status: 'CANCELLED' },
+    });
+    publishRiderAvailabilityUpdated({
+      riderId: result.riderId,
+      availability: 'AVAILABLE',
+      updatedAt: now.toISOString(),
+    });
+    return true;
   }
 
   /** Used by payments webhook after verified SUCCESS within deadline. */
@@ -946,9 +1277,11 @@ export class BookingsServiceImpl implements BookingsService {
       where: { id: bookingId },
       select: { status: true, paymentExpiresAt: true },
     });
+    if (!booking?.paymentExpiresAt) return;
+    const pastDeadline = booking.paymentExpiresAt.getTime() <= this.now().getTime();
     if (
-      booking?.status === 'AWAITING_PAYMENT' &&
-      booking.paymentExpiresAt.getTime() <= this.now().getTime()
+      pastDeadline &&
+      (booking.status === 'AWAITING_PAYMENT' || booking.status === 'ACCEPTED')
     ) {
       await this.expireUnpaidBookings(this.now());
     }
@@ -997,12 +1330,12 @@ function toBookingView(booking: {
   vehicleCategory: string;
   pickupLatitude: { toNumber?: () => number } | number | string;
   pickupLongitude: { toNumber?: () => number } | number | string;
-  destinationLatitude: { toNumber?: () => number } | number | string;
-  destinationLongitude: { toNumber?: () => number } | number | string;
+  destinationLatitude?: { toNumber?: () => number } | number | string | null;
+  destinationLongitude?: { toNumber?: () => number } | number | string | null;
   pickupLabel: string | null;
   destinationLabel: string | null;
   bookingFeePesewas: number;
-  paymentExpiresAt: Date;
+  paymentExpiresAt: Date | null;
   searchExpiresAt: Date | null;
   requestedAt: Date;
   acceptedAt: Date | null;
@@ -1017,6 +1350,12 @@ function toBookingView(booking: {
   updatedAt: Date;
   serviceZone?: { id: string; name: string; isActive: boolean } | null;
 }) {
+  const destLat = booking.destinationLatitude;
+  const destLng = booking.destinationLongitude;
+  const hasDestination =
+    destLat != null &&
+    destLng != null &&
+    !(typeof destLat === 'string' && destLat.trim() === '');
   return {
     id: booking.id,
     passengerId: booking.passengerId,
@@ -1029,14 +1368,17 @@ function toBookingView(booking: {
       latitude: decimalToNumber(booking.pickupLatitude),
       longitude: decimalToNumber(booking.pickupLongitude),
     },
-    destination: {
-      latitude: decimalToNumber(booking.destinationLatitude),
-      longitude: decimalToNumber(booking.destinationLongitude),
-    },
+    destination: hasDestination
+      ? {
+          latitude: decimalToNumber(destLat!),
+          longitude: decimalToNumber(destLng!),
+        }
+      : null,
     pickupLabel: booking.pickupLabel,
     destinationLabel: booking.destinationLabel,
     bookingFeePesewas: booking.bookingFeePesewas,
-    paymentExpiresAt: booking.paymentExpiresAt.toISOString(),
+    connectionFeePesewas: booking.bookingFeePesewas,
+    paymentExpiresAt: booking.paymentExpiresAt?.toISOString() ?? null,
     searchExpiresAt: booking.searchExpiresAt?.toISOString() ?? null,
     requestedAt: booking.requestedAt.toISOString(),
     acceptedAt: booking.acceptedAt?.toISOString() ?? null,

@@ -142,6 +142,8 @@ export type RefundSituation =
   | 'PASSENGER_CANCEL_AFTER_ACCEPT'
   | 'RIDER_CANCEL_AFTER_ACCEPT'
   | 'RIDER_UNABLE_TO_COMPLETE'
+  /** Accepted connection but passenger never paid the GH₵1 fee window. */
+  | 'CONNECTION_FEE_UNPAID_TIMEOUT'
   | 'COMPLETED';
 
 export function decideRefunds(input: {
@@ -164,6 +166,12 @@ export function decideRefunds(input: {
     case 'UNPAID_TIMEOUT':
     case 'PAYMENT_FAILED':
       return { fee: 'NONE', token: 'NONE' };
+    case 'CONNECTION_FEE_UNPAID_TIMEOUT':
+      // Connection never completed — reverse rider token; abandon unpaid fee (no capture).
+      return {
+        fee: input.feeCaptured ? 'REQUEST_REFUND' : 'NONE',
+        token: input.tokenDebited ? 'REQUEST_REFUND' : 'NONE',
+      };
     case 'RIDER_CANCEL_AFTER_ACCEPT':
     case 'RIDER_UNABLE_TO_COMPLETE':
       // Approved matrix: fee refund + token reversal (immutable originals + compensating rows).
@@ -192,6 +200,8 @@ export function feeRefundReasonForSituation(situation: RefundSituation): string 
       return 'rider_cancel_after_accept';
     case 'RIDER_UNABLE_TO_COMPLETE':
       return 'rider_unable_to_complete';
+    case 'CONNECTION_FEE_UNPAID_TIMEOUT':
+      return 'connection_fee_unpaid_timeout';
     default:
       return `matrix:${situation}`;
   }

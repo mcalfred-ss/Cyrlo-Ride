@@ -23,6 +23,7 @@ export function createModules(deps: ModuleDeps) {
     audit: audit.service,
     bookings: bookings.service,
   });
+  bookings.service.attachMatching(matching.service);
   const disputes = createDisputesModule({
     ...deps,
     audit: audit.service,

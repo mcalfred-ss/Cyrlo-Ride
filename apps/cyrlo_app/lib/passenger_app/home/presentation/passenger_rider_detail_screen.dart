@@ -3,13 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../application/nearby_riders_provider.dart';
 import '../domain/nearby_rider.dart';
-import 'request_ride_flow.dart';
 
 class PassengerRiderDetailScreen extends ConsumerWidget {
   const PassengerRiderDetailScreen({super.key, required this.riderId});
@@ -228,13 +228,12 @@ class PassengerRiderDetailScreen extends ConsumerWidget {
                 padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
                 child: CyrloButton(
                   key: Key('detail-request-${rider.id}'),
-                  label: 'Request ${rider.kindLabel}',
+                  label: 'Plan a ride',
                   onPressed: () {
-                    startRequestRideFlow(
-                      context: context,
-                      ref: ref,
-                      rider: rider,
-                    );
+                    ref
+                        .read(selectedNearbyRiderProvider.notifier)
+                        .select(rider);
+                    context.go(AppRoutes.passengerMap);
                   },
                 ),
               ),

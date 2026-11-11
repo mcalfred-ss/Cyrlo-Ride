@@ -41,10 +41,10 @@ class Booking {
     required this.status,
     required this.vehicleCategory,
     required this.pickup,
-    required this.destination,
     required this.bookingFeePesewas,
-    required this.paymentExpiresAt,
     required this.createdAt,
+    this.destination,
+    this.paymentExpiresAt,
     this.passengerId,
     this.riderId,
     this.pickupLabel,
@@ -61,9 +61,9 @@ class Booking {
   final String status;
   final String vehicleCategory;
   final GeoPoint pickup;
-  final GeoPoint destination;
+  final GeoPoint? destination;
   final int bookingFeePesewas;
-  final DateTime paymentExpiresAt;
+  final DateTime? paymentExpiresAt;
   final DateTime createdAt;
   final String? passengerId;
   final String? riderId;
@@ -95,12 +95,9 @@ class Booking {
       status: json['status'] as String,
       vehicleCategory: json['vehicleCategory'] as String? ?? 'PRAGYA',
       pickup: _point(pickup),
-      destination: _point(destination),
+      destination: _optPoint(destination),
       bookingFeePesewas: (json['bookingFeePesewas'] as num?)?.toInt() ?? 100,
-      paymentExpiresAt: DateTime.parse(
-        json['paymentExpiresAt'] as String? ??
-            DateTime.now().toUtc().toIso8601String(),
-      ),
+      paymentExpiresAt: _optDate(json['paymentExpiresAt']),
       createdAt: DateTime.parse(
         json['createdAt'] as String? ??
             json['requestedAt'] as String? ??
@@ -131,6 +128,17 @@ class Booking {
       );
     }
     return const GeoPoint(latitude: 0, longitude: 0);
+  }
+
+  static GeoPoint? _optPoint(Object? raw) {
+    if (raw == null) return null;
+    if (raw is Map) {
+      final lat = (raw['latitude'] as num?)?.toDouble();
+      final lng = (raw['longitude'] as num?)?.toDouble();
+      if (lat == null || lng == null) return null;
+      return GeoPoint(latitude: lat, longitude: lng);
+    }
+    return null;
   }
 
   static DateTime? _optDate(Object? raw) {
@@ -170,10 +178,7 @@ class MatchingOffer {
       'bookingFeePesewas',
       () => 100,
     );
-    bookingMap.putIfAbsent(
-      'paymentExpiresAt',
-      () => DateTime.now().toUtc().toIso8601String(),
-    );
+    // Destination and paymentExpiresAt stay optional — do not invent them.
     bookingMap.putIfAbsent(
       'createdAt',
       () => json['offeredAt'] ?? DateTime.now().toUtc().toIso8601String(),

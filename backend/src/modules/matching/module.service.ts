@@ -72,13 +72,8 @@ export class MatchingServiceImpl implements MatchingService {
         message: 'Booking is not in SEARCHING',
       });
     }
-    if (!booking.payments.length) {
-      throw new AppError({
-        status: 409,
-        code: 'CONFLICT',
-        message: 'Booking fee is not verified',
-      });
-    }
+    // Destination-free model: matching starts on SEARCHING without a prior connection fee.
+    // GH₵1 is collected after acceptance via BookingsService.initiateConnectionFeeAfterAccept.
     if (!booking.serviceZoneId) {
       throw new AppError({
         status: 409,
@@ -250,10 +245,14 @@ export class MatchingServiceImpl implements MatchingService {
           latitude: Number(row.booking.pickupLatitude),
           longitude: Number(row.booking.pickupLongitude),
         },
-        destination: {
-          latitude: Number(row.booking.destinationLatitude),
-          longitude: Number(row.booking.destinationLongitude),
-        },
+        destination:
+          row.booking.destinationLatitude != null &&
+          row.booking.destinationLongitude != null
+            ? {
+                latitude: Number(row.booking.destinationLatitude),
+                longitude: Number(row.booking.destinationLongitude),
+              }
+            : null,
         pickupLabel: row.booking.pickupLabel,
         destinationLabel: row.booking.destinationLabel,
         searchExpiresAt: row.booking.searchExpiresAt?.toISOString() ?? null,
@@ -394,7 +393,7 @@ export class MatchingServiceImpl implements MatchingService {
     enqueueInAppNotification(this.deps.prisma, {
       userId: booking.passengerId,
       title: 'Rider assigned',
-      body: 'A rider accepted your booking.',
+      body: 'A rider accepted your request. Pay the GH₵1 Cyrlo connection fee, then agree destination and transport fare with your rider.',
       data: { bookingId: booking.id, status: 'ACCEPTED' },
     });
     publishRiderAvailabilityUpdated({
@@ -403,11 +402,30 @@ export class MatchingServiceImpl implements MatchingService {
       updatedAt: now.toISOString(),
     });
 
+    // PENDING fee row + paymentExpiresAt were committed with ACCEPTED.
+    // Paystack init can fail; booking remains ACCEPTED until fee window expires.
+    let connectionFee: unknown = null;
+    let connectionFeeError: string | null = null;
+    try {
+      connectionFee = await this.deps.bookings.initiateConnectionFeeAfterAccept(
+        booking.id,
+        booking.passengerId,
+      );
+    } catch (error) {
+      connectionFeeError =
+        error instanceof Error
+          ? error.message
+          : 'Connection fee checkout failed; retry from the app before the fee window ends.';
+    }
+
     return {
       bookingId: accepted.id,
       status: accepted.status,
       riderId: accepted.riderId,
       acceptedAt: accepted.acceptedAt?.toISOString() ?? now.toISOString(),
+      connectionFee,
+      connectionFeeError,
+      paymentExpiresAt: accepted.paymentExpiresAt?.toISOString() ?? null,
     };
   }
 
@@ -495,6 +513,7 @@ export class MatchingServiceImpl implements MatchingService {
     }
     const fee = expired.payments[0];
     if (fee) {
+      // Legacy fee-before-search bookings only; destination-free SEARCHING has no fee yet.
       await this.deps.bookings.requestFeeRefund({
         paymentId: fee.id,
         bookingId,
@@ -506,7 +525,9 @@ export class MatchingServiceImpl implements MatchingService {
     enqueueInAppNotification(this.deps.prisma, {
       userId: expired.passengerId,
       title: 'No rider found',
-      body: 'The search window ended without an assigned rider. A booking-fee refund was queued.',
+      body: fee
+        ? 'The search window ended without an assigned rider. A connection-fee refund was queued.'
+        : 'The search window ended without an assigned rider. Try again from a pickup in an active service zone.',
       data: { bookingId, status: 'EXPIRED' },
     });
     return true;

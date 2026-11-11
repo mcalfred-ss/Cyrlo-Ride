@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 
 import { BOOKING_FEE_PESEWAS } from '../../config/constants.js';
+import { decideFeeSuccessFinalize } from '../bookings/connection-fee-lifecycle.js';
 import { env } from '../../config/env.js';
 import { AppError } from '../../common/errors/app-error.js';
 import { enqueueInAppNotification } from '../../infrastructure/notifications/notify.js';
@@ -86,25 +87,31 @@ export class PaymentsServiceImpl implements PaymentsService {
     if (payment.booking.passengerId !== userId) {
       throw new AppError({ status: 404, code: 'NOT_FOUND', message: 'Booking payment not found' });
     }
-    if (payment.booking.status !== 'AWAITING_PAYMENT') {
+    const status = payment.booking.status;
+    // Legacy: AWAITING_PAYMENT. Destination-free: ACCEPTED / IN_PROGRESS after rider accept.
+    if (
+      status !== 'AWAITING_PAYMENT' &&
+      status !== 'ACCEPTED' &&
+      status !== 'IN_PROGRESS'
+    ) {
       throw new AppError({
         status: 409,
         code: 'CONFLICT',
-        message: 'Booking is not awaiting payment',
+        message: 'Booking is not awaiting a connection fee payment',
       });
     }
     if (payment.status !== 'PENDING') {
       throw new AppError({
         status: 409,
         code: 'CONFLICT',
-        message: 'Booking fee payment is not pending',
+        message: 'Connection fee payment is not pending',
       });
     }
     if (payment.amountPesewas !== BOOKING_FEE_PESEWAS) {
       throw new AppError({
         status: 500,
         code: 'INTERNAL_ERROR',
-        message: 'Stored booking fee amount is invalid',
+        message: 'Stored connection fee amount is invalid',
       });
     }
     const reference = payment.providerReference ?? `bf_${payment.id.replace(/-/g, '')}`;
@@ -119,8 +126,16 @@ export class PaymentsServiceImpl implements PaymentsService {
       amountPesewas: BOOKING_FEE_PESEWAS,
       currency: 'GHS',
       reference,
-      metadata: { bookingId: input.bookingId, paymentId: payment.id, purpose: 'BOOKING_FEE' },
+      metadata: {
+        bookingId: input.bookingId,
+        paymentId: payment.id,
+        purpose: 'BOOKING_FEE',
+        feeType: 'connection_fee',
+      },
     });
+    const expiresAt =
+      payment.booking.paymentExpiresAt?.toISOString() ??
+      new Date(Date.now() + 10 * 60 * 1000).toISOString();
     return {
       paymentId: payment.id,
       bookingId: input.bookingId,
@@ -129,7 +144,7 @@ export class PaymentsServiceImpl implements PaymentsService {
       reference: init.reference,
       authorizationUrl: init.authorizationUrl,
       accessCode: init.accessCode,
-      paymentExpiresAt: payment.booking.paymentExpiresAt.toISOString(),
+      paymentExpiresAt: expiresAt,
     };
   }
 
@@ -426,9 +441,12 @@ export class PaymentsServiceImpl implements PaymentsService {
     }
 
     // Late capture from ABANDONED records the charge (immutable SUCCESS) without inventing
-    // a new payment row. Approved transition table is PENDING→SUCCESS; ABANDONED→SUCCESS is
-    // the compensating late-capture exception documented in Phase 11A.
+    // a new payment row. Lock booking then payment so unpaid-cancel cannot race past SUCCESS.
     await this.deps.prisma.$transaction(async (tx) => {
+      if (payment.bookingId) {
+        await tx.$executeRaw`SELECT id FROM bookings WHERE id = ${payment.bookingId}::uuid FOR UPDATE`;
+      }
+      await tx.$executeRaw`SELECT id FROM payments WHERE id = ${payment.id}::uuid FOR UPDATE`;
       const locked = await tx.payment.findUnique({ where: { id: payment.id } });
       if (!locked || locked.status === 'SUCCESS') return;
       if (locked.status !== 'PENDING' && locked.status !== 'ABANDONED') {
@@ -527,8 +545,10 @@ export class PaymentsServiceImpl implements PaymentsService {
   }
 
   /**
-   * After fee payment is SUCCESS: move booking to SEARCHING when still on-time,
-   * otherwise queue a compensating refund. Safe to call on webhook replay.
+   * After connection-fee SUCCESS:
+   * - Destination-free (ACCEPTED/IN_PROGRESS): confirm paid; trip already assigned.
+   * - Legacy (AWAITING_PAYMENT): move to SEARCHING when on-time, else refund.
+   * Safe to call on webhook replay.
    */
   private async finalizeBookingFeeAfterSuccess(
     payment: { id: string; amountPesewas: number },
@@ -536,7 +556,7 @@ export class PaymentsServiceImpl implements PaymentsService {
       id: string;
       status: string;
       passengerId: string;
-      paymentExpiresAt: Date;
+      paymentExpiresAt: Date | null;
     },
     now: Date,
   ) {
@@ -545,50 +565,54 @@ export class PaymentsServiceImpl implements PaymentsService {
     });
     if (!booking) return;
 
-    // Effect already applied for an active / completed trip lifecycle.
-    if (
-      booking.status === 'SEARCHING' ||
-      booking.status === 'ACCEPTED' ||
-      booking.status === 'IN_PROGRESS' ||
-      booking.status === 'COMPLETED'
-    ) {
+    const decision = decideFeeSuccessFinalize({
+      bookingStatus: booking.status as
+        | 'ACCEPTED'
+        | 'IN_PROGRESS'
+        | 'AWAITING_PAYMENT'
+        | 'SEARCHING'
+        | 'CANCELLED'
+        | 'EXPIRED'
+        | 'PAYMENT_FAILED'
+        | 'COMPLETED',
+      paymentExpiresAt: booking.paymentExpiresAt,
+      now,
+    });
+
+    if (decision.action === 'confirm_paid') {
+      enqueueInAppNotification(this.deps.prisma, {
+        userId: booking.passengerId,
+        title: 'Connection fee paid',
+        body: 'GH₵1 Cyrlo connection fee received. Agree destination and transport fare with your rider directly.',
+        data: { bookingId: booking.id, status: booking.status, connectionFee: 'SUCCESS' },
+        dedupeKey: `connection_fee_paid:${booking.id}`,
+      });
       return;
     }
 
-    const onTime =
-      booking.status === 'AWAITING_PAYMENT' &&
-      booking.paymentExpiresAt.getTime() >= now.getTime();
+    if (decision.action === 'noop') {
+      return;
+    }
 
-    if (onTime) {
+    if (decision.action === 'legacy_searching') {
       const searching = await this.deps.bookings.markSearchingAfterFeeSuccess(booking.id, now);
       if (searching) {
         enqueueInAppNotification(this.deps.prisma, {
           userId: booking.passengerId,
           title: 'Payment successful',
-          body: 'Your booking fee was received. Searching for a rider.',
+          body: 'Your connection fee was received. Searching for a rider.',
           data: { bookingId: booking.id, status: 'SEARCHING' },
         });
         void this.deps.matching?.dispatchForBooking(booking.id).catch(() => undefined);
         return;
       }
+      // Race with unpaid expiry on legacy path.
+      if (booking.status === 'AWAITING_PAYMENT') {
+        await this.deps.bookings.expireUnpaidBookings(now);
+      }
     }
 
-    if (booking.status === 'AWAITING_PAYMENT') {
-      await this.deps.bookings.expireUnpaidBookings(now);
-    }
-    const latest = await this.deps.prisma.booking.findUnique({
-      where: { id: booking.id },
-      select: { status: true, passengerId: true },
-    });
-    if (
-      latest &&
-      (latest.status === 'SEARCHING' ||
-        latest.status === 'ACCEPTED' ||
-        latest.status === 'IN_PROGRESS' ||
-        latest.status === 'COMPLETED')
-    ) {
-      return;
-    }
+    // refund_late — never revive CANCELLED / EXPIRED / PAYMENT_FAILED.
     await this.deps.bookings.requestFeeRefund({
       paymentId: payment.id,
       bookingId: booking.id,
@@ -598,10 +622,14 @@ export class PaymentsServiceImpl implements PaymentsService {
       authorizeForExecution: true,
     });
     enqueueInAppNotification(this.deps.prisma, {
-      userId: latest?.passengerId ?? booking.passengerId,
+      userId: booking.passengerId,
       title: 'Late payment received',
-      body: 'A payment arrived after the deadline. The booking was not started; a refund was queued for finance.',
-      data: { bookingId: booking.id, status: latest?.status ?? booking.status },
+      body:
+        booking.status === 'CANCELLED' || booking.status === 'PAYMENT_FAILED'
+          ? 'A payment arrived after the connection was closed. A refund was queued; the booking stays cancelled.'
+          : 'A payment arrived after the deadline. A refund was queued for finance.',
+      data: { bookingId: booking.id, status: booking.status },
+      dedupeKey: `connection_fee_late_refund:${booking.id}:${payment.id}`,
     });
     await this.deps.audit.record({
       action: 'payment.late_success.refund_queued',
@@ -609,7 +637,8 @@ export class PaymentsServiceImpl implements PaymentsService {
       entityId: payment.id,
       metadata: {
         bookingId: booking.id,
-        bookingStatus: latest?.status ?? booking.status,
+        bookingStatus: booking.status,
+        reason: decision.action === 'refund_late' ? decision.reason : 'legacy_race',
       },
     });
   }
@@ -632,8 +661,19 @@ export class PaymentsServiceImpl implements PaymentsService {
       enqueueInAppNotification(this.deps.prisma, {
         userId: payment.booking.passengerId,
         title: 'Booking payment failed',
-        body: 'The booking-fee charge failed.',
+        body: 'The connection-fee charge failed.',
         data: { bookingId: payment.booking.id, status: 'PAYMENT_FAILED' },
+      });
+      return;
+    }
+    if (payment.booking.status === 'ACCEPTED' || payment.booking.status === 'IN_PROGRESS') {
+      // Keep assignment; passenger can retry initiateBookingFee within paymentExpiresAt.
+      enqueueInAppNotification(this.deps.prisma, {
+        userId: payment.booking.passengerId,
+        title: 'Connection fee payment failed',
+        body: 'Pay the GH₵1 Cyrlo connection fee to keep this ride connection. Transport fare is separate and agreed with your rider.',
+        data: { bookingId: payment.booking.id, status: payment.booking.status },
+        dedupeKey: `connection_fee_failed:${payment.booking.id}`,
       });
     }
   }

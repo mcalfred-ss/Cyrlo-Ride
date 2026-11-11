@@ -35,12 +35,17 @@ export interface CyrloMapsClient {
     query: string;
     limit?: number;
     bias?: MapsCoordinate;
+    country?: string;
   }): Promise<GeocodeHit[]>;
   reverseGeocode(input: MapsCoordinate): Promise<GeocodeHit | null>;
   searchPlaces(input: {
     text: string;
     limit?: number;
     bias?: MapsCoordinate;
+    /** ISO 3166-1 alpha-2, e.g. GH. Passed through to the Maps provider. */
+    country?: string;
+    /** Provider type filter (poi, address, place, locality, neighborhood, street, …). */
+    types?: string[];
   }): Promise<PlaceHit[]>;
   route(input: { from: MapsCoordinate; to: MapsCoordinate }): Promise<RouteResult>;
   estimate(input: { from: MapsCoordinate; to: MapsCoordinate }): Promise<RouteEstimate>;
@@ -100,10 +105,12 @@ export class HttpCyrloMapsClient implements CyrloMapsClient {
     query: string;
     limit?: number;
     bias?: MapsCoordinate;
+    country?: string;
   }): Promise<GeocodeHit[]> {
     const body: Record<string, unknown> = { query: input.query };
     if (input.limit !== undefined) body.limit = input.limit;
     if (input.bias) body.bias = input.bias;
+    if (input.country) body.country = input.country;
     const envelope = await this.requestJson<{ results: GeocodeHit[] }>('POST', '/v1/geocode', body);
     return Array.isArray(envelope.data?.results) ? envelope.data.results : [];
   }
@@ -121,10 +128,14 @@ export class HttpCyrloMapsClient implements CyrloMapsClient {
     text: string;
     limit?: number;
     bias?: MapsCoordinate;
+    country?: string;
+    types?: string[];
   }): Promise<PlaceHit[]> {
     const body: Record<string, unknown> = { text: input.text };
     if (input.limit !== undefined) body.limit = input.limit;
     if (input.bias) body.bias = input.bias;
+    if (input.country) body.country = input.country;
+    if (input.types && input.types.length > 0) body.types = input.types;
     const envelope = await this.requestJson<{ results: PlaceHit[] }>(
       'POST',
       '/v1/places/search',

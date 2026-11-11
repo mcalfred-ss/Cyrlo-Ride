@@ -26,7 +26,13 @@ const polygon = {
 };
 
 describe('create booking schema', () => {
-  it('requires vehicle category and rejects unsupported categories and invalid coordinates', () => {
+  it('requires pickup + vehicle category; destination is optional', () => {
+    expect(
+      createBookingSchema.safeParse({
+        pickup: { latitude: 6.685, longitude: -1.625 },
+        vehicleCategory: 'PRAGYA',
+      }).success,
+    ).toBe(true);
     expect(
       createBookingSchema.safeParse({
         pickup: { latitude: 6.685, longitude: -1.625 },
@@ -36,22 +42,24 @@ describe('create booking schema', () => {
     ).toBe(true);
     expect(
       createBookingSchema.safeParse({
+        vehicleCategory: 'PRAGYA',
+      }).success,
+    ).toBe(false);
+    expect(
+      createBookingSchema.safeParse({
         pickup: { latitude: 6.685, longitude: -1.625 },
-        destination: { latitude: 6.686, longitude: -1.626 },
         vehicleCategory: 'MOTORCYCLE',
       }).success,
     ).toBe(false);
     expect(
       createBookingSchema.safeParse({
         pickup: { latitude: 91, longitude: -1.625 },
-        destination: { latitude: 6.686, longitude: -1.626 },
         vehicleCategory: 'OKADA',
       }).success,
     ).toBe(false);
     expect(
       createBookingSchema.safeParse({
         pickup: { latitude: 6.685, longitude: -1.625 },
-        destination: { latitude: 6.686, longitude: -1.626 },
         vehicleCategory: 'OKADA',
         bookingFeePesewas: 50,
       }).success,
@@ -104,6 +112,23 @@ describe('refund policy', () => {
       }).fee,
     ).toBe('NONE');
     expect(BOOKING_FEE_PESEWAS).toBe(100);
+  });
+
+  it('reverses token when connection fee unpaid after accept; fee only if captured', () => {
+    expect(
+      decideRefunds({
+        feeCaptured: false,
+        tokenDebited: true,
+        situation: 'CONNECTION_FEE_UNPAID_TIMEOUT',
+      }),
+    ).toEqual({ fee: 'NONE', token: 'REQUEST_REFUND' });
+    expect(
+      decideRefunds({
+        feeCaptured: true,
+        tokenDebited: true,
+        situation: 'CONNECTION_FEE_UNPAID_TIMEOUT',
+      }),
+    ).toEqual({ fee: 'REQUEST_REFUND', token: 'REQUEST_REFUND' });
   });
 
   it('refunds fee and token for rider cancel / unable-to-complete, never auto for passenger post-accept', () => {

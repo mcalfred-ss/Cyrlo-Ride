@@ -125,26 +125,29 @@ describe('booking payment postgres flows', () => {
     await expect(
       bookings.create(passenger.id, {
         pickup: { latitude: 6.7, longitude: -1.625 },
-        destination: { latitude: 6.701, longitude: -1.626 },
         vehicleCategory: 'PRAGYA',
       }),
     ).rejects.toMatchObject({ message: /outside the active service area/ });
+    // Zone rejection must happen before any Paystack checkout.
+    expect(paystack.initializations).toHaveLength(0);
 
     const created = (await bookings.create(passenger.id, {
       pickup: { latitude: 6.685, longitude: -1.625 },
-      destination: { latitude: 6.686, longitude: -1.626 },
       vehicleCategory: 'OKADA',
       pickupLabel: 'In zone',
     })) as {
       id: string;
       status: string;
       bookingFeePesewas: number;
-      payment: { reference: string; amountPesewas: number };
+      destination: unknown;
+      payment: unknown;
     };
 
-    expect(created.status).toBe('AWAITING_PAYMENT');
+    expect(created.status).toBe('SEARCHING');
     expect(created.bookingFeePesewas).toBe(BOOKING_FEE_PESEWAS);
-    expect(created.payment.amountPesewas).toBe(100);
+    expect(created.destination).toBeNull();
+    expect(created.payment).toBeNull();
+    expect(paystack.initializations).toHaveLength(0);
 
     const other = await prisma.user.create({
       data: {
@@ -158,39 +161,30 @@ describe('booking payment postgres flows', () => {
       code: 'NOT_FOUND',
     });
 
-    const successBody = Buffer.from(
-      JSON.stringify({
-        event: 'charge.success',
-        data: {
-          id: Date.now(),
-          reference: created.payment.reference,
-          amount: 100,
-          currency: 'GHS',
-          status: 'success',
-          metadata: { bookingId: created.id },
-        },
-      }),
-    );
-    await payments.handlePaystackWebhook({
-      rawBody: successBody,
-      signature: sign(successBody),
-    });
-    // duplicate delivery
-    await payments.handlePaystackWebhook({
-      rawBody: successBody,
-      signature: sign(successBody),
-    });
+    const afterCreate = await prisma.booking.findUnique({ where: { id: created.id } });
+    expect(afterCreate?.status).toBe('SEARCHING');
+    expect(afterCreate?.searchExpiresAt).not.toBeNull();
 
-    const afterPay = await prisma.booking.findUnique({ where: { id: created.id } });
-    expect(afterPay?.status).toBe('SEARCHING');
-    expect(afterPay?.searchExpiresAt).not.toBeNull();
-
-    // Late payment scenario on a second booking
-    const lateBooking = (await bookings.create(passenger.id, {
-      pickup: { latitude: 6.685, longitude: -1.625 },
-      destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'PRAGYA',
-    })) as { id: string; payment: { reference: string } };
+    // Legacy AWAITING_PAYMENT unpaid expiry still works (fee-before-search rows).
+    const repo = new BookingsRepository(prisma);
+    const { booking: lateBookingRow, payment: latePayment } =
+      await repo.createBookingWithFeePayment({
+        passengerId: passenger.id,
+        serviceZoneId: zone.id,
+        vehicleCategory: 'PRAGYA',
+        pickupLatitude: 6.685,
+        pickupLongitude: -1.625,
+        destinationLatitude: 6.686,
+        destinationLongitude: -1.626,
+        bookingFeePesewas: BOOKING_FEE_PESEWAS,
+        paymentExpiresAt: new Date('2026-11-07T12:00:00.000Z'),
+        providerReference: `bf_late_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        searchExpiresAt: new Date('2026-11-07T12:05:00.000Z'),
+      });
+    const lateBooking = {
+      id: lateBookingRow.id,
+      payment: { reference: latePayment.providerReference! },
+    };
 
     now = new Date('2026-11-07T12:20:00.000Z');
     await bookings.expireUnpaidBookings(now);
@@ -270,11 +264,25 @@ describe('booking payment postgres flows', () => {
       now: () => now,
     });
 
-    const created = (await bookings.create(passenger.id, {
-      pickup: { latitude: 6.685, longitude: -1.625 },
-      destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'PRAGYA',
-    })) as { id: string; payment: { reference: string } };
+    const repo = new BookingsRepository(prisma);
+    const { booking: createdRow, payment: createdPayment } =
+      await repo.createBookingWithFeePayment({
+        passengerId: passenger.id,
+        serviceZoneId: zone.id,
+        vehicleCategory: 'PRAGYA',
+        pickupLatitude: 6.685,
+        pickupLongitude: -1.625,
+        destinationLatitude: 6.686,
+        destinationLongitude: -1.626,
+        bookingFeePesewas: BOOKING_FEE_PESEWAS,
+        paymentExpiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+        providerReference: `bf_crash_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        searchExpiresAt: new Date(now.getTime() + 5 * 60 * 1000),
+      });
+    const created = {
+      id: createdRow.id,
+      payment: { reference: createdPayment.providerReference! },
+    };
 
     const eventDataId = `crash-recovery-${created.id}`;
     const expectedEventId = `paystack:charge.success:${eventDataId}`;
@@ -359,11 +367,25 @@ describe('booking payment postgres flows', () => {
       now: () => now,
     });
 
-    const created = (await bookings.create(passenger.id, {
-      pickup: { latitude: 6.685, longitude: -1.625 },
-      destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'PRAGYA',
-    })) as { id: string; payment: { reference: string } };
+    const repo = new BookingsRepository(prisma);
+    const { booking: createdRow, payment: createdPayment } =
+      await repo.createBookingWithFeePayment({
+        passengerId: passenger.id,
+        serviceZoneId: zone.id,
+        vehicleCategory: 'PRAGYA',
+        pickupLatitude: 6.685,
+        pickupLongitude: -1.625,
+        destinationLatitude: 6.686,
+        destinationLongitude: -1.626,
+        bookingFeePesewas: BOOKING_FEE_PESEWAS,
+        paymentExpiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+        providerReference: `bf_strand_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        searchExpiresAt: new Date(now.getTime() + 5 * 60 * 1000),
+      });
+    const created = {
+      id: createdRow.id,
+      payment: { reference: createdPayment.providerReference! },
+    };
 
     // Simulate crash after payment SUCCESS, before SEARCHING.
     await prisma.payment.updateMany({
@@ -453,11 +475,25 @@ describe('booking payment postgres flows', () => {
       now: () => now,
     });
 
-    const created = (await bookings.create(passenger.id, {
-      pickup: { latitude: 6.685, longitude: -1.625 },
-      destination: { latitude: 6.686, longitude: -1.626 },
-      vehicleCategory: 'PRAGYA',
-    })) as { id: string; payment: { reference: string } };
+    const repo = new BookingsRepository(prisma);
+    const { booking: createdRow, payment: createdPayment } =
+      await repo.createBookingWithFeePayment({
+        passengerId: passenger.id,
+        serviceZoneId: zone.id,
+        vehicleCategory: 'PRAGYA',
+        pickupLatitude: 6.685,
+        pickupLongitude: -1.625,
+        destinationLatitude: 6.686,
+        destinationLongitude: -1.626,
+        bookingFeePesewas: BOOKING_FEE_PESEWAS,
+        paymentExpiresAt: new Date(now.getTime() + 10 * 60 * 1000),
+        providerReference: `bf_race_${randomUUID().replace(/-/g, '').slice(0, 12)}`,
+        searchExpiresAt: new Date(now.getTime() + 5 * 60 * 1000),
+      });
+    const created = {
+      id: createdRow.id,
+      payment: { reference: createdPayment.providerReference! },
+    };
 
     const body = Buffer.from(
       JSON.stringify({

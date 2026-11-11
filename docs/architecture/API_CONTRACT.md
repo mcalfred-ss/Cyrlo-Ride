@@ -186,35 +186,38 @@ There is no "list nearby riders" HTTP route. Passengers learn about a rider thro
 
 ### `POST /bookings`
 
-Bearer, role `PASSENGER`. Body:
+Bearer, role `PASSENGER`. Body (destination-free):
 
 ```json
 {
   "pickup": { "latitude": 6.69, "longitude": -1.62 },
-  "destination": { "latitude": 6.70, "longitude": -1.63 },
   "pickupLabel": "Kejetia",
-  "destinationLabel": "KNUST"
+  "vehicleCategory": "PRAGYA"
 }
 ```
 
-Labels are optional, 1–200 characters when present. No fare field.
+`destination` / `destinationLabel` are optional legacy fields and are not used for fare or routing. Labels are optional, 1–200 characters when present. No transport-fare field.
+
+Successful create enters **`SEARCHING`** immediately (after ACTIVE service-zone validation). Cyrlo does **not** open Paystack at create. The fixed **GH₵1 connection fee** (`bookingFeePesewas: 100`) is initiated when a rider accepts.
 
 Proposed `data`:
 
 ```json
 {
   "id": "uuid",
-  "status": "REQUESTED",
+  "status": "SEARCHING",
   "bookingFeePesewas": 100,
+  "connectionFeePesewas": 100,
   "pickup": { "latitude": 6.69, "longitude": -1.62 },
-  "destination": { "latitude": 6.70, "longitude": -1.63 },
+  "destination": null,
   "pickupLabel": "Kejetia",
-  "destinationLabel": "KNUST",
+  "destinationLabel": null,
+  "payment": null,
   "requestedAt": "2026-11-06T12:00:00.000Z"
 }
 ```
 
-Pickup outside every active zone is `409 CONFLICT` with a stable message that the pickup is outside the service area. The geometry helper does not choose the HTTP code. Offers are not created here.
+Pickup outside every ACTIVE zone is `409 CONFLICT` (`Pickup is outside the active service area`). Matching dispatch runs after create (and via workers).
 
 ### `POST /bookings/{bookingId}/cancel`
 

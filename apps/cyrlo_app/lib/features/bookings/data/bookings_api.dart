@@ -19,8 +19,8 @@ abstract class BookingsApi {
   Future<Booking> create({
     required String accessToken,
     required GeoPoint pickup,
-    required GeoPoint destination,
     required String vehicleCategory,
+    GeoPoint? destination,
     String? pickupLabel,
     String? destinationLabel,
   });
@@ -89,8 +89,8 @@ class LiveBookingsApi implements BookingsApi {
   Future<Booking> create({
     required String accessToken,
     required GeoPoint pickup,
-    required GeoPoint destination,
     required String vehicleCategory,
+    GeoPoint? destination,
     String? pickupLabel,
     String? destinationLabel,
   }) async {
@@ -103,13 +103,14 @@ class LiveBookingsApi implements BookingsApi {
             'latitude': pickup.latitude,
             'longitude': pickup.longitude,
           },
-          'destination': {
-            'latitude': destination.latitude,
-            'longitude': destination.longitude,
-          },
+          if (destination != null)
+            'destination': {
+              'latitude': destination.latitude,
+              'longitude': destination.longitude,
+            },
           'vehicleCategory': vehicleCategory,
-          if (pickupLabel != null) 'pickupLabel': pickupLabel,
-          if (destinationLabel != null) 'destinationLabel': destinationLabel,
+          'pickupLabel': ?pickupLabel,
+          'destinationLabel': ?destinationLabel,
         },
       );
       return Booking.fromJson(_dataMap(response.data));
@@ -188,7 +189,7 @@ class LiveBookingsApi implements BookingsApi {
     return _mutate(
       accessToken: accessToken,
       path: ApiPaths.bookingCancel(bookingId),
-      data: {if (reason != null) 'reason': reason},
+      data: {'reason': ?reason},
     );
   }
 

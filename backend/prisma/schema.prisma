@@ -600,14 +600,17 @@ model Booking {
   vehicleCategory      VehicleCategory @map("vehicle_category")
   pickupLatitude       Decimal         @map("pickup_latitude") @db.Decimal(9, 6)
   pickupLongitude      Decimal         @map("pickup_longitude") @db.Decimal(9, 6)
-  destinationLatitude  Decimal         @map("destination_latitude") @db.Decimal(9, 6)
-  destinationLongitude Decimal         @map("destination_longitude") @db.Decimal(9, 6)
+  /// Optional / legacy. Destination-free model does not require passenger destination.
+  destinationLatitude  Decimal?        @map("destination_latitude") @db.Decimal(9, 6)
+  destinationLongitude Decimal?        @map("destination_longitude") @db.Decimal(9, 6)
   pickupLabel          String?         @map("pickup_label")
   destinationLabel     String?         @map("destination_label")
+  /// Fixed GH₵1 connection fee (pesewas). Not a transport fare.
   bookingFeePesewas    Int             @default(100) @map("booking_fee_pesewas")
-  /// Server-owned unpaid deadline (creation + 10 minutes).
-  paymentExpiresAt     DateTime        @map("payment_expires_at")
-  /// Set when entering SEARCHING (fee SUCCESS + 5 minutes). Matching uses this later.
+  /// Set when the GH₵1 connection fee checkout is initiated (after rider accept).
+  /// Null while searching before acceptance under the destination-free model.
+  paymentExpiresAt     DateTime?       @map("payment_expires_at")
+  /// Set when entering SEARCHING. Matching uses this for search timeout.
   searchExpiresAt      DateTime?       @map("search_expires_at")
   requestedAt          DateTime        @default(now()) @map("requested_at")
   acceptedAt           DateTime?       @map("accepted_at")

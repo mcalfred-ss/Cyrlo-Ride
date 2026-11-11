@@ -3,6 +3,11 @@ import { randomUUID } from 'node:crypto';
 import type { BookingOfferStatus, Prisma, PrismaClient, VehicleCategory } from '@prisma/client';
 
 import { AppError } from '../../common/errors/app-error.js';
+import { IdempotencyKey } from '../../common/utils/idempotency.js';
+import {
+  BOOKING_FEE_PESEWAS,
+  BOOKING_PAYMENT_TIMEOUT_MS,
+} from '../../config/constants.js';
 import { ACTIVE_TRIP_BOOKING_STATUSES } from '../riders/operational-eligibility.js';
 import { WalletRepository } from '../wallet/module.repository.js';
 import { evaluateMatchingEligibility } from './matching-eligibility.js';
@@ -384,6 +389,36 @@ export class MatchingRepository {
           bookingId: input.bookingId,
         });
 
+        // Durable connection-fee row + deadline in the same txn as ACCEPTED.
+        // Paystack initializeTransaction runs after commit; failure cannot orphan without expiry.
+        const feeKey = IdempotencyKey.bookingFee(input.bookingId);
+        let feePayment = await tx.payment.findUnique({ where: { idempotencyKey: feeKey } });
+        if (!feePayment) {
+          const providerReference = `bf_${randomUUID().replace(/-/g, '')}`;
+          feePayment = await tx.payment.create({
+            data: {
+              id: randomUUID(),
+              userId: booking.passengerId,
+              bookingId: input.bookingId,
+              purpose: 'BOOKING_FEE',
+              amountPesewas: BOOKING_FEE_PESEWAS,
+              currency: 'GHS',
+              status: 'PENDING',
+              provider: 'paystack',
+              providerReference,
+              idempotencyKey: feeKey,
+            },
+          });
+        }
+        const paymentExpiresAt =
+          booking.paymentExpiresAt && booking.paymentExpiresAt.getTime() > input.now.getTime()
+            ? booking.paymentExpiresAt
+            : new Date(input.now.getTime() + BOOKING_PAYMENT_TIMEOUT_MS);
+        await tx.booking.update({
+          where: { id: input.bookingId },
+          data: { paymentExpiresAt },
+        });
+
         await tx.bookingStatusHistory.create({
           data: {
             bookingId: input.bookingId,
@@ -401,7 +436,12 @@ export class MatchingRepository {
         });
 
         const accepted = await tx.booking.findUniqueOrThrow({ where: { id: input.bookingId } });
-        return { booking: accepted, invalidatedOffers: invalidated };
+        return {
+          booking: accepted,
+          invalidatedOffers: invalidated,
+          connectionFeePayment: feePayment,
+          paymentExpiresAt,
+        };
       });
     } catch (error) {
       if (

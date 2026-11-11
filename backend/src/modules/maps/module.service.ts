@@ -1,10 +1,19 @@
 import { AppError } from '../../common/errors/app-error.js';
-import type { CyrloMapsClient } from '../../infrastructure/maps/cyrlo-maps.client.js';
+import type { CyrloMapsClient, PlaceHit } from '../../infrastructure/maps/cyrlo-maps.client.js';
+import {
+  filterProviderHitsToGhana,
+  mergeLandmarkAndProviderHits,
+  searchGhanaLandmarks,
+} from './landmarks/ghana-landmarks.search.js';
 import type {
   GeocodeBody,
   PlaceSearchBody,
   ReverseGeocodeBody,
   RouteBody,
+} from './module.schema.js';
+import {
+  PASSENGER_DESTINATION_COUNTRY,
+  PASSENGER_DESTINATION_PLACE_TYPES,
 } from './module.schema.js';
 
 export class MapsService {
@@ -53,8 +62,45 @@ export class MapsService {
     return { result };
   }
 
+  /**
+   * Passenger destination place search:
+   * 1. Curated Ghana landmark catalog (verified coords).
+   * 2. Cyrlo Maps provider with country=GH, pickup bias, and relevant types.
+   * 3. Hard Ghana bbox post-filter so foreign hits never reach the client.
+   */
   async places(input: PlaceSearchBody) {
-    const results = await this.requireClient().searchPlaces(input);
+    const limit = input.limit ?? 8;
+    const country = input.country ?? PASSENGER_DESTINATION_COUNTRY;
+    const landmarks = searchGhanaLandmarks({
+      query: input.text,
+      limit,
+      bias: input.bias ?? null,
+    });
+
+    let provider: PlaceHit[] = [];
+    try {
+      const raw = await this.requireClient().searchPlaces({
+        text: input.text,
+        limit,
+        bias: input.bias,
+        country,
+        types: [...PASSENGER_DESTINATION_PLACE_TYPES],
+      });
+      provider =
+        country === PASSENGER_DESTINATION_COUNTRY
+          ? filterProviderHitsToGhana(raw)
+          : raw;
+    } catch (error) {
+      // Landmarks alone are still useful when the provider is down.
+      if (landmarks.length === 0) throw error;
+      provider = [];
+    }
+
+    const results = mergeLandmarkAndProviderHits({
+      landmarks,
+      provider,
+      limit,
+    });
     return { results };
   }
 

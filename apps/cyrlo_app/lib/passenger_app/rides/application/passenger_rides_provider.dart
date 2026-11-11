@@ -110,7 +110,7 @@ class PassengerRidesController extends Notifier<LoadableList<PassengerRide>> {
           .toLocal(),
       riderId: booking.riderId,
       needsReview: status == PassengerRideStatus.completed,
-      durationLabel: booking.destinationLabel,
+      durationLabel: booking.pickupLabel ?? booking.destinationLabel,
     );
   }
 }

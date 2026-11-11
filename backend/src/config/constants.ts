@@ -1,16 +1,22 @@
 export const APP_VERSION = '0.1.0';
 export const API_PREFIX = '/api/v1';
 
-/** GHS 1.00. Passenger booking fees are stored in pesewas. */
+/**
+ * GHS 1.00 Cyrlo connection fee (pesewas).
+ * Not a transport fare — passengers and riders agree fare directly.
+ */
 export const BOOKING_FEE_PESEWAS = 100;
 
 /** Tokens removed when a rider accepts an eligible booking. */
 export const TOKEN_COST_PER_ACCEPTANCE = 1;
 
-/** Unpaid booking-fee deadline from booking creation. */
+/**
+ * Unpaid connection-fee deadline after rider acceptance (checkout window).
+ * Legacy AWAITING_PAYMENT rows also use this field.
+ */
 export const BOOKING_PAYMENT_TIMEOUT_MS = 10 * 60 * 1000;
 
-/** Search window after fee SUCCESS (matching milestone). Stored on SEARCHING transition. */
+/** Search window for nearby riders after pickup-only request enters SEARCHING. */
 export const BOOKING_SEARCH_TIMEOUT_MS = 5 * 60 * 1000;
 
 /** Straight-line matching radius. Do not expand. */

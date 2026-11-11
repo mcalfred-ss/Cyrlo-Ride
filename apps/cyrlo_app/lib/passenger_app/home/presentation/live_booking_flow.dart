@@ -4,56 +4,65 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/errors/api_exception.dart';
-import '../../../core/mapping/device_location_gateway.dart';
-import '../../../core/mapping/mapping_providers.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../features/auth/application/auth_session.dart';
 import '../../../features/bookings/data/bookings_api.dart';
 import '../../../rider_app/onboarding/data/rider_onboarding_models.dart';
-import '../../../shared/account/presentation/in_app_web_screen.dart';
 import '../../../shared/models/geo_point.dart';
 import '../../../shared/ride_session/active_ride_request.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/skeleton.dart';
+import '../../map/application/passenger_trip_plan.dart';
 import '../../map/application/trip_pin_controller.dart';
 import '../../rides/application/passenger_rides_provider.dart';
 
-/// Creates a live booking + opens Paystack for the booking fee.
-///
-/// Nearby rider supply is not exposed by the API yet; matching runs server-side
-/// after payment moves the booking to SEARCHING.
+/// Creates a live pickup-only booking. Matching starts server-side in SEARCHING.
+/// Connection-fee checkout is not opened at create — it is charged when a rider accepts.
 Future<void> startLiveBookingFlow({
   required BuildContext context,
   required WidgetRef ref,
+  required GeoPoint pickup,
+  String? pickupLabel,
 }) async {
+  final plan = ref.read(passengerTripPlanProvider.notifier);
+
+  if (!pickup.isValid) {
+    plan.markSubmitError('Confirm a valid pickup first.');
+    _toast(context, 'Confirm a valid pickup first.');
+    return;
+  }
+
   final category = await showModalBottomSheet<VehicleCategory>(
     context: context,
     backgroundColor: Colors.transparent,
     builder: (context) => const _VehicleCategorySheet(),
   );
-  if (category == null || !context.mounted) return;
-
-  final pickup = await _resolvePickup(context, ref);
-  if (pickup == null || !context.mounted) return;
-
-  // Pilot: destination defaults ~800m north of pickup until destination picker lands.
-  final destination = GeoPoint(
-    latitude: pickup.latitude + 0.007,
-    longitude: pickup.longitude,
-  );
+  if (category == null || !context.mounted) {
+    plan.clearSubmitLock();
+    return;
+  }
 
   final session = ref.read(authSessionProvider);
   if (session == null) {
+    plan.markSubmitError('Sign in again to request a ride.');
     _toast(context, 'Sign in again to request a ride.');
     return;
+  }
+
+  // UI may already have locked submit; otherwise lock here.
+  if (!ref.read(passengerTripPlanProvider).isSubmitting) {
+    if (!plan.beginSubmit()) {
+      _toast(context, 'Confirm a pickup first.');
+      return;
+    }
   }
 
   showDialog<void>(
     context: context,
     barrierDismissible: false,
-    builder: (context) => Center(
+    builder: (context) => const Center(
       child: Material(
         color: Colors.transparent,
         child: SizedBox(
@@ -69,98 +78,77 @@ Future<void> startLiveBookingFlow({
     final booking = await ref.read(bookingsApiProvider).create(
           accessToken: session.accessToken,
           pickup: pickup,
-          destination: destination,
           vehicleCategory: category.apiValue,
-          pickupLabel: 'Current location',
-          destinationLabel: 'Nearby destination',
-        );
-
-    var checkout = booking.payment;
-    checkout ??= await ref.read(bookingsApiProvider).initializeBookingFee(
-          accessToken: session.accessToken,
-          bookingId: booking.id,
+          pickupLabel: _labelOrNull(pickupLabel),
         );
 
     if (!context.mounted) return;
     Navigator.of(context).pop(); // loading
 
-    if (checkout.authorizationUrl.isEmpty) {
-      _toast(context, 'Payment link unavailable. Try again.');
-      return;
-    }
+    ref.read(passengerRidesProvider.notifier).upsertBooking(booking);
 
-    await Navigator.of(context).push<void>(
-      MaterialPageRoute(
-        builder: (_) => InAppWebScreen(
-          title: 'Pay booking fee',
-          url: checkout!.authorizationUrl,
-        ),
-      ),
-    );
-    if (!context.mounted) return;
-
-    // Poll booking status after returning from Paystack.
-    final refreshed = await ref.read(bookingsApiProvider).get(
-          accessToken: session.accessToken,
-          bookingId: booking.id,
-        );
-    ref.read(passengerRidesProvider.notifier).upsertBooking(refreshed);
-
-    if (refreshed.isSearching ||
-        refreshed.isAccepted ||
-        refreshed.isInProgress) {
+    if (booking.isSearching) {
+      plan.markSearchingRider();
       ref.read(activeRideRequestProvider.notifier).adoptBooking(
-            refreshed,
-            status: refreshed.isSearching
-                ? ActiveRideStatus.requested
-                : ActiveRideStatus.ongoing,
+            booking,
+            status: ActiveRideStatus.requested,
           );
       ref.read(tripPinProvider.notifier).seedPickup(
             pickup,
-            message: refreshed.isSearching
-                ? 'Looking for a nearby rider…'
-                : 'Your rider is on the way.',
+            message: 'Looking for a nearby rider…',
           );
-      _toast(
-        context,
-        refreshed.isSearching
-            ? 'Payment received. Searching for a rider…'
-            : 'Rider assigned. Open the map for pickup.',
-      );
+      _toast(context, 'Looking for a rider…');
       context.go(AppRoutes.passengerMap);
       return;
     }
 
-    _toast(
-      context,
-      'If you paid, wait a moment for confirmation, then check Rides.',
-    );
+    if (booking.isAccepted || booking.isInProgress) {
+      plan.markRiderAssigned(needsConnectionFee: false);
+      ref.read(activeRideRequestProvider.notifier).adoptBooking(
+            booking,
+            status: ActiveRideStatus.ongoing,
+          );
+      ref.read(tripPinProvider.notifier).seedPickup(
+            pickup,
+            message: 'Your rider is on the way.',
+          );
+      _toast(context, 'Rider assigned. Open the map for pickup.');
+      context.go(AppRoutes.passengerMap);
+      return;
+    }
+
+    plan.clearSubmitLock();
+    _toast(context, 'Booking created. Check Rides for status.');
+    context.go(AppRoutes.passengerRides);
   } on ApiException catch (error) {
     if (context.mounted) {
       Navigator.of(context).pop();
-      _toast(context, error.message);
+      if (isServiceAreaRejection(error)) {
+        const message =
+            'Cyrlo Ride is not available at this pickup yet. No active service zone covers this area.';
+        plan.markServiceUnavailable(message);
+        _toast(context, message);
+      } else if (error.statusCode == 401 || error.code == 'UNAUTHORIZED') {
+        plan.markSubmitError('Sign in again to request a ride.');
+        _toast(context, 'Sign in again to request a ride.');
+      } else {
+        plan.markSubmitError(error.message);
+        _toast(context, error.message);
+      }
     }
   } catch (_) {
     if (context.mounted) {
       Navigator.of(context).pop();
+      plan.markSubmitError('Could not start booking. Try again.');
       _toast(context, 'Could not start booking. Try again.');
     }
   }
 }
 
-Future<GeoPoint?> _resolvePickup(BuildContext context, WidgetRef ref) async {
-  final result = await ref.read(deviceLocationGatewayProvider).current();
-  if (result.hasFix && result.point != null) return result.point;
-  if (!context.mounted) return null;
-  _toast(
-    context,
-    switch (result.status) {
-      DeviceLocationStatus.denied => 'Allow location to set your pickup.',
-      DeviceLocationStatus.serviceDisabled => 'Turn on location services.',
-      _ => 'Could not read your location.',
-    },
-  );
-  return null;
+String? _labelOrNull(String? value) {
+  final trimmed = value?.trim();
+  if (trimmed == null || trimmed.isEmpty) return null;
+  return trimmed.length > 200 ? trimmed.substring(0, 200) : trimmed;
 }
 
 void _toast(BuildContext context, String message) {
@@ -201,7 +189,7 @@ class _VehicleCategorySheet extends StatelessWidget {
             ),
             const SizedBox(height: AppSpacing.sm),
             const Text(
-              'We’re matching Pragya riders for now. Pay the fee to start the search.',
+              'We’re matching Pragya riders for now. Cyrlo charges GH₵1 connection fee when a rider accepts. Transport fare is agreed with your rider.',
             ),
             const SizedBox(height: AppSpacing.lg),
             CyrloButton(

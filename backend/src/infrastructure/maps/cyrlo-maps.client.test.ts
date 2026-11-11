@@ -76,8 +76,14 @@ describe('HttpCyrloMapsClient', () => {
   });
 
   it('maps place search and route estimate fields', async () => {
-    const fetchImpl = vi.fn(async (url: string) => {
+    const fetchImpl = vi.fn(async (url: string, init?: RequestInit) => {
       if (url.endsWith('/v1/places/search')) {
+        const body = JSON.parse(String(init?.body));
+        expect(body.country).toBe('GH');
+        expect(body.types).toEqual(
+          expect.arrayContaining(['poi', 'address', 'locality']),
+        );
+        expect(body.bias).toEqual({ latitude: 6.74, longitude: -1.61 });
         return jsonResponse(200, {
           request_id: 'r1',
           data: {
@@ -105,7 +111,14 @@ describe('HttpCyrloMapsClient', () => {
       fetchImpl: fetchImpl as unknown as typeof fetch,
     });
 
-    await expect(client.searchPlaces({ text: 'Kejetia' })).resolves.toEqual([
+    await expect(
+      client.searchPlaces({
+        text: 'Kejetia',
+        country: 'GH',
+        types: ['poi', 'address', 'locality'],
+        bias: { latitude: 6.74, longitude: -1.61 },
+      }),
+    ).resolves.toEqual([
       {
         id: 'p1',
         label: 'Kejetia',

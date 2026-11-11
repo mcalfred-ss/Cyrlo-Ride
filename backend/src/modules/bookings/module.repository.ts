@@ -16,13 +16,20 @@ export interface CreateBookingRecordInput {
   vehicleCategory: VehicleCategory;
   pickupLatitude: number;
   pickupLongitude: number;
-  destinationLatitude: number;
-  destinationLongitude: number;
+  destinationLatitude?: number | null;
+  destinationLongitude?: number | null;
   pickupLabel?: string | null;
   destinationLabel?: string | null;
   bookingFeePesewas: number;
-  paymentExpiresAt: Date;
+  searchExpiresAt: Date;
+}
+
+export interface CreateConnectionFeePaymentInput {
+  bookingId: string;
+  passengerId: string;
   providerReference: string;
+  paymentExpiresAt: Date;
+  amountPesewas: number;
 }
 
 /** Private to the bookings module. */
@@ -78,7 +85,109 @@ export class BookingsRepository {
     return matches[0]!.zone;
   }
 
-  async createBookingWithFeePayment(input: CreateBookingRecordInput) {
+  /**
+   * Destination-free create: SEARCHING immediately, no Paystack row.
+   * Connection fee is created later on rider acceptance.
+   */
+  async createPickupOnlySearchingBooking(input: CreateBookingRecordInput) {
+    const bookingId = randomUUID();
+    return this.prisma.$transaction(async (tx) => {
+      const booking = await tx.booking.create({
+        data: {
+          id: bookingId,
+          passengerId: input.passengerId,
+          serviceZoneId: input.serviceZoneId,
+          status: 'SEARCHING',
+          vehicleCategory: input.vehicleCategory,
+          pickupLatitude: input.pickupLatitude,
+          pickupLongitude: input.pickupLongitude,
+          destinationLatitude: input.destinationLatitude ?? null,
+          destinationLongitude: input.destinationLongitude ?? null,
+          pickupLabel: input.pickupLabel ?? null,
+          destinationLabel: input.destinationLabel ?? null,
+          bookingFeePesewas: input.bookingFeePesewas,
+          paymentExpiresAt: null,
+          searchExpiresAt: input.searchExpiresAt,
+        },
+      });
+      await tx.bookingStatusHistory.create({
+        data: {
+          bookingId: booking.id,
+          fromStatus: null,
+          toStatus: 'SEARCHING',
+          actorType: 'PASSENGER',
+          actorId: input.passengerId,
+          reason: 'pickup_request_created',
+        },
+      });
+      return booking;
+    });
+  }
+
+  /**
+   * Idempotent connection-fee payment row for an accepted booking.
+   * Uses booking-fee:{bookingId} so duplicate accepts / retries share one payment.
+   */
+  async ensureConnectionFeePayment(input: CreateConnectionFeePaymentInput) {
+    const existing = await this.prisma.payment.findFirst({
+      where: {
+        bookingId: input.bookingId,
+        purpose: 'BOOKING_FEE',
+        idempotencyKey: IdempotencyKey.bookingFee(input.bookingId),
+      },
+    });
+    if (existing) {
+      return { payment: existing, created: false as const };
+    }
+    try {
+      const payment = await this.prisma.payment.create({
+        data: {
+          id: randomUUID(),
+          userId: input.passengerId,
+          bookingId: input.bookingId,
+          purpose: 'BOOKING_FEE',
+          amountPesewas: input.amountPesewas,
+          currency: 'GHS',
+          status: 'PENDING',
+          provider: 'paystack',
+          providerReference: input.providerReference,
+          idempotencyKey: IdempotencyKey.bookingFee(input.bookingId),
+        },
+      });
+      await this.prisma.booking.update({
+        where: { id: input.bookingId },
+        data: { paymentExpiresAt: input.paymentExpiresAt },
+      });
+      return { payment, created: true as const };
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error &&
+        'code' in error &&
+        (error as { code?: string }).code === 'P2002'
+      ) {
+        const payment = await this.prisma.payment.findFirstOrThrow({
+          where: {
+            bookingId: input.bookingId,
+            purpose: 'BOOKING_FEE',
+            idempotencyKey: IdempotencyKey.bookingFee(input.bookingId),
+          },
+        });
+        return { payment, created: false as const };
+      }
+      throw error;
+    }
+  }
+
+  /** @deprecated Legacy fee-at-create path — kept for historical test fixtures only. */
+  async createBookingWithFeePayment(
+    input: CreateBookingRecordInput & {
+      paymentExpiresAt: Date;
+      providerReference: string;
+      destinationLatitude: number;
+      destinationLongitude: number;
+    },
+  ) {
     const bookingId = randomUUID();
     const paymentId = randomUUID();
     return this.prisma.$transaction(async (tx) => {

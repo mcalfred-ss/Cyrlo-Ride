@@ -19,11 +19,31 @@ export const geocodeBodySchema = z
 
 export const reverseGeocodeBodySchema = coordinateSchema;
 
+/** Passenger destination search defaults — Ghana-only at the Ride proxy. */
+export const PASSENGER_DESTINATION_COUNTRY = 'GH' as const;
+
+export const PASSENGER_DESTINATION_PLACE_TYPES = [
+  'poi',
+  'landmark',
+  'address',
+  'street',
+  'place',
+  'locality',
+  'neighborhood',
+] as const;
+
 export const placeSearchBodySchema = z
   .object({
     text: z.string().trim().min(1).max(256),
     limit: z.coerce.number().int().min(1).max(10).optional(),
     bias: coordinateSchema.optional(),
+    /** Optional override; passenger destination search forces GH when omitted. */
+    country: z
+      .string()
+      .trim()
+      .length(2)
+      .transform((value) => value.toUpperCase())
+      .optional(),
   })
   .strict();
 

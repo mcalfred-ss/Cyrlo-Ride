@@ -61,10 +61,20 @@ export class MemoryPaystackClient implements PaystackClient {
   /** When true, createRefund returns pending instead of processed. */
   refundCreateStatus: ParsedPaystackRefundStatus = 'processed';
   failNextRefund = false;
+  /** When true, next initializeTransaction throws (tests payment-init failure). */
+  failNextInitialize = false;
 
   async initializeTransaction(
     input: InitializeTransactionInput,
   ): Promise<InitializeTransactionResult> {
+    if (this.failNextInitialize) {
+      this.failNextInitialize = false;
+      throw new AppError({
+        status: 502,
+        code: 'PAYMENT_VERIFICATION_FAILED',
+        message: 'Paystack initialize failed (memory)',
+      });
+    }
     this.initializations.push(input);
     this.transactions.set(input.reference, {
       reference: input.reference,

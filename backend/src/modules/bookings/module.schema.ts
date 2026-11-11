@@ -1,10 +1,15 @@
 import { z } from 'zod';
 import { coordinatesSchema } from '../../common/schemas/coordinates.js';
 
+/**
+ * Destination-free create contract.
+ * Destination fields remain accepted for backward compatibility but are optional
+ * and are not used for fare or routing by Cyrlo.
+ */
 export const createBookingSchema = z
   .object({
     pickup: coordinatesSchema,
-    destination: coordinatesSchema,
+    destination: coordinatesSchema.optional(),
     pickupLabel: z.string().trim().min(1).max(200).optional(),
     destinationLabel: z.string().trim().min(1).max(200).optional(),
     vehicleCategory: z.enum(['OKADA', 'PRAGYA', 'ABOBOYAA']),
