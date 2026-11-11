@@ -337,7 +337,7 @@ class AccountScreen extends ConsumerWidget {
                         key: const Key('rate-cyrlo-ride'),
                         icon: Icons.star_rate_rounded,
                         label: 'Rate Cyrlo Ride',
-                        onTap: () => AppReviewService.openStoreListing(),
+                        onTap: () => AppReviewService.requestInAppReview(),
                       ),
                       _AccountActionRow(
                         icon: Icons.privacy_tip_outlined,

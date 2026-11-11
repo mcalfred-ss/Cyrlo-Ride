@@ -11,22 +11,24 @@ import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../shared/models/geo_point.dart';
-import '../../../shared/ride_session/active_ride_request.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/ride_session/passenger_cancel_notice.dart';
+import '../../../shared/ride_session/passenger_cancel_ride.dart';
 import '../../../shared/widgets/active_contact_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../home/application/nearby_riders_provider.dart';
 import '../../home/domain/nearby_rider.dart';
 import '../../home/presentation/live_booking_flow.dart';
+import '../../home/presentation/request_ride_flow.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_map_motion.dart';
-import '../application/passenger_trip_plan.dart';
 import '../application/trip_pin_controller.dart';
 import '../application/trip_pin_state.dart';
 import 'bolt_rider_map_marker.dart';
+import 'top_down_vehicle_painter.dart';
 
-/// Passenger map: pickup-only booking + nearby riders.
+/// Passenger map: nearby riders on the map + pickup pin for the rider.
+/// Works with Carto fallback now; swap in Mapbox token when ready.
 class PassengerMapScreen extends ConsumerStatefulWidget {
   const PassengerMapScreen({super.key});
 
@@ -39,21 +41,6 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   String? _focusedRiderId;
   GeoPoint? _focusedPickup;
   var _fittedRiders = false;
-  var _bootstrappedLocation = false;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || _bootstrappedLocation) return;
-      _bootstrappedLocation = true;
-      final plan = ref.read(passengerTripPlanProvider);
-      if (plan.hasPickup) return;
-      unawaited(
-        ref.read(passengerTripPlanProvider.notifier).useCurrentLocationAsPickup(),
-      );
-    });
-  }
 
   @override
   void dispose() {
@@ -109,38 +96,9 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
         rider: rider,
         onRequest: () {
           Navigator.of(context).pop();
-          _toast('Set your pickup below, then tap Find a Rider.');
+          startRequestRideFlow(context: context, ref: ref, rider: rider);
         },
         onClose: () => Navigator.of(context).pop(),
-      ),
-    );
-  }
-
-  Future<void> _continueBooking() async {
-    final plan = ref.read(passengerTripPlanProvider);
-    final pickup = plan.pickup;
-    if (pickup == null) return;
-    if (!ref.read(passengerTripPlanProvider.notifier).beginSubmit()) return;
-    await startLiveBookingFlow(
-      context: context,
-      ref: ref,
-      pickup: pickup,
-      pickupLabel: plan.pickupLabel,
-    );
-  }
-
-  void _toast(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.darkGrey,
-        content: Text(
-          message,
-          style: const TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
       ),
     );
   }
@@ -148,7 +106,6 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   @override
   Widget build(BuildContext context) {
     final pins = ref.watch(tripPinProvider);
-    final plan = ref.watch(passengerTripPlanProvider);
     final nearbyRiders = ref.watch(nearbyRidersProvider).items;
     final mapPoses = ref.watch(nearbyRidersMapMotionProvider);
     final movingRiders = ridersWithMapPoses(nearbyRiders, mapPoses);
@@ -160,7 +117,6 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     final isDark = theme.brightness == Brightness.dark;
     final shareContact = activeRequest?.sharesContact == true;
     final sharedPickup = pins.pickup ?? activeRequest?.pickupPoint;
-    final pickup = plan.pickup ?? sharedPickup;
     final availableCount =
         nearbyRiders.where((rider) => rider.canRequest).length;
 
@@ -192,10 +148,8 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
       context.go(AppRoutes.passengerHome);
     });
 
-    if (shareContact && sharedPickup != null) {
+    if (sharedPickup != null) {
       _focusPickup(sharedPickup);
-    } else if (plan.pickup != null) {
-      _focusPickup(plan.pickup);
     } else if (selectedRider != null && selectedRider.id != _focusedRiderId) {
       NearbyRider? live;
       for (final rider in movingRiders) {
@@ -223,17 +177,13 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
               riders: movingRiders,
               poses: mapPoses,
               selectedId: selectedRider?.id ?? activeRequest?.riderId,
-              pickup: pickup,
             ),
             onTap: (point) {
-              final geo = GeoPoint.fromMapCoordinate(point);
-              if (shareContact) {
-                unawaited(ref.read(tripPinProvider.notifier).placeAt(geo));
-              } else {
-                unawaited(
-                  ref.read(passengerTripPlanProvider.notifier).placeMapPoint(geo),
-                );
-              }
+              unawaited(
+                ref
+                    .read(tripPinProvider.notifier)
+                    .placeAt(GeoPoint.fromMapCoordinate(point)),
+              );
             },
           ),
           SafeArea(
@@ -242,62 +192,173 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (shareContact)
-                    _ActiveRideBanner(
-                      activeRequest: activeRequest!,
-                      pins: pins,
-                      availableCount: availableCount,
-                      movingRiders: movingRiders,
-                      onShowAll: () {
-                        _fittedRiders = false;
-                        _fitNearbyRiders(movingRiders);
-                      },
-                      onCancel: () {
-                        ref
-                            .read(activeRideRequestProvider.notifier)
-                            .markCancelled();
-                        ref.read(selectedNearbyRiderProvider.notifier).clear();
-                      },
-                    )
-                  else
-                    _TripPlanPanel(
-                      plan: plan,
-                      onFindRider:
-                          plan.canFindRider ? _continueBooking : null,
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: AppColors.surface.withValues(alpha: 0.96),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.elevationShadow(
+                            lightAlpha: 0.08,
+                            darkAlpha: 0.35,
+                          ),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
                     ),
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 14, 12, 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  shareContact
+                                      ? '${activeRequest!.kindLabel} coming to you'
+                                      : 'Nearby riders on the map',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.2,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                key: const Key('show-all-riders'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: AppColors.textPrimary,
+                                  disabledForegroundColor:
+                                      AppColors.textSecondary.withValues(
+                                    alpha: 0.45,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  minimumSize: Size.zero,
+                                  tapTargetSize:
+                                      MaterialTapTargetSize.shrinkWrap,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                                onPressed: movingRiders.isEmpty
+                                    ? null
+                                    : () {
+                                        _fittedRiders = false;
+                                        _fitNearbyRiders(movingRiders);
+                                      },
+                                child: const Text(
+                                  'Show all',
+                                  style: TextStyle(fontWeight: FontWeight.w700),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            shareContact
+                                ? '${activeRequest!.etaLabel}. Your exact location is shared — tap to adjust pickup.'
+                                : '$availableCount nearby on the map',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: AppColors.textSecondary,
+                              height: 1.35,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          if (!shareContact) ...[
+                            const SizedBox(height: 10),
+                            const _MapKindLegend(),
+                          ],
+                          const SizedBox(height: 12),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: _MapStatusPill(
+                                  key: const Key('rider-count-chip'),
+                                  icon: Icons.two_wheeler_rounded,
+                                  label: '$availableCount online',
+                                  filled: true,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: _MapStatusPill(
+                                  key: const Key('focus-pickup'),
+                                  icon: pins.pickup == null
+                                      ? Icons.place_outlined
+                                      : Icons.check_circle_rounded,
+                                  label: pins.pickup == null
+                                      ? 'Pickup needed'
+                                      : 'Pickup set',
+                                  filled: pins.pickup != null,
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (pins.locationMessage != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              pins.locationMessage!,
+                              key: const Key('location-message'),
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ],
+                          if (pins.isResolvingLocation)
+                            const Padding(
+                              padding: EdgeInsets.only(top: 8),
+                              child: LinearProgressIndicator(minHeight: 2),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (shareContact) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    ActiveContactCard(
+                      title: '${activeRequest!.kindLabel} is on the way',
+                      subtitle:
+                          'Call the rider if they need help finding you. Tell them your destination when they arrive. They’ll end the trip after drop-off.',
+                      phoneE164: activeRequest.riderPhoneE164,
+                      contactLabel: 'Rider number',
+                      onCancel: () =>
+                          cancelActiveRideWithFeedback(context, ref),
+                    ),
+                  ],
                   const Spacer(),
+                  if (!shareContact &&
+                      pins.pickup != null &&
+                      pins.pickup!.isValid) ...[
+                    CyrloButton(
+                      key: const Key('map-book-live-ride'),
+                      label: 'Book a Pragya',
+                      onPressed: () => startLiveBookingFlow(
+                        context: context,
+                        ref: ref,
+                        pickup: pins.pickup!,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                  ],
                   Align(
                     alignment: Alignment.bottomRight,
                     child: FloatingActionButton.extended(
                       key: const Key('use-current-location'),
-                      onPressed: plan.phase == TripPlanPhase.gettingLocation ||
-                              pins.isResolvingLocation
+                      onPressed: pins.isResolvingLocation
                           ? null
                           : () async {
-                              if (shareContact) {
-                                await ref
-                                    .read(tripPinProvider.notifier)
-                                    .useCurrentLocationAsPickup();
-                                final next = ref.read(tripPinProvider).pickup;
-                                if (next != null) {
-                                  _mapController.move(
-                                    next.toMapCoordinate(),
-                                    15,
-                                  );
-                                }
-                              } else {
-                                await ref
-                                    .read(passengerTripPlanProvider.notifier)
-                                    .useCurrentLocationAsPickup();
-                                final next =
-                                    ref.read(passengerTripPlanProvider).pickup;
-                                if (next != null) {
-                                  _focusedPickup = null;
-                                  _mapController.move(
-                                    next.toMapCoordinate(),
-                                    15,
-                                  );
-                                }
+                              await ref
+                                  .read(tripPinProvider.notifier)
+                                  .useCurrentLocationAsPickup();
+                              final pickup = ref.read(tripPinProvider).pickup;
+                              if (pickup != null) {
+                                _mapController.move(
+                                  pickup.toMapCoordinate(),
+                                  15,
+                                );
                               }
                             },
                       icon: const Icon(Icons.my_location_rounded),
@@ -317,7 +378,6 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     required TripPinState pins,
     required List<NearbyRider> riders,
     required Map<String, MapRiderPose> poses,
-    required GeoPoint? pickup,
     String? selectedId,
   }) {
     return [
@@ -325,6 +385,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
         MapMarker(
           id: 'rider-${rider.id}',
           point: rider.point.toMapCoordinate(),
+          // Compact hit target — okada sprite is taller (bike + rider).
           width: rider.id == selectedId ? 52 : 44,
           height: rider.id == selectedId ? 70 : 60,
           child: GestureDetector(
@@ -337,10 +398,10 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
             ),
           ),
         ),
-      if (pickup != null)
+      if (pins.pickup != null)
         MapMarker(
           id: 'pickup',
-          point: pickup.toMapCoordinate(),
+          point: pins.pickup!.toMapCoordinate(),
           width: 40,
           height: 40,
           child: const _PinMarker(
@@ -350,203 +411,6 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
           ),
         ),
     ];
-  }
-}
-
-class _TripPlanPanel extends StatelessWidget {
-  const _TripPlanPanel({
-    required this.plan,
-    required this.onFindRider,
-  });
-
-  final PassengerTripPlanState plan;
-  final Future<void> Function()? onFindRider;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final ctaLabel = plan.isSubmitting ||
-            plan.phase == TripPlanPhase.submittingBooking
-        ? 'Finding…'
-        : plan.phase == TripPlanPhase.serviceUnavailable
-            ? 'Service unavailable'
-            : 'Find a Rider';
-
-    return Material(
-      color: theme.colorScheme.surface.withValues(alpha: 0.96),
-      borderRadius: BorderRadius.circular(AppRadii.md),
-      child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Where should your rider pick you up?',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              'Tap the map to place pickup, or use My location.',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.inkDim,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Ink(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.field,
-                borderRadius: BorderRadius.circular(AppRadii.sm),
-                border: Border.all(color: AppColors.border),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.trip_origin, size: 18, color: AppColors.brand),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      plan.pickupLabel ??
-                          (plan.phase == TripPlanPhase.gettingLocation
-                              ? 'Getting your location…'
-                              : 'Pickup'),
-                      key: const Key('pickup-label'),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: plan.hasPickup
-                            ? AppColors.textPrimary
-                            : AppColors.textSecondary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Text(
-              plan.connectionFeeNote,
-              key: const Key('connection-fee-note'),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: AppColors.inkDim,
-                height: 1.35,
-              ),
-            ),
-            if (plan.message != null) ...[
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                plan.message!,
-                key: const Key('trip-plan-message'),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: plan.phase == TripPlanPhase.serviceUnavailable ||
-                          plan.phase == TripPlanPhase.error
-                      ? AppColors.error
-                      : AppColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-            const SizedBox(height: AppSpacing.sm),
-            CyrloButton(
-              key: const Key('find-a-rider'),
-              label: ctaLabel,
-              onPressed: plan.phase == TripPlanPhase.serviceUnavailable
-                  ? null
-                  : onFindRider == null
-                      ? null
-                      : () => onFindRider!(),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ActiveRideBanner extends StatelessWidget {
-  const _ActiveRideBanner({
-    required this.activeRequest,
-    required this.pins,
-    required this.availableCount,
-    required this.movingRiders,
-    required this.onShowAll,
-    required this.onCancel,
-  });
-
-  final ActiveRideRequest activeRequest;
-  final TripPinState pins;
-  final int availableCount;
-  final List<NearbyRider> movingRiders;
-  final VoidCallback onShowAll;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Material(
-          color: theme.colorScheme.surface.withValues(alpha: 0.96),
-          borderRadius: BorderRadius.circular(AppRadii.md),
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${activeRequest.kindLabel} coming to you',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: AppSpacing.xs),
-                Text(
-                  '${activeRequest.etaLabel}. Your exact location is shared — tap to adjust pickup.',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: AppColors.inkDim,
-                    height: 1.35,
-                  ),
-                ),
-                if (pins.locationMessage != null) ...[
-                  const SizedBox(height: AppSpacing.xs),
-                  Text(
-                    pins.locationMessage!,
-                    key: const Key('location-message'),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-                if (pins.isResolvingLocation)
-                  const Padding(
-                    padding: EdgeInsets.only(top: AppSpacing.xs),
-                    child: LinearProgressIndicator(minHeight: 2),
-                  ),
-                TextButton(
-                  key: const Key('show-all-riders'),
-                  onPressed: movingRiders.isEmpty ? null : onShowAll,
-                  child: Text('$availableCount online · Show all'),
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: AppSpacing.sm),
-        ActiveContactCard(
-          title: '${activeRequest.kindLabel} is on the way',
-          subtitle:
-              'Agree destination and fare with your rider. Cyrlo’s connection fee is GH₵1 — not the transport fare. They’ll end the trip after drop-off.',
-          phoneE164: activeRequest.riderPhoneE164,
-          contactLabel: 'Rider number',
-          onCancel: onCancel,
-        ),
-      ],
-    );
   }
 }
 
@@ -608,7 +472,7 @@ class _NearbyRiderMapSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Set your pickup on the map, then tap Find a Rider to book with Cyrlo.',
+                    rider.statusLabel,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: AppColors.textSecondary,
                       height: 1.35,
@@ -617,7 +481,7 @@ class _NearbyRiderMapSheet extends StatelessWidget {
                   const SizedBox(height: AppSpacing.lg),
                   CyrloButton(
                     key: Key('map-request-${rider.id}'),
-                    label: 'Find a Rider',
+                    label: rider.canRequest ? 'Request ${rider.kindLabel}' : 'Unavailable',
                     onPressed: rider.canRequest ? onRequest : null,
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -632,6 +496,97 @@ class _NearbyRiderMapSheet extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _MapKindLegend extends StatelessWidget {
+  const _MapKindLegend();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Wrap(
+      spacing: 12,
+      runSpacing: 6,
+      children: [
+        _MapKindDot(color: MapVehicleColors.okada, label: 'Okada'),
+        _MapKindDot(color: MapVehicleColors.pragya, label: 'Pragya'),
+        _MapKindDot(color: MapVehicleColors.aboboyaa, label: 'Aboboyaa'),
+      ],
+    );
+  }
+}
+
+class _MapKindDot extends StatelessWidget {
+  const _MapKindDot({required this.color, required this.label});
+
+  final Color color;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 8,
+          height: 8,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: AppColors.textSecondary,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _MapStatusPill extends StatelessWidget {
+  const _MapStatusPill({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.filled,
+  });
+
+  final IconData icon;
+  final String label;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final fg = filled ? AppColors.onBrandLight : AppColors.textPrimary;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: filled ? AppColors.brandLight : AppColors.field,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 18, color: fg),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: fg,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

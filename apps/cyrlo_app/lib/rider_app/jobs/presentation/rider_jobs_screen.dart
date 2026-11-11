@@ -74,8 +74,8 @@ class RiderJobsScreen extends ConsumerWidget {
         content: Text(
           waitingOthers > 0
               ? '${job.etaLabel}. You’ll open the map for this pickup. '
-                  'The other waiting passenger${waitingOthers == 1 ? '' : 's'} '
-                  'will be told you’re busy (in-app + SMS).'
+                  'The other pending offer${waitingOthers == 1 ? '' : 's'} '
+                  'will be released.'
               : '${job.etaLabel}. You’ll open the map and head to their pickup.',
           style: const TextStyle(height: 1.4),
         ),
@@ -104,8 +104,8 @@ class RiderJobsScreen extends ConsumerWidget {
           backgroundColor: AppColors.darkGrey,
           content: Text(
             result.bumpedCount == 1
-                ? 'Accepted. The other waiting passenger was told you’re busy.'
-                : 'Accepted. ${result.bumpedCount} other waiting passengers were told you’re busy.',
+                ? 'Accepted. The other pending offer was released.'
+                : 'Accepted. ${result.bumpedCount} other pending offers were released.',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -326,9 +326,9 @@ class RiderJobsScreen extends ConsumerWidget {
                                   behavior: SnackBarBehavior.floating,
                                   backgroundColor: AppColors.darkGrey,
                                   content: Text(
-                                    result.smsSent
-                                        ? 'Job cancelled. ${result.passengerFirstName ?? 'Passenger'} was notified in-app and by SMS.'
-                                        : 'Job cancelled. In-app notice sent; SMS could not be sent.',
+                                    result.passengerNotified
+                                        ? 'Job cancelled. ${result.passengerFirstName ?? 'Passenger'} was notified by Cyrlo.'
+                                        : 'Job cancelled on this device, but the server could not be reached.',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.w700,

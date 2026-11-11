@@ -1,6 +1,8 @@
 /// Socket.IO event names shared with the backend contract.
-/// The server does not emit these events yet.
 abstract final class RealtimeEvents {
+  /// Emitted to the user's own room whenever an inbox notification is stored.
+  static const notificationCreated = 'notification.created';
+
   static const bookingRequested = 'booking.requested';
   static const bookingAccepted = 'booking.accepted';
   static const bookingRejected = 'booking.rejected';

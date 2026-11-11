@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../features/auth/application/auth_session.dart';
@@ -75,6 +77,7 @@ class PassengerRidesController extends Notifier<LoadableList<PassengerRide>> {
       ],
       isLoading: false,
     );
+    unawaited(_acknowledge(rideId));
   }
 
   void dismissReviewPrompt(String rideId) {
@@ -85,6 +88,23 @@ class PassengerRidesController extends Notifier<LoadableList<PassengerRide>> {
       ],
       isLoading: false,
     );
+    unawaited(_acknowledge(rideId));
+  }
+
+  /// Tells the server the passenger has seen the completed trip, so the rate
+  /// prompt does not return on the next launch. The star rating itself has no
+  /// backend endpoint yet and stays on this device.
+  Future<void> _acknowledge(String bookingId) async {
+    final session = ref.read(authSessionProvider);
+    if (session == null) return;
+    try {
+      await ref.read(bookingsApiProvider).acknowledge(
+            accessToken: session.accessToken,
+            bookingId: bookingId,
+          );
+    } catch (_) {
+      // Non-fatal: the prompt may reappear after the next refresh.
+    }
   }
 
   PassengerRide _fromBooking(Booking booking) {
@@ -109,8 +129,9 @@ class PassengerRidesController extends Notifier<LoadableList<PassengerRide>> {
               booking.createdAt)
           .toLocal(),
       riderId: booking.riderId,
-      needsReview: status == PassengerRideStatus.completed,
-      durationLabel: booking.pickupLabel ?? booking.destinationLabel,
+      needsReview: status == PassengerRideStatus.completed &&
+          !booking.isPassengerAcknowledged,
+      durationLabel: booking.destinationLabel,
     );
   }
 }

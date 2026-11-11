@@ -88,8 +88,8 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
           backgroundColor: AppColors.darkGrey,
           content: Text(
             result.bumpedCount == 1
-                ? 'Accepted. The other waiting passenger was told you’re busy.'
-                : 'Accepted. ${result.bumpedCount} other waiting passengers were told you’re busy.',
+                ? 'Accepted. The other pending offer was released.'
+                : 'Accepted. ${result.bumpedCount} other pending offers were released.',
             style: const TextStyle(
               color: Colors.white,
               fontWeight: FontWeight.w700,
@@ -308,9 +308,9 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
                             behavior: SnackBarBehavior.floating,
                             backgroundColor: AppColors.darkGrey,
                             content: Text(
-                              result.smsSent
-                                  ? 'Job cancelled. Passenger notified in-app and by SMS.'
-                                  : 'Job cancelled. In-app notice sent; SMS could not be sent.',
+                              result.passengerNotified
+                                  ? 'Job cancelled. Passenger notified by Cyrlo.'
+                                  : 'Job cancelled on this device, but the server could not be reached.',
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w700,

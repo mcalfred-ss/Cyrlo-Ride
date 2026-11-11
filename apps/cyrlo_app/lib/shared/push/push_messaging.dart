@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../features/auth/application/auth_session.dart';
+import '../../passenger_app/home/application/passenger_notifications_provider.dart';
 import 'notifications_api.dart';
 
 const _deviceIdStorageKey = 'cyrlo.push.deviceId.v1';
@@ -109,6 +110,8 @@ class PushMessagingController {
       final title = message.notification?.title ?? message.data['title'];
       final body = message.notification?.body ?? message.data['body'];
       debugPrint('FCM foreground: $title — $body');
+      // The push is also stored server-side; pull it into the in-app inbox.
+      unawaited(_ref.read(passengerNotificationsProvider.notifier).refresh());
     });
   }
 

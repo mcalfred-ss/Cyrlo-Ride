@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -8,16 +10,21 @@ import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../features/auth/application/signup_controller.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
+import '../../../shared/ride_session/passenger_cancel_ride.dart';
 import '../../../shared/ride_session/show_passenger_cancel_notice.dart';
 import '../../../shared/widgets/active_contact_card.dart';
+import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/skeleton.dart';
+import '../../map/application/trip_pin_controller.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
+import 'live_booking_flow.dart';
 import 'nearby_rider_card.dart';
 import 'notification_bell_button.dart';
 import 'passenger_notifications_sheet.dart';
+import 'request_ride_flow.dart';
 
 class PassengerHomeScreen extends ConsumerWidget {
   const PassengerHomeScreen({super.key});
@@ -65,7 +72,9 @@ class PassengerHomeScreen extends ConsumerWidget {
                       Text(
                         ridersState.isLoading
                             ? 'Finding Pragya nearby…'
-                            : 'Set your pickup on the map, then find a rider',
+                            : riders.isEmpty
+                            ? 'No Pragya riders nearby yet'
+                            : 'Tap a Pragya to request',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
@@ -78,42 +87,41 @@ class PassengerHomeScreen extends ConsumerWidget {
                 const SizedBox(width: AppSpacing.sm),
                 NotificationBellButton(
                   unreadCount: unreadCount,
-                  onPressed: () => showPassengerNotificationsSheet(context),
+                  onPressed: () {
+                    unawaited(
+                      ref.read(passengerNotificationsProvider.notifier).refresh(),
+                    );
+                    showPassengerNotificationsSheet(context);
+                  },
                 ),
               ],
             ),
-            const SizedBox(height: AppSpacing.md),
-            Material(
-              color: AppColors.field,
-              borderRadius: BorderRadius.circular(AppRadii.lg),
-              child: InkWell(
-                key: const Key('home-find-rider'),
-                onTap: () => context.go(AppRoutes.passengerMap),
-                borderRadius: BorderRadius.circular(AppRadii.lg),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 14,
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.hail_rounded),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          'Find a rider',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: AppColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                      const Icon(Icons.map_outlined),
-                    ],
-                  ),
-                ),
+            if (activeRequest == null) ...[
+              const SizedBox(height: AppSpacing.md),
+              CyrloButton(
+                key: const Key('book-live-ride'),
+                label: 'Book a Pragya',
+                onPressed: () async {
+                  var pickup = ref.read(tripPinProvider).pickup;
+                  if (pickup == null || !pickup.isValid) {
+                    await ref
+                        .read(tripPinProvider.notifier)
+                        .useCurrentLocationAsPickup();
+                    pickup = ref.read(tripPinProvider).pickup;
+                  }
+                  if (!context.mounted) return;
+                  if (pickup == null || !pickup.isValid) {
+                    context.go(AppRoutes.passengerMap);
+                    return;
+                  }
+                  await startLiveBookingFlow(
+                    context: context,
+                    ref: ref,
+                    pickup: pickup,
+                  );
+                },
               ),
-            ),
+            ],
             if (shareContact) ...[
               const SizedBox(height: AppSpacing.md),
               ActiveContactCard(
@@ -122,10 +130,7 @@ class PassengerHomeScreen extends ConsumerWidget {
                     'Your rider’s number is shared for this pickup. Open Map to mark where they should meet you.',
                 phoneE164: activeRequest.riderPhoneE164,
                 contactLabel: 'Rider number',
-                onCancel: () {
-                  ref.read(activeRideRequestProvider.notifier).markCancelled();
-                  ref.read(selectedNearbyRiderProvider.notifier).clear();
-                },
+                onCancel: () => cancelActiveRideWithFeedback(context, ref),
               ),
             ],
             if (!ridersState.isLoading && riders.isNotEmpty) ...[
@@ -173,10 +178,11 @@ class PassengerHomeScreen extends ConsumerWidget {
                             key: Key('nearby-rider-${riders[i].id}'),
                             rider: riders[i],
                             onRequest: () {
-                              ref
-                                  .read(selectedNearbyRiderProvider.notifier)
-                                  .select(riders[i]);
-                              context.go(AppRoutes.passengerMap);
+                              startRequestRideFlow(
+                                context: context,
+                                ref: ref,
+                                rider: riders[i],
+                              );
                             },
                             onOpenMap: () {
                               ref
@@ -232,19 +238,13 @@ class _EmptyNearbyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'You can still set a pickup on the map and find a rider. Booking only succeeds when an active service zone covers your pickup.',
+              'We’re onboarding Pragya riders in your area. When one comes online near you, they’ll show up here to request.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: AppColors.textSecondary,
                 height: 1.4,
                 fontWeight: FontWeight.w500,
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            FilledButton(
-              key: const Key('empty-plan-ride'),
-              onPressed: () => context.go(AppRoutes.passengerMap),
-              child: const Text('Find a rider'),
             ),
           ],
         ),

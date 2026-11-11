@@ -1,6 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/messaging/ride_sms_gateway.dart';
 import '../../features/auth/application/auth_session.dart';
 import '../../features/bookings/data/bookings_api.dart';
 import '../../passenger_app/home/application/nearby_riders_provider.dart';
@@ -16,12 +15,14 @@ import 'passenger_cancel_notice.dart';
 class RiderCancelAcceptedResult {
   const RiderCancelAcceptedResult({
     required this.cancelled,
-    required this.smsSent,
+    required this.passengerNotified,
     this.passengerFirstName,
   });
 
   final bool cancelled;
-  final bool smsSent;
+
+  /// True once the server recorded the cancellation (and queued notices).
+  final bool passengerNotified;
   final String? passengerFirstName;
 }
 
@@ -31,9 +32,15 @@ Future<RiderCancelAcceptedResult> cancelAcceptedRideByRider(
 ) async {
   final job = ref.read(activeRideRequestProvider);
   if (job == null || !job.isAccepted) {
-    return const RiderCancelAcceptedResult(cancelled: false, smsSent: false);
+    return const RiderCancelAcceptedResult(
+      cancelled: false,
+      passengerNotified: false,
+    );
   }
 
+  // The server queues the passenger's in-app, push and SMS notices when it
+  // records the cancellation, so no client-side SMS is attempted.
+  var serverConfirmed = false;
   final session = ref.read(authSessionProvider);
   if (session != null) {
     try {
@@ -42,22 +49,10 @@ Future<RiderCancelAcceptedResult> cancelAcceptedRideByRider(
             bookingId: job.resolvedBookingId,
             reason: 'Rider cancelled after accept',
           );
+      serverConfirmed = true;
     } catch (_) {
       // Continue local cleanup.
     }
-  }
-
-  final smsBody =
-      'Cyrlo Ride: Your ${job.kindLabel} rider cancelled the pickup. '
-      'Open the app to request another ride.';
-
-  var smsSent = false;
-  if (job.passengerPhoneE164.isNotEmpty) {
-    final sms = await ref.read(rideSmsGatewayProvider).send(
-          toE164: job.passengerPhoneE164,
-          body: smsBody,
-        );
-    smsSent = sms.sent;
   }
 
   ref.read(passengerNotificationsProvider.notifier).prepend(
@@ -87,9 +82,8 @@ Future<RiderCancelAcceptedResult> cancelAcceptedRideByRider(
   ref.read(passengerCancelNoticeProvider.notifier).set(
         PassengerCancelNotice(
           title: 'Rider cancelled',
-          body: smsSent
-              ? 'Your ${job.kindLabel} rider cancelled the pickup. Check SMS for the same update.'
-              : 'Your ${job.kindLabel} rider cancelled the pickup. Request another rider when you’re ready.',
+          body:
+              'Your ${job.kindLabel} rider cancelled the pickup. Request another rider when you’re ready.',
         ),
       );
 
@@ -100,7 +94,7 @@ Future<RiderCancelAcceptedResult> cancelAcceptedRideByRider(
 
   return RiderCancelAcceptedResult(
     cancelled: true,
-    smsSent: smsSent,
+    passengerNotified: serverConfirmed,
     passengerFirstName: job.displayFirstName,
   );
 }

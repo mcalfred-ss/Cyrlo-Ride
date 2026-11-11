@@ -53,6 +53,9 @@ abstract final class ApiPaths {
   static const mapsRoutes = '/maps/routes';
   static const mapsRouteEstimate = '/maps/routes/estimate';
 
+  static const notifications = '/notifications';
+  static const notificationsReadAll = '/notifications/read-all';
+  static String notificationRead(String id) => '/notifications/$id/read';
   static const notificationDevices = '/notifications/devices';
   static String notificationDevice(String deviceId) =>
       '/notifications/devices/$deviceId';

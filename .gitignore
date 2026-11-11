@@ -59,3 +59,6 @@ backend/prisma/*.db-journal
 .DS_Store
 Thumbs.db
 *.swp
+
+# Graphify local knowledge graph (rebuild with: graphify . --code-only)
+graphify-out/

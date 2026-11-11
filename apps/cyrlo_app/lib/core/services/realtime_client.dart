@@ -4,8 +4,8 @@ import '../constants/realtime_events.dart';
 
 /// Authenticated Socket.IO connection.
 ///
-/// Event names live in [RealtimeEvents]. The backend does not emit them yet,
-/// so this client only opens and closes the connection.
+/// The server joins each socket to its own user room (so `notification.created`
+/// needs no subscription). Event names live in [RealtimeEvents].
 class RealtimeClient {
   RealtimeClient({required this.socketUrl});
 
@@ -14,7 +14,10 @@ class RealtimeClient {
 
   bool get isConnected => _socket?.connected ?? false;
 
-  void connect({required String accessToken}) {
+  void connect({
+    required String accessToken,
+    Map<String, void Function(dynamic payload)> handlers = const {},
+  }) {
     disconnect();
     final socket = io.io(
       socketUrl,
@@ -24,6 +27,7 @@ class RealtimeClient {
           .disableAutoConnect()
           .build(),
     );
+    handlers.forEach(socket.on);
     _socket = socket;
     socket.connect();
   }

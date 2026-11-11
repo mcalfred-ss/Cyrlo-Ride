@@ -26,8 +26,7 @@ class WelcomeScreen extends ConsumerWidget {
           SizedBox(height: AppSpacing.lg),
           ScreenHeader(
             title: 'Welcome to Cyrlo',
-            subtitle:
-                'Use your Ghana phone number to sign in or create an account. We’ll know which one after you enter it.',
+            subtitle: 'Enter your Ghana phone number to get started.',
           ),
         ],
       ),

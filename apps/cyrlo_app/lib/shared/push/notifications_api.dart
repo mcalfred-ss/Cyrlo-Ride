@@ -32,7 +32,60 @@ class RegisteredDevice {
   }
 }
 
+/// One row from the server inbox (`GET /notifications`).
+class InboxNotification {
+  const InboxNotification({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.createdAt,
+    required this.isRead,
+    this.eventType,
+    this.category,
+    this.entityType,
+    this.entityId,
+  });
+
+  final String id;
+  final String title;
+  final String body;
+  final DateTime createdAt;
+  final bool isRead;
+  final String? eventType;
+  final String? category;
+  final String? entityType;
+  final String? entityId;
+
+  factory InboxNotification.fromJson(Map<String, dynamic> json) {
+    return InboxNotification(
+      id: json['id'] as String,
+      title: json['title'] as String? ?? '',
+      body: json['body'] as String? ?? '',
+      createdAt:
+          DateTime.tryParse(json['createdAt'] as String? ?? '')?.toLocal() ??
+              DateTime.now(),
+      isRead: json['readAt'] != null,
+      eventType: json['eventType'] as String?,
+      category: json['category'] as String?,
+      entityType: json['entityType'] as String?,
+      entityId: json['entityId'] as String?,
+    );
+  }
+}
+
 abstract class NotificationsApi {
+  Future<List<InboxNotification>> listInbox({
+    required String accessToken,
+    int pageSize = 40,
+  });
+
+  Future<void> markRead({
+    required String accessToken,
+    required String notificationId,
+  });
+
+  Future<void> markAllRead(String accessToken);
+
   Future<RegisteredDevice> registerDevice({
     required String accessToken,
     required String token,
@@ -52,6 +105,53 @@ class LiveNotificationsApi implements NotificationsApi {
   LiveNotificationsApi(this._client);
 
   final ApiClient _client;
+
+  @override
+  Future<List<InboxNotification>> listInbox({
+    required String accessToken,
+    int pageSize = 40,
+  }) async {
+    try {
+      _client.setAccessToken(accessToken);
+      final response = await _client.dio.get(
+        ApiPaths.notifications,
+        queryParameters: {'page': 1, 'pageSize': pageSize},
+      );
+      final data = _unwrap(response.data);
+      final raw = data['items'];
+      if (raw is! List) return const [];
+      return [
+        for (final item in raw)
+          if (item is Map)
+            InboxNotification.fromJson(Map<String, dynamic>.from(item)),
+      ];
+    } on DioException catch (error) {
+      throw _asApiException(error);
+    }
+  }
+
+  @override
+  Future<void> markRead({
+    required String accessToken,
+    required String notificationId,
+  }) async {
+    try {
+      _client.setAccessToken(accessToken);
+      await _client.dio.post(ApiPaths.notificationRead(notificationId));
+    } on DioException catch (error) {
+      throw _asApiException(error);
+    }
+  }
+
+  @override
+  Future<void> markAllRead(String accessToken) async {
+    try {
+      _client.setAccessToken(accessToken);
+      await _client.dio.post(ApiPaths.notificationsReadAll);
+    } on DioException catch (error) {
+      throw _asApiException(error);
+    }
+  }
 
   @override
   Future<RegisteredDevice> registerDevice({

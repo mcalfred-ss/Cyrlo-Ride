@@ -54,6 +54,7 @@ class Booking {
     this.startedAt,
     this.cancelledAt,
     this.completedAt,
+    this.passengerAcknowledgedAt,
     this.payment,
   });
 
@@ -74,8 +75,10 @@ class Booking {
   final DateTime? startedAt;
   final DateTime? cancelledAt;
   final DateTime? completedAt;
+  final DateTime? passengerAcknowledgedAt;
   final BookingPaymentCheckout? payment;
 
+  bool get isPassengerAcknowledged => passengerAcknowledgedAt != null;
   bool get isAwaitingPayment => status == 'AWAITING_PAYMENT';
   bool get isSearching => status == 'SEARCHING';
   bool get isAccepted => status == 'ACCEPTED';
@@ -112,6 +115,7 @@ class Booking {
       startedAt: _optDate(json['startedAt']),
       cancelledAt: _optDate(json['cancelledAt']),
       completedAt: _optDate(json['completedAt']),
+      passengerAcknowledgedAt: _optDate(json['passengerAcknowledgedAt']),
       payment: paymentRaw is Map
           ? BookingPaymentCheckout.fromJson(
               Map<String, dynamic>.from(paymentRaw),

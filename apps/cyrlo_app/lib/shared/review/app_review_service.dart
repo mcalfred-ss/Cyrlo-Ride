@@ -9,8 +9,8 @@ import '../../core/constants/app_colors.dart';
 
 /// Store rating helpers for App Store + Play.
 ///
-/// - Auto prompt: shown at most once after a few launches.
-/// - Account “Rate Cyrlo Ride”: always opens the live store listing.
+/// Prefers the native in-app star sheet (same API other apps use). Store
+/// listing is only a fallback when the OS cannot show that sheet.
 abstract final class AppReviewService {
   static const _promptedKey = 'cyrlo.review.auto_prompted';
   static const _launchCountKey = 'cyrlo.review.launch_count';
@@ -54,7 +54,7 @@ abstract final class AppReviewService {
     await prefs.setBool(_promptedKey, true);
   }
 
-  /// Soft ask once, then native in-app review (or store listing fallback).
+  /// Soft ask once, then native in-app review.
   static Future<void> maybeAskForReview(BuildContext context) async {
     if (!await _shouldAutoPrompt()) return;
     await _markPrompted();
@@ -68,7 +68,7 @@ abstract final class AppReviewService {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Enjoying Cyrlo Ride?'),
         content: const Text(
-          'A quick rating on the App Store or Play Store helps more people in Ghana find us.',
+          'Tap Rate to leave a quick star rating without leaving the app.',
           style: TextStyle(height: 1.4),
         ),
         actions: [
@@ -87,32 +87,37 @@ abstract final class AppReviewService {
     );
 
     if (wantsRate != true) return;
-    await requestNativeReviewOrOpenStore();
+    await requestInAppReview();
   }
 
-  /// Native star sheet when the OS allows it; otherwise open the store page.
-  static Future<void> requestNativeReviewOrOpenStore() async {
+  /// Shows Apple / Google’s in-app rating sheet when the OS allows it.
+  /// Falls back to the store page only if the native sheet cannot run
+  /// (e.g. web, or a sideloaded debug build).
+  static Future<void> requestInAppReview() async {
+    if (kIsWeb) {
+      await openStoreListing();
+      return;
+    }
+
     try {
-      if (await _inAppReview.isAvailable()) {
-        await _inAppReview.requestReview();
-        return;
-      }
+      // Always try the native sheet first — same path other apps use.
+      // Apple/Google decide whether it appears (quota / install source).
+      await _inAppReview.requestReview();
+      return;
     } catch (_) {
       // Fall through to store listing.
     }
+
     await openStoreListing();
   }
 
-  /// Opens the live App Store / Play listing for a written review.
-  /// Used from Account so users can rate anytime.
+  /// Opens the live App Store / Play listing (leaves the app).
   static Future<void> openStoreListing() async {
     try {
-      if (await _inAppReview.isAvailable()) {
-        await _inAppReview.openStoreListing(
-          appStoreId: AppConfig.appStoreId,
-        );
-        return;
-      }
+      await _inAppReview.openStoreListing(
+        appStoreId: AppConfig.appStoreId,
+      );
+      return;
     } catch (_) {
       // Fall through to https URLs.
     }

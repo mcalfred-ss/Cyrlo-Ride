@@ -34,6 +34,13 @@ Future<void> startLiveBookingFlow({
     return;
   }
 
+  // Keep trip-plan state aligned with the confirmed pickup used for create.
+  final planState = ref.read(passengerTripPlanProvider);
+  if (!planState.hasPickup || planState.pickup != pickup) {
+    await plan.placeMapPoint(pickup);
+  }
+  if (!context.mounted) return;
+
   final category = await showModalBottomSheet<VehicleCategory>(
     context: context,
     backgroundColor: Colors.transparent,
@@ -50,6 +57,9 @@ Future<void> startLiveBookingFlow({
     _toast(context, 'Sign in again to request a ride.');
     return;
   }
+
+  final resolvedLabel =
+      _labelOrNull(pickupLabel) ?? ref.read(passengerTripPlanProvider).pickupLabel;
 
   // UI may already have locked submit; otherwise lock here.
   if (!ref.read(passengerTripPlanProvider).isSubmitting) {
@@ -79,7 +89,7 @@ Future<void> startLiveBookingFlow({
           accessToken: session.accessToken,
           pickup: pickup,
           vehicleCategory: category.apiValue,
-          pickupLabel: _labelOrNull(pickupLabel),
+          pickupLabel: _labelOrNull(resolvedLabel),
         );
 
     if (!context.mounted) return;

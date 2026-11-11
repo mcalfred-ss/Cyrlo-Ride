@@ -7,6 +7,7 @@ import 'core/theme/cyrlo_theme.dart';
 import 'core/theme/theme_mode_provider.dart';
 import 'shared/providers/core_providers.dart';
 import 'shared/push/push_lifecycle.dart';
+import 'shared/ride_session/passenger_session_sync.dart';
 
 class CyrloApp extends ConsumerWidget {
   const CyrloApp({super.key});
@@ -16,6 +17,8 @@ class CyrloApp extends ConsumerWidget {
     ref.watch(apiClientProvider);
     ref.watch(realtimeClientProvider);
     ref.watch(pushLifecycleProvider);
+    ref.watch(realtimeLifecycleProvider);
+    ref.watch(passengerBookingSyncProvider);
     final router = ref.watch(appRouterProvider);
     final themePreference = ref.watch(themePreferenceProvider);
     return MaterialApp.router(
