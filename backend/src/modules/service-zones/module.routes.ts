@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { Permission } from '../../common/authz/permissions.js';
 import { authenticate, requireActiveAccount } from '../../common/middleware/authenticate.js';
-import { requirePermission } from '../../common/middleware/authorize.js';
+import { requireAnyPermission, requirePermission } from '../../common/middleware/authorize.js';
 import { validate } from '../../common/middleware/validate.js';
 import type { ServiceZonesController } from './module.controller.js';
 import {
@@ -24,11 +24,25 @@ const manage: RequestHandler[] = [
   requirePermission(Permission.ManageServiceZones),
 ];
 
+/** Boundary verification is restricted to VerifyServiceZones (Super Admin only). */
+const verify: RequestHandler[] = [
+  authenticate,
+  requireActiveAccount,
+  requirePermission(Permission.VerifyServiceZones),
+];
+
+/** Read-only zone access: zone managers or geo-coverage viewers. */
+const readZones: RequestHandler[] = [
+  authenticate,
+  requireActiveAccount,
+  requireAnyPermission(Permission.ManageServiceZones, Permission.ViewGeoCoverage),
+];
+
 export function createServiceZonesRouter(controller: ServiceZonesController): Router {
   const router = Router();
 
   router.post('/', ...manage, validate({ body: createServiceZoneSchema }), controller.create);
-  router.get('/', ...manage, validate({ query: listServiceZonesQuerySchema }), controller.list);
+  router.get('/', ...readZones, validate({ query: listServiceZonesQuerySchema }), controller.list);
 
   // Static path segments before /:zoneId
   router.post(
@@ -50,12 +64,31 @@ export function createServiceZonesRouter(controller: ServiceZonesController): Ro
     controller.revoke,
   );
 
-  router.get('/:zoneId', ...manage, validate({ params: zoneIdParam }), controller.get);
+  router.get('/:zoneId', ...readZones, validate({ params: zoneIdParam }), controller.get);
   router.patch(
     '/:zoneId',
     ...manage,
     validate({ params: zoneIdParam, body: updateServiceZoneSchema }),
     controller.update,
+  );
+  router.post(
+    '/:zoneId/submit-review',
+    ...manage,
+    validate({ params: zoneIdParam }),
+    controller.submitReview,
+  );
+  router.post(
+    '/:zoneId/verify',
+    ...verify,
+    validate({ params: zoneIdParam }),
+    controller.verify,
+  );
+  router.post('/:zoneId/lock', ...manage, validate({ params: zoneIdParam }), controller.lock);
+  router.post(
+    '/:zoneId/suspend',
+    ...manage,
+    validate({ params: zoneIdParam }),
+    controller.suspend,
   );
   router.post(
     '/:zoneId/activate',

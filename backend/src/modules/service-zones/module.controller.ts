@@ -73,6 +73,58 @@ export class ServiceZonesController {
     }
   };
 
+  submitReview: RequestHandler = async (req, res, next) => {
+    try {
+      const data = await this.service.submitReview(
+        req.auth!.sub,
+        req.params.zoneId as string,
+        req.ip,
+      );
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  verify: RequestHandler = async (req, res, next) => {
+    try {
+      const data = await this.service.verifyBoundary(
+        req.auth!.sub,
+        req.params.zoneId as string,
+        req.ip,
+      );
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  lock: RequestHandler = async (req, res, next) => {
+    try {
+      const data = await this.service.lockZone(
+        req.auth!.sub,
+        req.params.zoneId as string,
+        req.ip,
+      );
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  suspend: RequestHandler = async (req, res, next) => {
+    try {
+      const data = await this.service.suspendZone(
+        req.auth!.sub,
+        req.params.zoneId as string,
+        req.ip,
+      );
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   deactivate: RequestHandler = async (req, res, next) => {
     try {
       const data = await this.service.deactivateZone(

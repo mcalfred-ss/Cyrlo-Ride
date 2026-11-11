@@ -67,6 +67,12 @@ model User {
   riderReviewDecisions RiderReviewDecision[] @relation("RiderReviewActor")
   serviceZonesCreated  ServiceZone[]         @relation("ServiceZoneCreator")
   serviceZonesUpdated  ServiceZone[]         @relation("ServiceZoneUpdater")
+  serviceZonesActivated ServiceZone[]        @relation("ServiceZoneActivator")
+  serviceZonesSuspended ServiceZone[]        @relation("ServiceZoneSuspender")
+  geoCountriesCreated  Country[]             @relation("GeoCountryCreator")
+  geoRegionsCreated    Region[]              @relation("GeoRegionCreator")
+  geoDistrictsCreated  District[]            @relation("GeoDistrictCreator")
+  geoCommunitiesCreated Community[]          @relation("GeoCommunityCreator")
   riderZoneDecisions   RiderZoneDecision[]   @relation("RiderZoneDecisionActor")
   cancellationRequests BookingCancellationRequest[] @relation("CancellationRequestPassenger")
   disputesSubmitted    Dispute[]             @relation("DisputeSubmitter")
@@ -361,7 +367,37 @@ model RiderLocation {
   @@map("rider_locations")
 }
 
-// --- Service zones ---
+// --- Nationwide geography + service zones ---
+
+enum GeoEntityStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum DistrictAdminType {
+  DISTRICT
+  MUNICIPAL
+  METROPOLITAN
+  OTHER
+}
+
+enum CommunityVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+}
+
+enum ServiceZoneStatus {
+  DRAFT
+  UNDER_REVIEW
+  LOCKED
+  ACTIVE
+  SUSPENDED
+}
+
+enum BoundaryVerificationStatus {
+  UNVERIFIED
+  VERIFIED
+}
 
 enum RiderZoneApprovalStatus {
   PENDING
@@ -370,28 +406,120 @@ enum RiderZoneApprovalStatus {
   REVOKED
 }
 
+model Country {
+  id          String          @id @default(uuid()) @db.Uuid
+  name        String
+  isoCode     String          @unique @map("iso_code") @db.Char(2)
+  status      GeoEntityStatus @default(ACTIVE)
+  createdById String?         @map("created_by_id") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  regions     Region[]
+  createdBy   User?           @relation("GeoCountryCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([status])
+  @@map("geo_countries")
+}
+
+model Region {
+  id          String          @id @default(uuid()) @db.Uuid
+  countryId   String          @map("country_id") @db.Uuid
+  name        String
+  code        String
+  status      GeoEntityStatus @default(ACTIVE)
+  createdById String?         @map("created_by_id") @db.Uuid
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+  country     Country         @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  districts   District[]
+  createdBy   User?           @relation("GeoRegionCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([countryId, code])
+  @@index([countryId, status])
+  @@index([name])
+  @@map("geo_regions")
+}
+
+model District {
+  id          String            @id @default(uuid()) @db.Uuid
+  regionId    String            @map("region_id") @db.Uuid
+  name        String
+  code        String
+  adminType   DistrictAdminType @default(DISTRICT) @map("admin_type")
+  status      GeoEntityStatus   @default(ACTIVE)
+  createdById String?           @map("created_by_id") @db.Uuid
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  region      Region            @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  communities Community[]
+  createdBy   User?             @relation("GeoDistrictCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([regionId, code])
+  @@index([regionId, status])
+  @@index([name])
+  @@map("geo_districts")
+}
+
+model Community {
+  id                 String                       @id @default(uuid()) @db.Uuid
+  districtId         String                       @map("district_id") @db.Uuid
+  name               String
+  slug               String
+  centerLatitude     Decimal?                     @map("center_latitude") @db.Decimal(9, 6)
+  centerLongitude    Decimal?                     @map("center_longitude") @db.Decimal(9, 6)
+  boundary           Json?
+  verificationStatus CommunityVerificationStatus  @default(UNVERIFIED) @map("verification_status")
+  status             GeoEntityStatus              @default(ACTIVE)
+  createdById        String?                      @map("created_by_id") @db.Uuid
+  createdAt          DateTime                     @default(now()) @map("created_at")
+  updatedAt          DateTime                     @updatedAt @map("updated_at")
+  district           District                     @relation(fields: [districtId], references: [id], onDelete: Restrict)
+  serviceZones       ServiceZone[]
+  createdBy          User?                        @relation("GeoCommunityCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@unique([districtId, slug])
+  @@index([districtId, status])
+  @@index([name])
+  @@map("geo_communities")
+}
+
 model ServiceZone {
-  id           String   @id @default(uuid()) @db.Uuid
-  name         String
-  description  String?
-  isActive     Boolean  @default(false) @map("is_active")
-  boundary     Json
-  minLatitude  Decimal  @map("min_latitude") @db.Decimal(9, 6)
-  maxLatitude  Decimal  @map("max_latitude") @db.Decimal(9, 6)
-  minLongitude Decimal  @map("min_longitude") @db.Decimal(9, 6)
-  maxLongitude Decimal  @map("max_longitude") @db.Decimal(9, 6)
-  createdById  String?  @map("created_by_id") @db.Uuid
-  updatedById  String?  @map("updated_by_id") @db.Uuid
-  createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-  bookings     Booking[]
-  riderApprovals RiderZoneApproval[]
-  riderDecisions RiderZoneDecision[]
-  createdBy    User?    @relation("ServiceZoneCreator", fields: [createdById], references: [id], onDelete: SetNull)
-  updatedBy    User?    @relation("ServiceZoneUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  id                         String                     @id @default(uuid()) @db.Uuid
+  communityId                String?                    @map("community_id") @db.Uuid
+  name                       String
+  slug                       String?
+  description                String?
+  /// Denormalized booking gate: true iff status == ACTIVE. Prefer status for admin UX.
+  isActive                   Boolean                    @default(false) @map("is_active")
+  status                     ServiceZoneStatus          @default(DRAFT)
+  boundaryVerificationStatus BoundaryVerificationStatus @default(UNVERIFIED) @map("boundary_verification_status")
+  boundary                   Json
+  minLatitude                Decimal                    @map("min_latitude") @db.Decimal(9, 6)
+  maxLatitude                Decimal                    @map("max_latitude") @db.Decimal(9, 6)
+  minLongitude               Decimal                    @map("min_longitude") @db.Decimal(9, 6)
+  maxLongitude               Decimal                    @map("max_longitude") @db.Decimal(9, 6)
+  activatedAt                DateTime?                  @map("activated_at")
+  activatedById              String?                    @map("activated_by_id") @db.Uuid
+  suspendedAt                DateTime?                  @map("suspended_at")
+  suspendedById              String?                    @map("suspended_by_id") @db.Uuid
+  createdById                String?                    @map("created_by_id") @db.Uuid
+  updatedById                String?                    @map("updated_by_id") @db.Uuid
+  createdAt                  DateTime                   @default(now()) @map("created_at")
+  updatedAt                  DateTime                   @updatedAt @map("updated_at")
+  community                  Community?                 @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  bookings                   Booking[]
+  riderApprovals             RiderZoneApproval[]
+  riderDecisions             RiderZoneDecision[]
+  createdBy                  User?                      @relation("ServiceZoneCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  updatedBy                  User?                      @relation("ServiceZoneUpdater", fields: [updatedById], references: [id], onDelete: SetNull)
+  activatedBy                User?                      @relation("ServiceZoneActivator", fields: [activatedById], references: [id], onDelete: SetNull)
+  suspendedBy                User?                      @relation("ServiceZoneSuspender", fields: [suspendedById], references: [id], onDelete: SetNull)
 
   @@index([isActive])
+  @@index([status])
+  @@index([communityId, status])
   @@index([name])
+  @@index([slug])
   @@map("service_zones")
 }
 

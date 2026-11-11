@@ -12,6 +12,12 @@ export const Permission = {
   ManageRiderDocuments: 'admin.manage_rider_documents',
   SuspendReinstateRiders: 'admin.suspend_reinstate_riders',
   ManageServiceZones: 'admin.manage_service_zones',
+  /** Super Admin: create/edit countries, regions, districts. */
+  ManageGeoHierarchy: 'admin.manage_geo_hierarchy',
+  /** Super Admin: mark zone boundaries verified. */
+  VerifyServiceZones: 'admin.verify_service_zones',
+  /** Read-only coverage browser for Finance/Support (and Ops/Super). */
+  ViewGeoCoverage: 'admin.view_geo_coverage',
   MonitorOperations: 'admin.monitor_operations',
   ViewPayments: 'admin.view_payments',
   ReconcilePaystack: 'admin.reconcile_paystack',
@@ -39,6 +45,7 @@ const rolePermissionMap: Record<StaffRole, readonly Permission[]> = {
     Permission.ManageRiderDocuments,
     Permission.SuspendReinstateRiders,
     Permission.ManageServiceZones,
+    Permission.ViewGeoCoverage,
     Permission.MonitorOperations,
     Permission.AccessIdentityDocuments,
     Permission.ViewBookingHistory,
@@ -51,6 +58,7 @@ const rolePermissionMap: Record<StaffRole, readonly Permission[]> = {
     Permission.ViewTokenLedgers,
     Permission.ExecuteRefunds,
     Permission.ViewFinancialReports,
+    Permission.ViewGeoCoverage,
   ],
   SUPPORT_ADMIN: [
     Permission.ViewAdminProfile,
@@ -60,6 +68,7 @@ const rolePermissionMap: Record<StaffRole, readonly Permission[]> = {
     Permission.RecommendRefunds,
     Permission.RecordSupportDecisions,
     Permission.ViewPayments,
+    Permission.ViewGeoCoverage,
   ],
 };
 

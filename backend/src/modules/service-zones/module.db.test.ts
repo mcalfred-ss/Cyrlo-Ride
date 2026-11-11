@@ -86,15 +86,23 @@ describe('service zones postgres constraints', () => {
     const service = new ServiceZonesServiceImpl(repository, { audit });
     const { boundary, boundingBox } = validateAndNormalizeBoundary(testPolygon);
 
-    const zone = await repository.createZone({
+    const draft = await repository.createZone({
       name: `${marker}-zone`,
       description: 'integration test geometry only',
       boundary,
       box: boundingBox,
-      isActive: true,
       actorId: admin.id,
     });
-    createdZoneIds.push(zone.id);
+    createdZoneIds.push(draft.id);
+    expect(draft.status).toBe('DRAFT');
+    expect(draft.isActive).toBe(false);
+    // Fixture-only: force an ACTIVE zone without a community hierarchy.
+    const zone = await repository.updateZone(draft.id, {
+      status: 'ACTIVE',
+      isActive: true,
+      boundaryVerificationStatus: 'VERIFIED',
+      actorId: admin.id,
+    });
 
     const approval = await service.assignRider(admin.id, zone.id, { riderId: rider.id });
     expect((approval as { status: string }).status).toBe('PENDING');
@@ -114,6 +122,9 @@ describe('service zones postgres constraints', () => {
       where: { id: (approval as { id: string }).id },
     });
     expect(stillThere?.status).toBe('APPROVED');
+    const suspendedZone = await prisma.serviceZone.findUnique({ where: { id: zone.id } });
+    expect(suspendedZone?.status).toBe('SUSPENDED');
+    expect(suspendedZone?.isActive).toBe(false);
     expect(stillThere?.reason).toBeNull();
 
     const decisionCount = await prisma.riderZoneDecision.count({
@@ -154,7 +165,6 @@ describe('service zones postgres constraints', () => {
       name: `${marker}-off`,
       boundary,
       box: boundingBox,
-      isActive: false,
       actorId: admin.id,
     });
     createdZoneIds.push(inactive.id);

@@ -44,12 +44,15 @@ export class BookingsRepository {
     const candidates = await this.prisma.serviceZone.findMany({
       where: {
         isActive: true,
+        status: 'ACTIVE',
         minLatitude: { lte: latitude },
         maxLatitude: { gte: latitude },
         minLongitude: { lte: longitude },
         maxLongitude: { gte: longitude },
       },
     });
+    // Deterministic overlap: smallest bbox area, then oldest createdAt.
+    const matches = [];
     for (const zone of candidates) {
       const box = {
         minLatitude: Number(zone.minLatitude),
@@ -59,11 +62,20 @@ export class BookingsRepository {
       };
       if (!isInsideBoundingBox({ latitude, longitude }, box)) continue;
       const boundary = zone.boundary as unknown as ZoneBoundary;
-      if (isPointInBoundary(latitude, longitude, boundary)) {
-        return zone;
-      }
+      if (!isPointInBoundary(latitude, longitude, boundary)) continue;
+      matches.push({
+        zone,
+        area:
+          Math.max(0, box.maxLatitude - box.minLatitude) *
+          Math.max(0, box.maxLongitude - box.minLongitude),
+      });
     }
-    return null;
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => {
+      if (a.area !== b.area) return a.area - b.area;
+      return a.zone.createdAt.getTime() - b.zone.createdAt.getTime();
+    });
+    return matches[0]!.zone;
   }
 
   async createBookingWithFeePayment(input: CreateBookingRecordInput) {

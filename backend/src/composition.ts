@@ -4,6 +4,7 @@ import { createAuditModule } from './modules/audit/index.js';
 import { createAuthModule } from './modules/auth/index.js';
 import { createBookingsModule } from './modules/bookings/index.js';
 import { createDisputesModule } from './modules/disputes/index.js';
+import { createGeoModule } from './modules/geo/index.js';
 import { createLocationsModule } from './modules/locations/index.js';
 import { createMapsModule } from './modules/maps/index.js';
 import { createMatchingModule } from './modules/matching/index.js';
@@ -49,6 +50,7 @@ export function createModules(deps: ModuleDeps) {
     notifications: createNotificationsModule(deps),
     admin: createAdminModule({ ...deps, audit: audit.service }),
     serviceZones: createServiceZonesModule({ ...deps, audit: audit.service }),
+    geo: createGeoModule({ ...deps, audit: audit.service }),
     audit,
   };
 }

@@ -83,13 +83,18 @@ function isPointInPolygon(
   return true;
 }
 
+/** Soft cap to keep point-in-polygon checks and admin payloads bounded. */
+export const MAX_BOUNDARY_VERTICES = 5_000;
+
 /**
  * Validates GeoJSON Polygon/MultiPolygon for zone storage.
  * Does not invent coordinates — callers must supply verified boundaries.
+ * Does not claim full self-intersection detection (not supported by this validator).
  */
 export function validateAndNormalizeBoundary(input: unknown): {
   boundary: ZoneBoundary;
   boundingBox: BoundingBox;
+  vertexCount: number;
 } {
   if (!input || typeof input !== 'object') {
     throw geometryError('Boundary must be a GeoJSON object');
@@ -101,9 +106,12 @@ export function validateAndNormalizeBoundary(input: unknown): {
 
   if (candidate.type === 'Polygon') {
     const coordinates = assertPolygonCoordinates(candidate.coordinates);
+    const vertexCount = countVertices([coordinates]);
+    assertVertexBudget(vertexCount);
     return {
       boundary: { type: 'Polygon', coordinates },
       boundingBox: boundingBoxFromPolygons([coordinates]),
+      vertexCount,
     };
   }
 
@@ -111,10 +119,36 @@ export function validateAndNormalizeBoundary(input: unknown): {
     throw geometryError('MultiPolygon must include at least one polygon');
   }
   const coordinates = candidate.coordinates.map((polygon) => assertPolygonCoordinates(polygon));
+  const vertexCount = countVertices(coordinates);
+  assertVertexBudget(vertexCount);
   return {
     boundary: { type: 'MultiPolygon', coordinates },
     boundingBox: boundingBoxFromPolygons(coordinates),
+    vertexCount,
   };
+}
+
+export function boundingBoxArea(box: BoundingBox): number {
+  return Math.max(0, box.maxLatitude - box.minLatitude) * Math.max(0, box.maxLongitude - box.minLongitude);
+}
+
+function countVertices(polygons: GeoJsonPosition[][][]): number {
+  let count = 0;
+  for (const polygon of polygons) {
+    for (const ring of polygon) {
+      // Closed rings repeat the first vertex; count unique ring positions for budget.
+      count += Math.max(0, ring.length - 1);
+    }
+  }
+  return count;
+}
+
+function assertVertexBudget(vertexCount: number): void {
+  if (vertexCount > MAX_BOUNDARY_VERTICES) {
+    throw geometryError(
+      `Boundary exceeds maximum of ${MAX_BOUNDARY_VERTICES} vertices (got ${vertexCount})`,
+    );
+  }
 }
 
 function assertPolygonCoordinates(value: unknown): GeoJsonPosition[][] {

@@ -118,7 +118,9 @@ export function createApp(): Express {
   api.use('/admin/riders', modules.riders.opsRouter);
   api.use('/admin/riders', modules.serviceZones.riderZoneAdminRouter);
   api.use('/admin/riders', modules.locations.adminRouter);
+  api.use('/admin/geo', modules.geo.router);
   api.use('/service-zones', modules.serviceZones.router);
+  api.use('/admin/service-zones', modules.serviceZones.router);
   api.use('/audit', modules.audit.router);
   app.use(API_PREFIX, api);
 

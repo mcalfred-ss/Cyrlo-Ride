@@ -1,4 +1,10 @@
-import type { Prisma, PrismaClient, RiderZoneApprovalStatus } from '@prisma/client';
+import type {
+  BoundaryVerificationStatus,
+  Prisma,
+  PrismaClient,
+  RiderZoneApprovalStatus,
+  ServiceZoneStatus,
+} from '@prisma/client';
 
 import { AppError } from '../../common/errors/app-error.js';
 import type { BoundingBox, ZoneBoundary } from './zone-geometry.js';
@@ -11,24 +17,30 @@ export class ServiceZonesRepository {
     return this.prisma;
   }
 
+  /** Zones are always created as DRAFT / UNVERIFIED / inactive. */
   async createZone(input: {
     name: string;
     description?: string | null;
+    communityId?: string | null;
+    slug?: string | null;
     boundary: ZoneBoundary;
     box: BoundingBox;
-    isActive: boolean;
     actorId: string;
   }) {
     return this.prisma.serviceZone.create({
       data: {
         name: input.name,
         description: input.description ?? null,
+        communityId: input.communityId ?? null,
+        slug: input.slug ?? null,
         boundary: input.boundary as unknown as Prisma.InputJsonValue,
         minLatitude: input.box.minLatitude,
         maxLatitude: input.box.maxLatitude,
         minLongitude: input.box.minLongitude,
         maxLongitude: input.box.maxLongitude,
-        isActive: input.isActive,
+        status: 'DRAFT',
+        boundaryVerificationStatus: 'UNVERIFIED',
+        isActive: false,
         createdById: input.actorId,
         updatedById: input.actorId,
       },
@@ -39,14 +51,45 @@ export class ServiceZonesRepository {
     return this.prisma.serviceZone.findUnique({ where: { id: zoneId } });
   }
 
+  /** Community with its full district → region → country chain, or null if missing. */
+  async findCommunityHierarchy(communityId: string) {
+    return this.prisma.community.findUnique({
+      where: { id: communityId },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        status: true,
+        verificationStatus: true,
+        district: {
+          select: {
+            id: true,
+            status: true,
+            region: {
+              select: {
+                id: true,
+                status: true,
+                country: { select: { id: true, status: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
   async listZones(input: {
     page: number;
     pageSize: number;
     isActive?: boolean;
+    status?: ServiceZoneStatus;
+    communityId?: string;
     q?: string;
   }) {
     const where: Prisma.ServiceZoneWhereInput = {
       ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
+      ...(input.status === undefined ? {} : { status: input.status }),
+      ...(input.communityId === undefined ? {} : { communityId: input.communityId }),
       ...(input.q
         ? { name: { contains: input.q, mode: 'insensitive' as const } }
         : {}),
@@ -68,9 +111,17 @@ export class ServiceZonesRepository {
     data: {
       name?: string;
       description?: string | null;
+      communityId?: string | null;
+      slug?: string | null;
       boundary?: ZoneBoundary;
       box?: BoundingBox;
       isActive?: boolean;
+      status?: ServiceZoneStatus;
+      boundaryVerificationStatus?: BoundaryVerificationStatus;
+      activatedAt?: Date | null;
+      activatedById?: string | null;
+      suspendedAt?: Date | null;
+      suspendedById?: string | null;
       actorId: string;
     },
   ) {
@@ -79,6 +130,14 @@ export class ServiceZonesRepository {
       data: {
         name: data.name,
         description: data.description,
+        communityId: data.communityId,
+        slug: data.slug,
+        status: data.status,
+        boundaryVerificationStatus: data.boundaryVerificationStatus,
+        activatedAt: data.activatedAt,
+        activatedById: data.activatedById,
+        suspendedAt: data.suspendedAt,
+        suspendedById: data.suspendedById,
         ...(data.boundary
           ? {
               boundary: data.boundary as unknown as Prisma.InputJsonValue,

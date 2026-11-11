@@ -14,13 +14,25 @@ export const boundingBoxSchema = z
     message: 'Bounding box minimums must not exceed maximums',
   });
 
+const zoneSlugSchema = z
+  .string()
+  .trim()
+  .min(2)
+  .max(80)
+  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Slug must be lowercase kebab-case');
+
 /** Boundary is validated structurally in the service (Polygon / MultiPolygon). */
 export const createServiceZoneSchema = z
   .object({
     name: z.string().trim().min(2).max(120),
     description: z.string().trim().max(500).optional(),
     boundary: z.unknown(),
-    /** Defaults to false. Activation is a separate action after verified boundaries are ready. */
+    communityId: z.string().uuid().optional(),
+    slug: zoneSlugSchema.optional(),
+    /**
+     * Accepted by the schema only so the service can reject `true` with a clear VALIDATION_ERROR.
+     * Zones are always created as DRAFT; activation is a separate, verified step.
+     */
     activate: z.boolean().optional(),
   })
   .strict();
@@ -30,6 +42,8 @@ export const updateServiceZoneSchema = z
     name: z.string().trim().min(2).max(120).optional(),
     description: z.string().trim().max(500).nullable().optional(),
     boundary: z.unknown().optional(),
+    communityId: z.string().uuid().nullable().optional(),
+    slug: zoneSlugSchema.nullable().optional(),
   })
   .strict()
   .refine((value) => Object.keys(value).length > 0, {
@@ -44,6 +58,8 @@ export const listServiceZonesQuerySchema = z
       .enum(['true', 'false'])
       .optional()
       .transform((value) => (value === undefined ? undefined : value === 'true')),
+    status: z.enum(['DRAFT', 'UNDER_REVIEW', 'LOCKED', 'ACTIVE', 'SUSPENDED']).optional(),
+    communityId: z.string().uuid().optional(),
     q: z.string().trim().max(120).optional(),
   })
   .strict();

@@ -3,11 +3,36 @@ import { randomUUID } from 'node:crypto';
 import { AppError } from '../../common/errors/app-error.js';
 import type { BoundingBox, ZoneBoundary } from './zone-geometry.js';
 
-type ZoneRow = {
+export type ZoneStatus = 'DRAFT' | 'UNDER_REVIEW' | 'LOCKED' | 'ACTIVE' | 'SUSPENDED';
+export type BoundaryVerification = 'UNVERIFIED' | 'VERIFIED';
+type GeoStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface MemoryCommunityHierarchy {
   id: string;
   name: string;
+  slug: string;
+  status: GeoStatus;
+  verificationStatus: BoundaryVerification;
+  district: {
+    id: string;
+    status: GeoStatus;
+    region: { id: string; status: GeoStatus; country: { id: string; status: GeoStatus } };
+  };
+}
+
+type ZoneRow = {
+  id: string;
+  communityId: string | null;
+  name: string;
+  slug: string | null;
   description: string | null;
   isActive: boolean;
+  status: ZoneStatus;
+  boundaryVerificationStatus: BoundaryVerification;
+  activatedAt: Date | null;
+  activatedById: string | null;
+  suspendedAt: Date | null;
+  suspendedById: string | null;
   boundary: ZoneBoundary;
   minLatitude: number;
   maxLatitude: number;
@@ -44,6 +69,7 @@ type DecisionRow = {
 
 export class MemoryServiceZonesRepository {
   zones = new Map<string, ZoneRow>();
+  communities = new Map<string, MemoryCommunityHierarchy>();
   approvals = new Map<string, ApprovalRow>();
   decisions: DecisionRow[] = [];
   riders = new Map<
@@ -55,6 +81,43 @@ export class MemoryServiceZonesRepository {
       user: { id: string; role: string; status: string; phoneNumber: string };
     }
   >();
+
+  /** Seeds a community with an all-ACTIVE hierarchy by default; override pieces as needed. */
+  seedCommunity(
+    overrides: {
+      id?: string;
+      name?: string;
+      slug?: string;
+      status?: GeoStatus;
+      verificationStatus?: BoundaryVerification;
+      districtStatus?: GeoStatus;
+      regionStatus?: GeoStatus;
+      countryStatus?: GeoStatus;
+    } = {},
+  ): MemoryCommunityHierarchy {
+    const community: MemoryCommunityHierarchy = {
+      id: overrides.id ?? randomUUID(),
+      name: overrides.name ?? 'Test Community',
+      slug: overrides.slug ?? 'test-community',
+      status: overrides.status ?? 'ACTIVE',
+      verificationStatus: overrides.verificationStatus ?? 'VERIFIED',
+      district: {
+        id: randomUUID(),
+        status: overrides.districtStatus ?? 'ACTIVE',
+        region: {
+          id: randomUUID(),
+          status: overrides.regionStatus ?? 'ACTIVE',
+          country: { id: randomUUID(), status: overrides.countryStatus ?? 'ACTIVE' },
+        },
+      },
+    };
+    this.communities.set(community.id, community);
+    return community;
+  }
+
+  async findCommunityHierarchy(communityId: string) {
+    return this.communities.get(communityId) ?? null;
+  }
 
   seedRider(input: {
     userId: string;
@@ -80,17 +143,26 @@ export class MemoryServiceZonesRepository {
   async createZone(input: {
     name: string;
     description?: string | null;
+    communityId?: string | null;
+    slug?: string | null;
     boundary: ZoneBoundary;
     box: BoundingBox;
-    isActive: boolean;
     actorId: string;
   }) {
     const now = new Date();
     const zone: ZoneRow = {
       id: randomUUID(),
+      communityId: input.communityId ?? null,
       name: input.name,
+      slug: input.slug ?? null,
       description: input.description ?? null,
-      isActive: input.isActive,
+      isActive: false,
+      status: 'DRAFT',
+      boundaryVerificationStatus: 'UNVERIFIED',
+      activatedAt: null,
+      activatedById: null,
+      suspendedAt: null,
+      suspendedById: null,
       boundary: input.boundary,
       minLatitude: input.box.minLatitude,
       maxLatitude: input.box.maxLatitude,
@@ -113,9 +185,17 @@ export class MemoryServiceZonesRepository {
     page: number;
     pageSize: number;
     isActive?: boolean;
+    status?: ZoneStatus;
+    communityId?: string;
     q?: string;
   }) {
     let items = [...this.zones.values()];
+    if (input.status !== undefined) {
+      items = items.filter((zone) => zone.status === input.status);
+    }
+    if (input.communityId !== undefined) {
+      items = items.filter((zone) => zone.communityId === input.communityId);
+    }
     if (input.isActive !== undefined) {
       items = items.filter((zone) => zone.isActive === input.isActive);
     }
@@ -135,9 +215,17 @@ export class MemoryServiceZonesRepository {
     data: {
       name?: string;
       description?: string | null;
+      communityId?: string | null;
+      slug?: string | null;
       boundary?: ZoneBoundary;
       box?: BoundingBox;
       isActive?: boolean;
+      status?: ZoneStatus;
+      boundaryVerificationStatus?: BoundaryVerification;
+      activatedAt?: Date | null;
+      activatedById?: string | null;
+      suspendedAt?: Date | null;
+      suspendedById?: string | null;
       actorId: string;
     },
   ) {
@@ -152,7 +240,17 @@ export class MemoryServiceZonesRepository {
       zone.minLongitude = data.box.minLongitude;
       zone.maxLongitude = data.box.maxLongitude;
     }
+    if (data.communityId !== undefined) zone.communityId = data.communityId;
+    if (data.slug !== undefined) zone.slug = data.slug;
     if (data.isActive !== undefined) zone.isActive = data.isActive;
+    if (data.status !== undefined) zone.status = data.status;
+    if (data.boundaryVerificationStatus !== undefined) {
+      zone.boundaryVerificationStatus = data.boundaryVerificationStatus;
+    }
+    if (data.activatedAt !== undefined) zone.activatedAt = data.activatedAt;
+    if (data.activatedById !== undefined) zone.activatedById = data.activatedById;
+    if (data.suspendedAt !== undefined) zone.suspendedAt = data.suspendedAt;
+    if (data.suspendedById !== undefined) zone.suspendedById = data.suspendedById;
     zone.updatedById = data.actorId;
     zone.updatedAt = new Date();
     return zone;
