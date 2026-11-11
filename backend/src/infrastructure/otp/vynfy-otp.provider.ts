@@ -1,4 +1,4 @@
-import { AppError } from '../../common/errors/app-error.js';
+import { AppError, type ErrorCode } from '../../common/errors/app-error.js';
 import { logger } from '../../config/logger.js';
 import { maskPhone } from '../sms/sms.provider.js';
 import { normalizeGhanaRecipientForVynfy } from '../sms/vynfy-sms.provider.js';
@@ -42,7 +42,10 @@ function buildMessage(expiryMinutes: number): string {
   return message;
 }
 
-function safeOtpProviderError(status: number, code?: string): { status: number; code: string; message: string } {
+function safeOtpProviderError(
+  status: number,
+  code?: string,
+): { status: number; code: ErrorCode; message: string } {
   if (code === 'OTP_PENDING' || status === 429) {
     return {
       status: 429,
