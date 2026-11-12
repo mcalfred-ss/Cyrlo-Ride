@@ -167,7 +167,7 @@ Passenger map nearby supply is now backed by a **read-only discovery endpoint** 
 | Item | Value |
 | --- | --- |
 | Branch | `feature/live-rider-discovery` |
-| Commit | fcbf6fd |
+| Commit | ad4f0a9 |
 | Remote | `origin` → GitHub `mcalfred-ss/Cyrlo-Ride` |
 | Merged to main | **No** |
 | Deployed | **No** |
