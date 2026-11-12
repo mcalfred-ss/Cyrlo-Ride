@@ -5,6 +5,7 @@ import { sendSuccess } from '../../common/http/response.js';
 import type {
   CreateVehicleInput,
   DocumentKind,
+  ListAdminRidersQuery,
   ReviewRiderInput,
   ReviewVehicleInput,
   StartRiderOnboardingInput,
@@ -115,6 +116,23 @@ export class RidersController {
     try {
       const data = await this.service.listPendingForOps();
       sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  listRiders: RequestHandler = async (_req, res, next) => {
+    try {
+      const query = res.locals.validated.query as ListAdminRidersQuery;
+      sendSuccess(res, await this.service.listRidersForAdmin(query));
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  getRider: RequestHandler = async (req, res, next) => {
+    try {
+      sendSuccess(res, await this.service.getRiderForAdmin(req.params.riderId as string));
     } catch (error) {
       next(error);
     }

@@ -1,7 +1,10 @@
 import type {
+  Prisma,
   PrismaClient,
+  RiderAvailability,
   RiderDocumentKind,
   RiderVerificationStatus,
+  UserStatus,
   VehicleCategory,
   VehicleVerificationStatus,
 } from '@prisma/client';
@@ -192,6 +195,162 @@ export class RidersRepository {
         user: { select: { id: true, phoneNumber: true, status: true, role: true } },
         vehicles: true,
         documents: { where: { replacedAt: null } },
+      },
+    });
+  }
+
+  /**
+   * Paginated rider directory: any account that has a rider_profile
+   * (includes applicants still role=PASSENGER).
+   */
+  async listForAdminDirectory(input: {
+    page: number;
+    pageSize: number;
+    q?: string;
+    status?: UserStatus;
+    verificationStatus?: RiderVerificationStatus;
+    availability?: RiderAvailability;
+  }): Promise<{
+    total: number;
+    items: Array<{
+      id: string;
+      phoneNumber: string;
+      role: 'PASSENGER' | 'RIDER' | 'ADMIN';
+      status: UserStatus;
+      displayName: string | null;
+      createdAt: Date;
+      fullName: string;
+      verificationStatus: RiderVerificationStatus;
+      availability: RiderAvailability;
+      submittedAt: Date | null;
+    }>;
+  }> {
+    const uuidLike =
+      input.q &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        input.q,
+      )
+        ? input.q
+        : undefined;
+
+    const profileFilter: Prisma.RiderProfileWhereInput = {
+      ...(input.verificationStatus ? { verificationStatus: input.verificationStatus } : {}),
+      ...(input.availability ? { availability: input.availability } : {}),
+    };
+
+    const where: Prisma.UserWhereInput = {
+      riderProfile: { is: Object.keys(profileFilter).length ? profileFilter : {} },
+      ...(input.status ? { status: input.status } : {}),
+      ...(input.q
+        ? {
+            OR: [
+              ...(uuidLike ? [{ id: uuidLike }] : []),
+              { phoneNumber: { contains: input.q } },
+              { displayName: { contains: input.q, mode: 'insensitive' as const } },
+              {
+                riderProfile: {
+                  is: {
+                    ...profileFilter,
+                    fullName: { contains: input.q, mode: 'insensitive' as const },
+                  },
+                },
+              },
+            ],
+          }
+        : {}),
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.user.count({ where }),
+      this.prisma.user.findMany({
+        where,
+        // Secondary id DESC keeps page windows stable when createdAt ties.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+        select: {
+          id: true,
+          phoneNumber: true,
+          role: true,
+          status: true,
+          displayName: true,
+          createdAt: true,
+          riderProfile: {
+            select: {
+              fullName: true,
+              verificationStatus: true,
+              availability: true,
+              submittedAt: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      total,
+      items: rows.map((row) => ({
+        id: row.id,
+        phoneNumber: row.phoneNumber,
+        role: row.role,
+        status: row.status,
+        displayName: row.displayName,
+        createdAt: row.createdAt,
+        fullName: row.riderProfile!.fullName,
+        verificationStatus: row.riderProfile!.verificationStatus,
+        availability: row.riderProfile!.availability,
+        submittedAt: row.riderProfile!.submittedAt,
+      })),
+    };
+  }
+
+  async findForAdminProfile(riderId: string) {
+    return this.prisma.user.findFirst({
+      where: { id: riderId, riderProfile: { isNot: null } },
+      select: {
+        id: true,
+        phoneNumber: true,
+        role: true,
+        status: true,
+        displayName: true,
+        createdAt: true,
+        updatedAt: true,
+        riderProfile: {
+          select: {
+            fullName: true,
+            verificationStatus: true,
+            availability: true,
+            submittedAt: true,
+            driversLicenceNumber: true,
+            driversLicenceExpiry: true,
+            verificationNotes: true,
+            vehicles: {
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                category: true,
+                registrationNumber: true,
+                make: true,
+                model: true,
+                colour: true,
+                capacity: true,
+                verificationStatus: true,
+                rejectionReason: true,
+                submittedAt: true,
+                reviewedAt: true,
+              },
+            },
+            location: {
+              select: {
+                sharingEnabled: true,
+                recordedAt: true,
+                receivedAt: true,
+                // Exact coordinates intentionally not selected for directory/profile reads.
+              },
+            },
+            wallet: { select: { tokenBalance: true } },
+          },
+        },
       },
     });
   }

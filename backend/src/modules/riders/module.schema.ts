@@ -1,6 +1,24 @@
 import { z } from 'zod';
 
+import { paginationQuerySchema } from '../../common/utils/pagination.js';
+
 export const vehicleCategorySchema = z.enum(['OKADA', 'PRAGYA', 'ABOBOYAA']);
+
+/** Admin rider directory — ReviewRiders. Mirrors passenger list pagination/search. */
+export const listAdminRidersQuerySchema = paginationQuerySchema
+  .extend({
+    q: z.string().trim().min(1).max(120).optional(),
+    status: z.enum(['ACTIVE', 'SUSPENDED', 'DELETED']).optional(),
+    verificationStatus: z
+      .enum(['DRAFT', 'PENDING_REVIEW', 'APPROVED', 'REJECTED'])
+      .optional(),
+    availability: z.enum(['OFFLINE', 'AVAILABLE', 'BUSY']).optional(),
+  })
+  .strict();
+
+export type ListAdminRidersQuery = z.infer<typeof listAdminRidersQuerySchema>;
+
+export const adminRiderIdParamSchema = z.object({ riderId: z.string().uuid() }).strict();
 
 export function maxCapacityForCategory(category: z.infer<typeof vehicleCategorySchema>): number {
   return category === 'OKADA' ? 1 : 4;

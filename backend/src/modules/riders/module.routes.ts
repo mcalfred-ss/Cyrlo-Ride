@@ -12,8 +12,10 @@ import { documentUpload } from '../../common/middleware/upload.js';
 import { validate } from '../../common/middleware/validate.js';
 import type { RidersController } from './module.controller.js';
 import {
+  adminRiderIdParamSchema,
   createVehicleSchema,
   documentKindSchema,
+  listAdminRidersQuerySchema,
   reviewRiderSchema,
   reviewVehicleSchema,
   startRiderOnboardingSchema,
@@ -21,6 +23,9 @@ import {
   updateRiderOnboardingSchema,
   updateVehicleSchema,
 } from './module.schema.js';
+
+/** Directory/profile reads — existing catalog permission; no role-map changes. */
+export const RIDER_DIRECTORY_PERMISSION = Permission.ReviewRiders;
 
 const uuidParam = z.object({ vehicleId: z.string().uuid() }).strict();
 const riderIdParam = z.object({ riderId: z.string().uuid() }).strict();
@@ -130,7 +135,7 @@ export function createRiderOpsRouter(controller: RidersController): Router {
   const ops: RequestHandler[] = [
     authenticate,
     requireActiveAccount,
-    requirePermission(Permission.ReviewRiders),
+    requirePermission(RIDER_DIRECTORY_PERMISSION),
   ];
   const identity: RequestHandler[] = [
     authenticate,
@@ -139,6 +144,8 @@ export function createRiderOpsRouter(controller: RidersController): Router {
     requireRecentMfa(),
   ];
 
+  // Static paths before /:riderId so "applications" is never captured as an id.
+  router.get('/', ...ops, validate({ query: listAdminRidersQuerySchema }), controller.listRiders);
   router.get('/applications', ...ops, controller.listPending);
   router.get(
     '/applications/:riderId',
@@ -169,6 +176,12 @@ export function createRiderOpsRouter(controller: RidersController): Router {
     ...identity,
     validate({ params: riderIdParam }),
     controller.revealGhanaCard,
+  );
+  router.get(
+    '/:riderId',
+    ...ops,
+    validate({ params: adminRiderIdParamSchema }),
+    controller.getRider,
   );
 
   return router;

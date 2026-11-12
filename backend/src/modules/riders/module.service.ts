@@ -1,9 +1,12 @@
 import { AppError } from '../../common/errors/app-error.js';
 import { encryptSecret, decryptSecret } from '../../common/security/secret-box.js';
+import { paginationMeta } from '../../common/utils/pagination.js';
 import { env } from '../../config/env.js';
+import { RIDER_LOCATION_MAX_AGE_MS } from '../../config/constants.js';
 import { publishRiderAvailabilityUpdated } from '../../infrastructure/realtime/publisher.js';
 import type { ObjectStorage } from '../../infrastructure/storage/object-storage.js';
 import type { AuditService } from '../audit/module.service.js';
+import { evaluateLocationFreshness } from '../locations/location-freshness.js';
 import { isVerificationEligible } from './eligibility.js';
 import {
   evaluateGoOnlineEligibility,
@@ -14,6 +17,7 @@ import type { RidersRepository } from './module.repository.js';
 import type {
   CreateVehicleInput,
   DocumentKind,
+  ListAdminRidersQuery,
   ReviewRiderInput,
   ReviewVehicleInput,
   StartRiderOnboardingInput,
@@ -21,6 +25,9 @@ import type {
   UpdateRiderOnboardingInput,
   UpdateVehicleInput,
 } from './module.schema.js';
+
+/** Ordinary rider directory/profile never includes exact lat/lng. */
+export const RIDER_DIRECTORY_INCLUDES_EXACT_COORDINATES = false;
 
 const GHANA_CARD_PURPOSE = 'GHANA_CARD_NUMBER';
 
@@ -88,6 +95,8 @@ export interface RidersService {
   ): Promise<unknown>;
   getOperationalEligibility(riderId: string): Promise<unknown>;
   verificationEligibility(userId: string): Promise<boolean>;
+  listRidersForAdmin(query: ListAdminRidersQuery): Promise<unknown>;
+  getRiderForAdmin(riderId: string): Promise<unknown>;
 }
 
 export class RidersServiceImpl implements RidersService {
@@ -422,6 +431,116 @@ export class RidersServiceImpl implements RidersService {
       submittedAt: row.submittedAt?.toISOString() ?? null,
       vehicleCount: row.vehicles.length,
     }));
+  }
+
+  async listRidersForAdmin(query: ListAdminRidersQuery) {
+    const { total, items } = await this.repository.listForAdminDirectory({
+      page: query.page,
+      pageSize: query.pageSize,
+      q: query.q,
+      status: query.status,
+      verificationStatus: query.verificationStatus,
+      availability: query.availability,
+    });
+    return {
+      items: items.map((row) => ({
+        id: row.id,
+        phoneNumber: row.phoneNumber,
+        role: row.role,
+        status: row.status,
+        displayName: row.displayName,
+        fullName: row.fullName,
+        verificationStatus: row.verificationStatus,
+        availability: row.availability,
+        submittedAt: row.submittedAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+      })),
+      pagination: paginationMeta(query.page, query.pageSize, total),
+      semantics: {
+        availability: 'database_snapshot',
+        note: 'availability is the stored rider_profiles.availability value, not a live feed.',
+      },
+    };
+  }
+
+  async getRiderForAdmin(riderId: string) {
+    const row = await this.repository.findForAdminProfile(riderId);
+    if (!row || !row.riderProfile) {
+      throw new AppError({ status: 404, code: 'NOT_FOUND', message: 'Rider not found' });
+    }
+    const profile = row.riderProfile;
+    const now = this.now();
+    let gps: {
+      sharingEnabled: boolean;
+      recordedAt: string;
+      receivedAt: string;
+      fresh: boolean;
+      maxAgeMs: number;
+      snapshot: true;
+    } | null = null;
+    if (profile.location) {
+      const freshness = evaluateLocationFreshness({
+        recordedAt: profile.location.recordedAt,
+        receivedAt: profile.location.receivedAt,
+        now,
+      });
+      gps = {
+        sharingEnabled: profile.location.sharingEnabled,
+        recordedAt: profile.location.recordedAt.toISOString(),
+        receivedAt: profile.location.receivedAt.toISOString(),
+        fresh: freshness.fresh,
+        maxAgeMs: RIDER_LOCATION_MAX_AGE_MS,
+        snapshot: true,
+      };
+    }
+
+    return {
+      id: row.id,
+      phoneNumber: row.phoneNumber,
+      role: row.role,
+      status: row.status,
+      displayName: row.displayName,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      profile: {
+        fullName: profile.fullName,
+        verificationStatus: profile.verificationStatus,
+        availability: profile.availability,
+        submittedAt: profile.submittedAt?.toISOString() ?? null,
+        driversLicenceNumber: profile.driversLicenceNumber,
+        driversLicenceExpiry: profile.driversLicenceExpiry?.toISOString() ?? null,
+        verificationNotes: profile.verificationNotes,
+      },
+      vehicles: profile.vehicles.map((vehicle) => ({
+        id: vehicle.id,
+        category: vehicle.category,
+        registrationNumber: vehicle.registrationNumber,
+        make: vehicle.make,
+        model: vehicle.model,
+        colour: vehicle.colour,
+        capacity: vehicle.capacity,
+        verificationStatus: vehicle.verificationStatus,
+        rejectionReason: vehicle.rejectionReason,
+        submittedAt: vehicle.submittedAt?.toISOString() ?? null,
+        reviewedAt: vehicle.reviewedAt?.toISOString() ?? null,
+      })),
+      gps,
+      tokens: {
+        balance: profile.wallet?.tokenBalance ?? 0,
+        note: 'Current wallet balance snapshot for ops. Ledger history remains on GET /admin/token-ledgers (ViewTokenLedgers).',
+      },
+      privacy: {
+        exactCoordinatesIncluded: RIDER_DIRECTORY_INCLUDES_EXACT_COORDINATES,
+        note: 'Exact lat/lng are omitted here. Privileged coordinate reads use GET /admin/riders/:riderId/location when permitted.',
+      },
+      semantics: {
+        accountStatus: 'users.status',
+        verificationStatus: 'rider_profiles.verification_status',
+        availability: 'rider_profiles.availability database_snapshot',
+        gps: 'latest rider_locations row + freshness at request time (not a live track)',
+        tokens: 'rider_wallets.token_balance snapshot',
+      },
+    };
   }
 
   async getApplicationForOps(riderId: string) {
