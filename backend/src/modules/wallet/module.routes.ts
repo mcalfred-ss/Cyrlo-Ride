@@ -7,6 +7,7 @@ import { requirePermission, requireRecentMfa } from '../../common/middleware/aut
 import { validate } from '../../common/middleware/validate.js';
 import type { WalletController } from './module.controller.js';
 import {
+  adminListLedgersQuerySchema,
   createPackageSchema,
   listPageQuerySchema,
   packageIdParamSchema,
@@ -84,6 +85,15 @@ export function createWalletAdminRouter(controller: WalletController): Router {
       }),
     }),
     controller.adminListPurchases,
+  );
+
+  router.get(
+    '/token-ledgers',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewTokenLedgers),
+    validate({ query: adminListLedgersQuerySchema }),
+    controller.adminListLedgers,
   );
   return router;
 }

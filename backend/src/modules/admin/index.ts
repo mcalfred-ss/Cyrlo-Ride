@@ -8,6 +8,9 @@ import {
   type SmsProvider,
 } from '../../infrastructure/sms/sms.provider.js';
 import type { AuditService } from '../audit/module.service.js';
+import { AdminConsoleController } from './console.controller.js';
+import { AdminConsoleRepository } from './console.repository.js';
+import { AdminConsoleService } from './console.service.js';
 import { AdminController } from './module.controller.js';
 import { AdminRepository } from './module.repository.js';
 import { createAdminRouter } from './module.routes.js';
@@ -15,6 +18,7 @@ import { AdminServiceImpl, type AdminService, type AdminServiceDeps } from './mo
 
 export interface AdminModule {
   service: AdminService;
+  consoleService: AdminConsoleService;
   router: Router;
 }
 
@@ -31,7 +35,15 @@ export function createAdminModule(
     ...options?.serviceDeps,
   });
   const controller = new AdminController(service);
-  return { service, router: createAdminRouter(controller) };
+  const consoleService = new AdminConsoleService(new AdminConsoleRepository(deps.prisma), {
+    now: options?.serviceDeps?.now,
+  });
+  const consoleController = new AdminConsoleController(consoleService);
+  return {
+    service,
+    consoleService,
+    router: createAdminRouter(controller, consoleController),
+  };
 }
 
 export type { AdminService };

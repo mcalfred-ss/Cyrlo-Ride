@@ -215,6 +215,56 @@ export class WalletRepository {
     return { total, items };
   }
 
+  async listLedgersForFinance(input: {
+    page: number;
+    pageSize: number;
+    riderId?: string;
+    type?: 'PURCHASE' | 'DEDUCTION' | 'REFUND' | 'ADJUSTMENT';
+    from?: Date;
+    to?: Date;
+  }) {
+    const where: Prisma.TokenLedgerEntryWhereInput = {
+      ...(input.riderId ? { riderId: input.riderId } : {}),
+      ...(input.type ? { type: input.type } : {}),
+      ...(input.from || input.to
+        ? {
+            createdAt: {
+              ...(input.from ? { gte: input.from } : {}),
+              ...(input.to ? { lte: input.to } : {}),
+            },
+          }
+        : {}),
+    };
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.tokenLedgerEntry.count({ where }),
+      this.prisma.tokenLedgerEntry.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+        select: {
+          id: true,
+          riderId: true,
+          bookingId: true,
+          paymentId: true,
+          type: true,
+          tokenDelta: true,
+          balanceAfter: true,
+          reason: true,
+          reversesEntryId: true,
+          createdAt: true,
+          rider: {
+            select: {
+              fullName: true,
+              user: { select: { phoneNumber: true, status: true } },
+            },
+          },
+        },
+      }),
+    ]);
+    return { total, items };
+  }
+
   async listPurchases(riderId: string, page: number, pageSize: number) {
     const where = { riderId };
     const [total, items] = await this.prisma.$transaction([

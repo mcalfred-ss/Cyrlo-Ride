@@ -2,9 +2,22 @@ import { Router } from 'express';
 
 import { Permission } from '../../common/authz/permissions.js';
 import { authenticate, requireActiveAccount } from '../../common/middleware/authenticate.js';
-import { requirePermission } from '../../common/middleware/authorize.js';
+import {
+  requireAnyPermission,
+  requirePermission,
+} from '../../common/middleware/authorize.js';
 import { otpRateLimiter } from '../../common/middleware/rate-limit.js';
 import { validate } from '../../common/middleware/validate.js';
+import { paginationQuerySchema } from '../../common/utils/pagination.js';
+import type { AdminConsoleController } from './console.controller.js';
+import {
+  adminBookingIdParamSchema,
+  analyticsQuerySchema,
+  listAdminBookingsQuerySchema,
+  listAuditLogsQuerySchema,
+  listPassengersQuerySchema,
+  passengerIdParamSchema,
+} from './console.schema.js';
 import type { AdminController } from './module.controller.js';
 import {
   acceptInvitationSchema,
@@ -19,7 +32,19 @@ import {
   suspendUserSchema,
 } from './module.schema.js';
 
-export function createAdminRouter(controller: AdminController): Router {
+/** Permission required for passenger list/get (not suspend). Exported for tests. */
+export const PASSENGER_DIRECTORY_PERMISSION = Permission.ViewBookingHistory;
+
+/**
+ * Ordinary booking-history endpoints never include exact lat/lng.
+ * Precise location remains a separate product/security decision (e.g. trip-gps).
+ */
+export const ORDINARY_BOOKING_HISTORY_INCLUDES_EXACT_COORDINATES = false;
+
+export function createAdminRouter(
+  controller: AdminController,
+  consoleController: AdminConsoleController,
+): Router {
   const router = Router();
 
   router.post('/bootstrap', validate({ body: bootstrapAdminSchema }), controller.bootstrap);
@@ -93,6 +118,96 @@ export function createAdminRouter(controller: AdminController): Router {
     requireActiveAccount,
     requirePermission(Permission.ViewAdminProfile),
     controller.getMe,
+  );
+
+  router.get(
+    '/analytics',
+    authenticate,
+    requireActiveAccount,
+    requireAnyPermission(
+      Permission.MonitorOperations,
+      Permission.ViewFinancialReports,
+      Permission.InvestigateDisputes,
+      Permission.ViewPayments,
+    ),
+    validate({ query: analyticsQuerySchema }),
+    consoleController.analytics,
+  );
+
+  router.get(
+    '/financial-reports',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewFinancialReports),
+    validate({ query: analyticsQuerySchema }),
+    consoleController.financialReport,
+  );
+
+  /**
+   * Passenger directory/detail: ViewBookingHistory only.
+   * SuspendReinstateRiders remains on suspend/reinstate mutations — not directory browse.
+   */
+  router.get(
+    '/passengers',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewBookingHistory),
+    validate({ query: listPassengersQuerySchema }),
+    consoleController.listPassengers,
+  );
+
+  router.get(
+    '/passengers/:passengerId',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewBookingHistory),
+    validate({ params: passengerIdParamSchema }),
+    consoleController.getPassenger,
+  );
+
+  router.get(
+    '/passengers/:passengerId/bookings',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewBookingHistory),
+    validate({ params: passengerIdParamSchema, query: paginationQuerySchema }),
+    consoleController.listPassengerBookings,
+  );
+
+  router.get(
+    '/passengers/:passengerId/cancellations',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewBookingHistory),
+    validate({ params: passengerIdParamSchema, query: paginationQuerySchema }),
+    consoleController.listPassengerCancellations,
+  );
+
+  router.get(
+    '/bookings',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewBookingHistory),
+    validate({ query: listAdminBookingsQuerySchema }),
+    consoleController.listBookings,
+  );
+
+  router.get(
+    '/bookings/:bookingId',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ViewBookingHistory),
+    validate({ params: adminBookingIdParamSchema }),
+    consoleController.getBooking,
+  );
+
+  router.get(
+    '/audit-logs',
+    authenticate,
+    requireActiveAccount,
+    requirePermission(Permission.ManageAdmins),
+    validate({ query: listAuditLogsQuerySchema }),
+    consoleController.listAuditLogs,
   );
 
   return router;

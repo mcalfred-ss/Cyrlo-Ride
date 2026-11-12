@@ -53,6 +53,17 @@ export type CreatePackageInput = z.infer<typeof createPackageSchema>;
 export type UpdatePackageInput = z.infer<typeof updatePackageSchema>;
 export type ListPageQuery = z.infer<typeof listPageQuerySchema>;
 
+export const adminListLedgersQuerySchema = listPageQuerySchema
+  .extend({
+    riderId: z.string().uuid().optional(),
+    type: z.enum(['PURCHASE', 'DEDUCTION', 'REFUND', 'ADJUSTMENT']).optional(),
+    from: z.string().datetime().optional(),
+    to: z.string().datetime().optional(),
+  })
+  .strict();
+
+export type AdminListLedgersQuery = z.infer<typeof adminListLedgersQuerySchema>;
+
 /** @deprecated Legacy stub shape — purchase flow uses PurchasePackageInput. */
 export interface WalletMovementInput {
   riderId: string;

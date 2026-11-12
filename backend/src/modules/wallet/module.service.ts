@@ -44,6 +44,14 @@ export interface WalletService {
     ip?: string,
   ): Promise<unknown>;
   listPurchasesForFinance(query: ListPageQuery & { status?: string }): Promise<unknown>;
+  listLedgersForFinance(
+    query: ListPageQuery & {
+      riderId?: string;
+      type?: 'PURCHASE' | 'DEDUCTION' | 'REFUND' | 'ADJUSTMENT';
+      from?: string;
+      to?: string;
+    },
+  ): Promise<unknown>;
 }
 
 export class WalletServiceImpl implements WalletService {
@@ -490,6 +498,65 @@ export class WalletServiceImpl implements WalletService {
     ]);
     return {
       items: items.map(toPurchaseView),
+      pagination: {
+        page: query.page,
+        pageSize: query.pageSize,
+        total,
+        hasNextPage: query.page * query.pageSize < total,
+      },
+    };
+  }
+
+  async listLedgersForFinance(
+    query: ListPageQuery & {
+      riderId?: string;
+      type?: 'PURCHASE' | 'DEDUCTION' | 'REFUND' | 'ADJUSTMENT';
+      from?: string;
+      to?: string;
+    },
+  ) {
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    if (from && Number.isNaN(from.getTime())) {
+      throw new AppError({ status: 400, code: 'VALIDATION_ERROR', message: 'Invalid from datetime' });
+    }
+    if (to && Number.isNaN(to.getTime())) {
+      throw new AppError({ status: 400, code: 'VALIDATION_ERROR', message: 'Invalid to datetime' });
+    }
+    if (from && to && from.getTime() > to.getTime()) {
+      throw new AppError({
+        status: 400,
+        code: 'VALIDATION_ERROR',
+        message: '`from` must be before or equal to `to`',
+      });
+    }
+    const { total, items } = await this.repository.listLedgersForFinance({
+      page: query.page,
+      pageSize: query.pageSize,
+      riderId: query.riderId,
+      type: query.type,
+      from,
+      to,
+    });
+    return {
+      items: items.map((row) => ({
+        id: row.id,
+        riderId: row.riderId,
+        rider: {
+          fullName: row.rider.fullName,
+          phoneNumber: row.rider.user.phoneNumber,
+          status: row.rider.user.status,
+        },
+        bookingId: row.bookingId,
+        paymentId: row.paymentId,
+        type: row.type,
+        tokenDelta: row.tokenDelta,
+        balanceAfter: row.balanceAfter,
+        reason: row.reason,
+        reversesEntryId: row.reversesEntryId,
+        createdAt: row.createdAt.toISOString(),
+        kind: classifyLedgerKind(row.type, row.reason),
+      })),
       pagination: {
         page: query.page,
         pageSize: query.pageSize,

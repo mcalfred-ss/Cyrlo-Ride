@@ -78,6 +78,7 @@ model User {
   disputesSubmitted    Dispute[]             @relation("DisputeSubmitter")
   disputeEvents        DisputeEvent[]        @relation("DisputeEventActor")
 
+  @@index([role, status])
   @@map("users")
 }
 
@@ -830,6 +831,7 @@ model Payment {
 
   @@index([userId, createdAt])
   @@index([bookingId, purpose])
+  @@index([purpose, status, createdAt])
   @@map("payments")
 }
 
@@ -1170,5 +1172,6 @@ model AuditLog {
 
   @@index([entityType, entityId])
   @@index([actorId, createdAt])
+  @@index([createdAt])
   @@map("audit_logs")
 }

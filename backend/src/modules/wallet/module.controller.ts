@@ -108,4 +108,18 @@ export class WalletController {
       next(error);
     }
   };
+
+  adminListLedgers: RequestHandler = async (_req, res, next) => {
+    try {
+      const query = res.locals.validated.query as ListPageQuery & {
+        riderId?: string;
+        type?: 'PURCHASE' | 'DEDUCTION' | 'REFUND' | 'ADJUSTMENT';
+        from?: string;
+        to?: string;
+      };
+      sendSuccess(res, await this.service.listLedgersForFinance(query));
+    } catch (error) {
+      next(error);
+    }
+  };
 }
