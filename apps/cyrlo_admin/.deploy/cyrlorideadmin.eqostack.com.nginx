@@ -1,0 +1,63 @@
+# Cyrlo Ride Admin — static SPA (intended production vhost)
+#
+# Dedicated hostname. Do NOT proxy to the Ride API.
+# Live file: /etc/nginx/sites-available/cyrlorideadmin.eqostack.com
+# Root: /var/www/cyrlorideadmin/current  (symlink → releases/<id>)
+#
+# Certbot manages the TLS listen lines and the HTTP→HTTPS redirect server.
+# If you bootstrap a brand-new host: install an HTTP-only skeleton first,
+# run `certbot --nginx -d cyrlorideadmin.eqostack.com`, then keep THIS
+# TLS-aware shape as the source of truth (do not overwrite live with HTTP-only).
+
+server {
+    server_name cyrlorideadmin.eqostack.com;
+
+    root /var/www/cyrlorideadmin/current;
+    index index.html;
+
+    # Deny hidden files
+    location ~ /\. {
+        deny all;
+        access_log off;
+        log_not_found off;
+    }
+
+    # Fingerprinted Vite assets — long cache
+    location /assets/ {
+        try_files $uri =404;
+        access_log off;
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800, immutable";
+    }
+
+    # SPA entry — no aggressive cache
+    location = /index.html {
+        add_header Cache-Control "no-cache";
+    }
+
+    # SPA fallback for client routes (/overview, /riders/:id, /applications, …)
+    location / {
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache";
+    }
+
+    autoindex off;
+
+    listen [::]:443 ssl; # managed by Certbot
+    listen 443 ssl; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/cyrlorideadmin.eqostack.com/fullchain.pem; # managed by Certbot
+    ssl_certificate_key /etc/letsencrypt/live/cyrlorideadmin.eqostack.com/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+
+server {
+    if ($host = cyrlorideadmin.eqostack.com) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+    listen 80;
+    listen [::]:80;
+    server_name cyrlorideadmin.eqostack.com;
+    return 404; # managed by Certbot
+}
