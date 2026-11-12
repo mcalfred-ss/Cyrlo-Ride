@@ -12,6 +12,8 @@ import { OtpPage } from '../pages/OtpPage';
 import { ApplicationDetailPage } from '../pages/ApplicationDetailPage';
 import { ApplicationsPage } from '../pages/ApplicationsPage';
 import { OverviewPage } from '../pages/OverviewPage';
+import { PassengerProfilePage } from '../pages/PassengerProfilePage';
+import { PassengersPage } from '../pages/PassengersPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { RiderProfilePage } from '../pages/RiderProfilePage';
 import { RidersPage } from '../pages/RidersPage';
@@ -38,15 +40,8 @@ export function AppRouter() {
             <Route path="riders/:riderId" element={<RiderProfilePage />} />
             <Route path="applications" element={<ApplicationsPage />} />
             <Route path="applications/:riderId" element={<ApplicationDetailPage />} />
-            <Route
-              path="passengers"
-              element={
-                <PlaceholderPage
-                  title="Passengers"
-                  description="Passenger directory UI is not in Phase 1A."
-                />
-              }
-            />
+            <Route path="passengers" element={<PassengersPage />} />
+            <Route path="passengers/:passengerId" element={<PassengerProfilePage />} />
             <Route
               path="bookings"
               element={

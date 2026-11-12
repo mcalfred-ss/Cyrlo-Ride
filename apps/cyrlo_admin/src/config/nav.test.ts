@@ -35,6 +35,19 @@ describe('role-aware navigation', () => {
     expect(canAccessPath('FINANCE_ADMIN', '/riders')).toBe(false);
   });
 
+  it('inherits ViewBookingHistory for nested passenger profile paths', () => {
+    expect(
+      canAccessPath('OPERATIONS_ADMIN', '/passengers/11111111-1111-1111-1111-111111111111'),
+    ).toBe(true);
+    expect(
+      canAccessPath('SUPPORT_ADMIN', '/passengers/11111111-1111-1111-1111-111111111111'),
+    ).toBe(true);
+    expect(canAccessPath('FINANCE_ADMIN', '/passengers')).toBe(false);
+    expect(
+      canAccessPath('FINANCE_ADMIN', '/passengers/11111111-1111-1111-1111-111111111111'),
+    ).toBe(false);
+  });
+
   it('gates applications queue and detail to ReviewRiders', () => {
     expect(canAccessPath('OPERATIONS_ADMIN', '/applications')).toBe(true);
     expect(

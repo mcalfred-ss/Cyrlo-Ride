@@ -344,3 +344,92 @@ export interface AdminReinstateUserResult {
   userId: string;
   status: 'ACTIVE';
 }
+
+/** Exact list item from `GET /admin/passengers`. */
+export interface AdminPassengerListItem {
+  id: string;
+  phoneNumber: string;
+  status: UserAccountStatus;
+  displayName: string | null;
+  fullName: string | null;
+  createdAt: string;
+}
+
+export interface AdminPassengerListResponse {
+  items: AdminPassengerListItem[];
+  pagination: PaginationMeta;
+}
+
+export interface AdminPassengersQuery {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  status?: UserAccountStatus;
+}
+
+/** Exact profile from `GET /admin/passengers/:passengerId`. */
+export interface AdminPassengerProfile {
+  id: string;
+  phoneNumber: string;
+  status: UserAccountStatus;
+  displayName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  profile: {
+    fullName: string | null;
+    dateOfBirth: string | null;
+    gender: string | null;
+    homeLocation: string | null;
+  } | null;
+}
+
+export interface AdminPassengerBookingsQuery {
+  page?: number;
+  pageSize?: number;
+}
+
+/** Exact booking history item from `GET /admin/passengers/:passengerId/bookings`. */
+export interface AdminPassengerBookingItem {
+  id: string;
+  status: string;
+  vehicleCategory: string;
+  bookingFeePesewas: number;
+  pickupLabel: string | null;
+  riderId: string | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  cancellationReason: string | null;
+  exactCoordinatesIncluded: false;
+}
+
+export interface AdminPassengerBookingsResponse {
+  items: AdminPassengerBookingItem[];
+  pagination: PaginationMeta;
+  privacy: {
+    exactCoordinatesIncluded: false;
+    note: string;
+  };
+}
+
+export interface AdminPassengerCancellationsQuery {
+  page?: number;
+  pageSize?: number;
+}
+
+/** Exact cancellation history item from `GET /admin/passengers/:passengerId/cancellations`. */
+export interface AdminPassengerCancellationItem {
+  id: string;
+  bookingId: string;
+  reason: string;
+  status: string;
+  recommendation: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+export interface AdminPassengerCancellationsResponse {
+  items: AdminPassengerCancellationItem[];
+  pagination: PaginationMeta;
+}

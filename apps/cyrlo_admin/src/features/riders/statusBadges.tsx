@@ -60,6 +60,11 @@ export function AvailabilityBadge({ status }: { status: RiderAvailabilityStatus 
   return <Badge label={status} tone={tone} />;
 }
 
+/** Passenger directory: distinguish from rider/applicant rows. */
+export function PassengerKindBadge() {
+  return <Badge label="Passenger account" tone="info" />;
+}
+
 /** Directory helper: never imply every row is an approved rider. */
 export function directoryKindLabel(item: {
   role: AdminUserRole;
