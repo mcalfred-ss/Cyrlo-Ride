@@ -38,16 +38,16 @@ export class RidersRepository {
   async createDraftProfile(input: {
     userId: string;
     fullName: string;
-    driversLicenceNumber: string;
-    driversLicenceExpiry: Date;
+    driversLicenceNumber?: string | null;
+    driversLicenceExpiry?: Date | null;
   }) {
     try {
       return await this.prisma.riderProfile.create({
         data: {
           userId: input.userId,
           fullName: input.fullName,
-          driversLicenceNumber: input.driversLicenceNumber,
-          driversLicenceExpiry: input.driversLicenceExpiry,
+          driversLicenceNumber: input.driversLicenceNumber ?? null,
+          driversLicenceExpiry: input.driversLicenceExpiry ?? null,
           verificationStatus: 'DRAFT',
           availability: 'OFFLINE',
           ghanaCardNumber: null,

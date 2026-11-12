@@ -225,7 +225,10 @@ String? _requiredLocation(SignupDraft draft) {
   if (!draft.welcomeDone) return AppRoutes.welcome;
   if (draft.phoneE164 == null) return AppRoutes.createAccount;
   if (draft.role == null) return AppRoutes.selectRole;
-  if (!draft.phoneConfirmed) return AppRoutes.confirmPhone;
+  // otpVerified implies the number was already confirmed for this session.
+  if (!draft.phoneConfirmed && !draft.otpVerified) {
+    return AppRoutes.confirmPhone;
+  }
   if (!draft.otpVerified) return AppRoutes.verifyOtp;
   if (draft.role == RideRole.passenger) {
     // Returning logins must still complete/hydrate profile before home.

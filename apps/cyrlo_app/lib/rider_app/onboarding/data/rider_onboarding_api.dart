@@ -11,9 +11,9 @@ abstract class RiderOnboardingApi {
   Future<RiderApplicationView> startOnboarding({
     required String accessToken,
     required String fullName,
-    required String driversLicenceNumber,
-    required DateTime driversLicenceExpiry,
-    required String ghanaCardNumber,
+    String? driversLicenceNumber,
+    DateTime? driversLicenceExpiry,
+    String? ghanaCardNumber,
   });
 
   Future<RiderApplicationView> updateOnboarding({
@@ -50,9 +50,9 @@ class LiveRiderOnboardingApi implements RiderOnboardingApi {
   Future<RiderApplicationView> startOnboarding({
     required String accessToken,
     required String fullName,
-    required String driversLicenceNumber,
-    required DateTime driversLicenceExpiry,
-    required String ghanaCardNumber,
+    String? driversLicenceNumber,
+    DateTime? driversLicenceExpiry,
+    String? ghanaCardNumber,
   }) async {
     _client.setAccessToken(accessToken);
     try {
@@ -60,9 +60,12 @@ class LiveRiderOnboardingApi implements RiderOnboardingApi {
         ApiPaths.riderOnboarding,
         data: {
           'fullName': fullName,
-          'driversLicenceNumber': driversLicenceNumber,
-          'driversLicenceExpiry': driversLicenceExpiry.toUtc().toIso8601String(),
-          'ghanaCardNumber': ghanaCardNumber,
+          if (driversLicenceNumber != null)
+            'driversLicenceNumber': driversLicenceNumber,
+          if (driversLicenceExpiry != null)
+            'driversLicenceExpiry':
+                driversLicenceExpiry.toUtc().toIso8601String(),
+          if (ghanaCardNumber != null) 'ghanaCardNumber': ghanaCardNumber,
         },
       );
       return RiderApplicationView.fromJson(_dataMap(response.data));

@@ -34,7 +34,13 @@ class SignupController extends Notifier<SignupDraft> {
         }
         return;
       }
-      if (state.otpVerified && state.phoneE164 != null) return;
+      if (state.otpVerified && state.phoneE164 != null) {
+        // Valid session + verified OTP must never bounce to confirm-phone.
+        if (!state.phoneConfirmed) {
+          _set(state.copyWith(phoneConfirmed: true));
+        }
+        return;
+      }
       _applyRestoredSession(next);
     });
     Future.microtask(_restore);
@@ -70,10 +76,14 @@ class SignupController extends Notifier<SignupDraft> {
         }
       }
     }
-    if (session != null && !state.otpVerified) {
-      _applyRestoredSession(session);
-    }
     if (session != null) {
+      if (!state.otpVerified) {
+        _applyRestoredSession(session);
+      } else if (!state.phoneConfirmed) {
+        // Older drafts forced phoneConfirmed=false on fromJson; heal on reopen.
+        state = state.copyWith(phoneConfirmed: true);
+        unawaited(_persist());
+      }
       unawaited(
         ref.read(authSessionProvider.notifier).ensureFreshAccess().then((_) {
           final fresh = ref.read(authSessionProvider);
@@ -305,7 +315,9 @@ class SignupController extends Notifier<SignupDraft> {
     return ref.read(authApiProvider).requestOtp(phone);
   }
 
-  /// Verifies the SMS code against the live API and persists the DB session.
+  /// Verifies the SMS code and persists the session, but does **not** flip
+  /// [SignupDraft.otpVerified] yet — the OTP screen shows the check animation
+  /// first, then calls [markOtpVerified] so the router does not leave early.
   Future<AuthUser> verifyOtp(String code) async {
     final phone = state.phoneE164;
     final role = state.role;
@@ -323,7 +335,7 @@ class SignupController extends Notifier<SignupDraft> {
     await ref.read(authSessionProvider.notifier).save(tokens);
     _set(
       state.copyWith(
-        otpVerified: true,
+        phoneConfirmed: true,
         phoneE164: tokens.user.phoneNumber,
         role: tokens.user.role,
         // Passengers only become "ready" after a complete profile exists
@@ -344,6 +356,12 @@ class SignupController extends Notifier<SignupDraft> {
       }
     }
     return tokens.user;
+  }
+
+  /// Opens the next onboarding step after the OTP success animation.
+  void markOtpVerified() {
+    if (state.otpVerified) return;
+    _set(state.copyWith(otpVerified: true, phoneConfirmed: true));
   }
 
   /// Go back from vehicle type to role selection.
@@ -449,66 +467,47 @@ class SignupController extends Notifier<SignupDraft> {
   bool saveRiderDetails({
     required String firstName,
     required String lastName,
-    required String driversLicenceNumber,
-    required DateTime? driversLicenceExpiry,
-    required String ghanaCardNumber,
-    DateTime? dateOfBirth,
-    PassengerGender? gender,
-    String location = '',
+    required DateTime? dateOfBirth,
+    required PassengerGender? gender,
+    required String location,
     GeoPoint? locationPoint,
   }) {
     final first = firstName.trim();
     final last = lastName.trim();
-    final licence = driversLicenceNumber.trim();
-    final ghana = ghanaCardNumber.trim().toUpperCase();
-    final ghanaOk = RegExp(r'^GHA-\d{9}-\d$').hasMatch(ghana);
+    final place = location.trim();
     if (first.length < 2) return false;
     if (last.length < 2) return false;
-    if (licence.length < 5) return false;
-    if (driversLicenceExpiry == null) return false;
-    if (!ghanaOk) return false;
+    if (dateOfBirth == null) return false;
+    if (gender == null) return false;
+    if (place.length < 2) return false;
+    if (!_isAtLeast16(dateOfBirth)) return false;
 
     _set(
       state.copyWith(
         riderFirstName: first,
         riderLastName: last,
-        riderDriversLicenceNumber: licence,
-        riderDriversLicenceExpiry: driversLicenceExpiry,
-        riderGhanaCardNumber: ghana,
         riderDateOfBirth: dateOfBirth,
         riderGender: gender,
-        riderLocation: location.trim().isEmpty ? null : location.trim(),
+        riderLocation: place,
         riderLocationPoint: locationPoint,
       ),
     );
     return true;
   }
 
-  /// Uploads onboarding + vehicle + documents, then submits for ops review.
+  /// Uploads one ID (Ghana Card **or** licence) + selfie + plate, then submits.
   Future<void> submitRiderOnboarding({
     required String registrationNumber,
-    required String make,
-    required String model,
-    required String colour,
-    required int capacity,
-    required String ghanaCardPath,
-    required String driversLicencePath,
     required String riderPhotoPath,
-    required String vehiclePhotoPath,
-    required String vehicleRegistrationPath,
-    required String roadworthinessPath,
-    required String insurancePath,
+    String? driversLicenceNumber,
+    DateTime? driversLicenceExpiry,
+    String? driversLicencePath,
+    String? ghanaCardNumber,
+    String? ghanaCardPath,
   }) async {
-    final category = state.vehicleCategory;
+    final category = state.vehicleCategory ?? VehicleCategory.pragya;
     final fullName = state.riderName;
-    final licence = state.riderDriversLicenceNumber;
-    final expiry = state.riderDriversLicenceExpiry;
-    final ghana = state.riderGhanaCardNumber;
-    if (category == null ||
-        fullName == null ||
-        licence == null ||
-        expiry == null ||
-        ghana == null) {
+    if (fullName == null || !state.hasRiderProfile) {
       throw const ApiException(
         code: 'ONBOARDING_INCOMPLETE',
         message: 'Complete vehicle type and rider details first.',
@@ -516,14 +515,31 @@ class SignupController extends Notifier<SignupDraft> {
     }
 
     final plate = registrationNumber.trim().toUpperCase();
-    if (plate.length < 2 ||
-        make.trim().isEmpty ||
-        model.trim().isEmpty ||
-        colour.trim().isEmpty ||
-        capacity < 1) {
+    final licence = driversLicenceNumber?.trim();
+    final ghana = ghanaCardNumber?.trim().toUpperCase();
+    final ghanaOk =
+        ghana != null && RegExp(r'^GHA-\d{9}-\d$').hasMatch(ghana);
+    final licenceOk = (licence?.length ?? 0) >= 5 &&
+        driversLicenceExpiry != null &&
+        (driversLicencePath?.isNotEmpty ?? false);
+    final ghanaPathOk = ghanaOk && (ghanaCardPath?.isNotEmpty ?? false);
+
+    if (plate.length < 2) {
       throw const ApiException(
         code: 'VEHICLE_INVALID',
-        message: 'Enter complete vehicle details.',
+        message: 'Enter your vehicle / car number.',
+      );
+    }
+    if (riderPhotoPath.trim().isEmpty) {
+      throw const ApiException(
+        code: 'SELFIE_REQUIRED',
+        message: 'Upload a selfie.',
+      );
+    }
+    if (!ghanaPathOk && !licenceOk) {
+      throw const ApiException(
+        code: 'ID_REQUIRED',
+        message: "Provide either Ghana Card or driver's licence details.",
       );
     }
 
@@ -542,86 +558,64 @@ class SignupController extends Notifier<SignupDraft> {
       await api.startOnboarding(
         accessToken: token,
         fullName: fullName,
-        driversLicenceNumber: licence,
-        driversLicenceExpiry: expiry,
-        ghanaCardNumber: ghana,
+        driversLicenceNumber: licenceOk ? licence : null,
+        driversLicenceExpiry: licenceOk ? driversLicenceExpiry : null,
+        ghanaCardNumber: ghanaPathOk ? ghana : null,
       );
     } on ApiException catch (error) {
       if (error.code != 'CONFLICT' && error.statusCode != 409) rethrow;
       await api.updateOnboarding(
         accessToken: token,
         fullName: fullName,
-        driversLicenceNumber: licence,
-        driversLicenceExpiry: expiry,
-        ghanaCardNumber: ghana,
+        driversLicenceNumber: licenceOk ? licence : null,
+        driversLicenceExpiry: licenceOk ? driversLicenceExpiry : null,
+        ghanaCardNumber: ghanaPathOk ? ghana : null,
       );
     }
 
-    final vehicle = await api.createVehicle(
+    await api.createVehicle(
       accessToken: token,
       input: CreateVehicleInput(
         category: category,
         registrationNumber: plate,
-        make: make.trim(),
-        model: model.trim(),
-        colour: colour.trim(),
-        capacity: capacity,
+        make: category.label,
+        model: 'Standard',
+        colour: 'Yellow',
+        capacity: category.defaultCapacity,
       ),
     );
 
-    Future<void> upload(
-      RiderDocumentKind kind,
-      String path, {
-      String? vehicleId,
-    }) async {
+    Future<void> upload(RiderDocumentKind kind, String path) async {
       await api.uploadDocument(
         accessToken: token,
         kind: kind,
         filePath: path,
-        vehicleId: vehicleId,
       );
     }
 
-    await upload(RiderDocumentKind.ghanaCard, ghanaCardPath);
-    await upload(RiderDocumentKind.driversLicence, driversLicencePath);
+    if (ghanaPathOk) {
+      await upload(RiderDocumentKind.ghanaCard, ghanaCardPath!);
+    }
+    if (licenceOk) {
+      await upload(RiderDocumentKind.driversLicence, driversLicencePath!);
+    }
     await upload(RiderDocumentKind.riderPhoto, riderPhotoPath);
-    await upload(
-      RiderDocumentKind.vehiclePhoto,
-      vehiclePhotoPath,
-      vehicleId: vehicle.id,
-    );
-    await upload(
-      RiderDocumentKind.vehicleRegistration,
-      vehicleRegistrationPath,
-      vehicleId: vehicle.id,
-    );
-    await upload(
-      RiderDocumentKind.roadworthiness,
-      roadworthinessPath,
-      vehicleId: vehicle.id,
-    );
-    await upload(
-      RiderDocumentKind.insurance,
-      insurancePath,
-      vehicleId: vehicle.id,
-    );
 
     final application = await api.submitApplication(token);
     _applyApplication(application);
     _set(
       state.copyWith(
+        riderDriversLicenceNumber: licenceOk ? licence : null,
+        riderDriversLicenceExpiry: licenceOk ? driversLicenceExpiry : null,
+        riderGhanaCardNumber: ghanaPathOk ? ghana : null,
         riderVehicleNumber: plate,
-        riderVehicleMake: make.trim(),
-        riderVehicleModel: model.trim(),
-        riderVehicleColour: colour.trim(),
-        riderVehicleCapacity: capacity,
-        docGhanaCardPath: ghanaCardPath,
-        docDriversLicencePath: driversLicencePath,
+        riderVehicleMake: category.label,
+        riderVehicleModel: 'Standard',
+        riderVehicleColour: 'Yellow',
+        riderVehicleCapacity: category.defaultCapacity,
+        docGhanaCardPath: ghanaPathOk ? ghanaCardPath : null,
+        docDriversLicencePath: licenceOk ? driversLicencePath : null,
         docRiderPhotoPath: riderPhotoPath,
-        docVehiclePhotoPath: vehiclePhotoPath,
-        docVehicleRegistrationPath: vehicleRegistrationPath,
-        docRoadworthinessPath: roadworthinessPath,
-        docInsurancePath: insurancePath,
         applicationSubmitted: true,
         riderApproved: application.isApproved,
         clearRejectionReason: !application.isRejected,

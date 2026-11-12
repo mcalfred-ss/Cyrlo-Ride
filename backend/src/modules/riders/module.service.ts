@@ -24,13 +24,10 @@ import type {
 
 const GHANA_CARD_PURPOSE = 'GHANA_CARD_NUMBER';
 
-const REQUIRED_RIDER_DOCS: DocumentKind[] = ['GHANA_CARD', 'DRIVERS_LICENCE', 'RIDER_PHOTO'];
-const REQUIRED_VEHICLE_DOCS: DocumentKind[] = [
-  'VEHICLE_REGISTRATION',
-  'ROADWORTHINESS',
-  'INSURANCE',
-  'VEHICLE_PHOTO',
-];
+/** Always required. Ghana Card / licence photos are alternate ID paths. */
+const REQUIRED_RIDER_DOCS: DocumentKind[] = ['RIDER_PHOTO'];
+/** Pilot: plate + one ID doc are enough; extra vehicle papers can be requested in review. */
+const REQUIRED_VEHICLE_DOCS: DocumentKind[] = [];
 
 export interface RidersServiceDeps {
   storage: ObjectStorage;
@@ -125,23 +122,29 @@ export class RidersServiceImpl implements RidersService {
       await this.repository.createDraftProfile({
         userId,
         fullName: input.fullName,
-        driversLicenceNumber: input.driversLicenceNumber,
-        driversLicenceExpiry: new Date(input.driversLicenceExpiry),
+        driversLicenceNumber: input.driversLicenceNumber ?? null,
+        driversLicenceExpiry: input.driversLicenceExpiry
+          ? new Date(input.driversLicenceExpiry)
+          : null,
       });
     } else {
       await this.repository.updateProfile(userId, {
         fullName: input.fullName,
         driversLicenceNumber: input.driversLicenceNumber,
-        driversLicenceExpiry: new Date(input.driversLicenceExpiry),
+        driversLicenceExpiry: input.driversLicenceExpiry
+          ? new Date(input.driversLicenceExpiry)
+          : undefined,
       });
     }
 
-    await this.repository.upsertIdentitySecret({
-      riderId: userId,
-      purpose: GHANA_CARD_PURPOSE,
-      ciphertext: encryptSecret(input.ghanaCardNumber, env.IDENTITY_ENCRYPTION_KEY),
-      keyVersion: env.IDENTITY_ENCRYPTION_KEY_VERSION,
-    });
+    if (input.ghanaCardNumber) {
+      await this.repository.upsertIdentitySecret({
+        riderId: userId,
+        purpose: GHANA_CARD_PURPOSE,
+        ciphertext: encryptSecret(input.ghanaCardNumber, env.IDENTITY_ENCRYPTION_KEY),
+        keyVersion: env.IDENTITY_ENCRYPTION_KEY_VERSION,
+      });
+    }
 
     await this.deps.audit.record({
       actorId: userId,
@@ -331,23 +334,31 @@ export class RidersServiceImpl implements RidersService {
     }
     const profile = await this.requireEditableProfile(userId);
     const secret = await this.repository.getIdentitySecret(userId, GHANA_CARD_PURPOSE);
-    if (!secret) {
-      throw new AppError({
-        status: 400,
-        code: 'VALIDATION_ERROR',
-        message: 'Ghana Card number is required',
-      });
-    }
-
     const docs = profile.documents ?? [];
+    const activeDocs = docs.filter((doc) => !doc.replacedAt);
+
     for (const kind of REQUIRED_RIDER_DOCS) {
-      if (!docs.some((doc) => doc.kind === kind && !doc.replacedAt)) {
+      if (!activeDocs.some((doc) => doc.kind === kind)) {
         throw new AppError({
           status: 400,
           code: 'VALIDATION_ERROR',
           message: `Missing required document: ${kind}`,
         });
       }
+    }
+
+    const hasGhanaId =
+      Boolean(secret) && activeDocs.some((doc) => doc.kind === 'GHANA_CARD');
+    const hasLicenceId =
+      Boolean(profile.driversLicenceNumber?.trim()) &&
+      Boolean(profile.driversLicenceExpiry) &&
+      activeDocs.some((doc) => doc.kind === 'DRIVERS_LICENCE');
+    if (!hasGhanaId && !hasLicenceId) {
+      throw new AppError({
+        code: 'VALIDATION_ERROR',
+        status: 400,
+        message: "Upload either Ghana Card or driver's licence details and photo",
+      });
     }
 
     const vehicles = profile.vehicles ?? [];

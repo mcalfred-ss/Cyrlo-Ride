@@ -48,8 +48,8 @@ export class MemoryRidersRepository {
   async createDraftProfile(input: {
     userId: string;
     fullName: string;
-    driversLicenceNumber: string;
-    driversLicenceExpiry: Date;
+    driversLicenceNumber?: string | null;
+    driversLicenceExpiry?: Date | null;
   }) {
     if (this.profiles.has(input.userId)) {
       throw new AppError({
@@ -67,8 +67,8 @@ export class MemoryRidersRepository {
       vehicleRegistration: null,
       vehicleDescription: null,
       verificationNotes: null,
-      driversLicenceNumber: input.driversLicenceNumber,
-      driversLicenceExpiry: input.driversLicenceExpiry,
+      driversLicenceNumber: input.driversLicenceNumber ?? null,
+      driversLicenceExpiry: input.driversLicenceExpiry ?? null,
       submittedAt: null,
       createdAt: new Date(),
       updatedAt: new Date(),

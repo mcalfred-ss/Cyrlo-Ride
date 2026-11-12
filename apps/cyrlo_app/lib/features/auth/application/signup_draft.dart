@@ -105,12 +105,13 @@ class SignupDraft {
       passengerGender != null &&
       passengerLocation != null;
 
+  /// Personal details (same shape as passenger). IDs/uploads come next.
   bool get hasRiderProfile =>
       riderFirstName != null &&
       riderLastName != null &&
-      riderDriversLicenceNumber != null &&
-      riderDriversLicenceExpiry != null &&
-      riderGhanaCardNumber != null;
+      riderDateOfBirth != null &&
+      riderGender != null &&
+      riderLocation != null;
 
   bool get hasRiderDocuments =>
       vehicleCategory != null &&
@@ -236,8 +237,9 @@ class SignupDraft {
       onboardingDone: json['onboardingDone'] as bool? ?? false,
       welcomeDone: json['welcomeDone'] as bool? ?? false,
       phoneE164: json['phoneE164'] as String?,
-      // Always re-confirm before OTP after a cold restore.
-      phoneConfirmed: false,
+      // Keep confirm/OTP flags so a logged-in reopen goes home, not confirm-phone.
+      // Incomplete signups still persist phoneConfirmed=false until the user confirms.
+      phoneConfirmed: json['phoneConfirmed'] as bool? ?? false,
       otpVerified: json['otpVerified'] as bool? ?? false,
       role: role,
       passengerFirstName: json['passengerFirstName'] as String?,

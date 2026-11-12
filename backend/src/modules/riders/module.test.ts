@@ -322,13 +322,32 @@ describe('rider onboarding service', () => {
 });
 
 describe('onboarding schema', () => {
-  it('requires a Ghana Card shaped value', () => {
+  it('rejects a malformed Ghana Card when provided', () => {
+    expect(
+      startRiderOnboardingSchema.safeParse({
+        fullName: 'Test',
+        ghanaCardNumber: '12345',
+      }).success,
+    ).toBe(false);
+  });
+
+  it('accepts Ghana Card alone or licence alone', () => {
+    expect(
+      startRiderOnboardingSchema.safeParse({
+        fullName: 'Test',
+        ghanaCardNumber: ghanaCard,
+      }).success,
+    ).toBe(true);
     expect(
       startRiderOnboardingSchema.safeParse({
         fullName: 'Test',
         driversLicenceNumber: 'DL-12345',
         driversLicenceExpiry: '2030-01-01T00:00:00.000Z',
-        ghanaCardNumber: '12345',
+      }).success,
+    ).toBe(true);
+    expect(
+      startRiderOnboardingSchema.safeParse({
+        fullName: 'Test',
       }).success,
     ).toBe(false);
   });

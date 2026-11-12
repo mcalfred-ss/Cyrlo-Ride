@@ -39,15 +39,25 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
   @override
   void initState() {
     super.initState();
-    _codeController.addListener(() => setState(() {}));
+    _codeController.addListener(_onCodeChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) => _requestCode());
   }
 
   @override
   void dispose() {
     _timer?.cancel();
+    _codeController.removeListener(_onCodeChanged);
     _codeController.dispose();
     super.dispose();
+  }
+
+  void _onCodeChanged() {
+    if (!mounted) return;
+    setState(() {});
+    final code = _codeController.text.trim();
+    if (code.length == 6 && !_busy && !_verified && !_sending) {
+      unawaited(_verify());
+    }
   }
 
   String get _countdownLabel {
@@ -137,6 +147,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
       await ref.read(signupProvider.notifier).verifyOtp(code);
       if (!mounted) return;
       _timer?.cancel();
+      // Keep otpVerified false until the check animation plays.
       setState(() {
         _verified = true;
         _secondsLeft = 0;
@@ -144,7 +155,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
       });
       await Future<void>.delayed(const Duration(milliseconds: 1200));
       if (!mounted) return;
-      // Router reacts to otpVerified on signupProvider.
+      ref.read(signupProvider.notifier).markOtpVerified();
     } catch (error) {
       if (!mounted) return;
       setState(() => _error = _messageFor(error));

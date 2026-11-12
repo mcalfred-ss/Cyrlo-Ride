@@ -9,14 +9,34 @@ export function maxCapacityForCategory(category: z.infer<typeof vehicleCategoryS
 export const startRiderOnboardingSchema = z
   .object({
     fullName: z.string().trim().min(2).max(120),
-    driversLicenceNumber: z.string().trim().min(5).max(40),
-    driversLicenceExpiry: z.string().datetime(),
+    driversLicenceNumber: z.string().trim().min(5).max(40).optional(),
+    driversLicenceExpiry: z.string().datetime().optional(),
     ghanaCardNumber: z
       .string()
       .trim()
-      .regex(/^GHA-\d{9}-\d$/, 'Ghana Card must look like GHA-XXXXXXXXX-X'),
+      .regex(/^GHA-\d{9}-\d$/, 'Ghana Card must look like GHA-XXXXXXXXX-X')
+      .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasGhana = Boolean(value.ghanaCardNumber);
+    const hasLicenceNumber = Boolean(value.driversLicenceNumber);
+    const hasLicenceExpiry = Boolean(value.driversLicenceExpiry);
+    if (hasLicenceNumber !== hasLicenceExpiry) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Driver's licence number and expiry are both required",
+        path: hasLicenceNumber ? ['driversLicenceExpiry'] : ['driversLicenceNumber'],
+      });
+    }
+    if (!hasGhana && !(hasLicenceNumber && hasLicenceExpiry)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide either Ghana Card or driver's licence details",
+        path: ['ghanaCardNumber'],
+      });
+    }
+  });
 
 export const updateRiderOnboardingSchema = z
   .object({

@@ -13,6 +13,7 @@ class ChoiceCard extends StatelessWidget {
     this.illustrationAsset,
     this.onTap,
     this.enabled = true,
+    this.highlighted = false,
   });
 
   final String title;
@@ -21,9 +22,13 @@ class ChoiceCard extends StatelessWidget {
   final String? illustrationAsset;
   final VoidCallback? onTap;
   final bool enabled;
+  /// Soft emphasis for the recommended / pilot option.
+  final bool highlighted;
 
   @override
   Widget build(BuildContext context) {
+    final borderColor = highlighted ? AppColors.yellow : AppColors.border;
+    final fill = highlighted ? AppColors.brandLight : AppColors.field;
     return Opacity(
       opacity: enabled ? 1 : 0.55,
       child: Material(
@@ -33,9 +38,12 @@ class ChoiceCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           child: Ink(
             decoration: BoxDecoration(
-              color: AppColors.field,
+              color: fill,
               borderRadius: BorderRadius.circular(20),
-              border: Border.all(color: AppColors.border),
+              border: Border.all(
+                color: borderColor,
+                width: highlighted ? 1.6 : 1,
+              ),
             ),
             child: Padding(
               padding: const EdgeInsets.all(16),
@@ -84,15 +92,24 @@ class ChoiceCard extends StatelessWidget {
                         Text(
                           subtitle,
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                            fontWeight: enabled ? FontWeight.w600 : FontWeight.w800,
+                            color: highlighted
+                                ? AppColors.onBrandLight
+                                : AppColors.textSecondary,
+                            fontWeight: enabled || highlighted
+                                ? FontWeight.w700
+                                : FontWeight.w800,
                           ),
                         ),
                       ],
                     ),
                   ),
                   if (enabled)
-                    Icon(Icons.chevron_right_rounded, color: AppColors.textSecondary),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: highlighted
+                          ? AppColors.onBrandLight
+                          : AppColors.textSecondary,
+                    ),
                 ],
               ),
             ),

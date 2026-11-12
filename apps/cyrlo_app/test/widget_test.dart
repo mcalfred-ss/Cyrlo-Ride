@@ -11,18 +11,12 @@ Future<void> verifyOtpAndContinue(WidgetTester tester) async {
   // Post-frame OTP request is async — advance time so _sending clears.
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 100));
+  // Auto-verifies when the 6th digit is entered.
   await tester.enterText(find.byKey(const Key('otp-input')), '123456');
-  await tester.pump();
-  // Tap the real button child — CyrloButton's outer Semantics center can miss.
-  final verify = find.descendant(
-    of: find.byKey(const Key('verify-otp')),
-    matching: find.byType(FilledButton),
-  );
-  await tester.tap(verify);
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 50));
   expect(find.byKey(const Key('otp-success-check')), findsOneWidget);
-  // Finish success delay without pumpAndSettle (avoids leftover UI timers).
+  // Finish success delay (markOtpVerified) without pumpAndSettle.
   await tester.pump(const Duration(milliseconds: 1300));
   await tester.pump();
 }
