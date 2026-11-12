@@ -231,6 +231,15 @@ const envSchema = z
       }
     }
     if (value.NODE_ENV !== 'production') return;
+    // Fail closed: never allow OTP_DEV_EXPOSE_CODE in production (staging should use NODE_ENV=production).
+    if (value.OTP_DEV_EXPOSE_CODE) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['OTP_DEV_EXPOSE_CODE'],
+        message:
+          'OTP_DEV_EXPOSE_CODE must be false in production (development OTP echo is local/dev only)',
+      });
+    }
     for (const key of [
       'JWT_ACCESS_SECRET',
       'JWT_REFRESH_SECRET',

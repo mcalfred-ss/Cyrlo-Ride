@@ -23,7 +23,7 @@ import {
   verifyTotpCode,
 } from '../../common/security/totp.js';
 import type { StaffRole } from '../../common/types/staff-roles.js';
-import { env } from '../../config/env.js';
+import { canExposeDevelopmentOtp, env } from '../../config/env.js';
 import { enqueueInAppNotification } from '../../infrastructure/notifications/notify.js';
 import type { SmsProvider } from '../../infrastructure/sms/sms.provider.js';
 import type { AuditService } from '../audit/module.service.js';
@@ -413,7 +413,7 @@ export class AdminServiceImpl implements AdminService {
       expiresIn: env.OTP_TTL_SECONDS,
       resendAfter: env.OTP_RESEND_COOLDOWN_SECONDS,
     };
-    if (env.NODE_ENV !== 'production' && env.OTP_DEV_EXPOSE_CODE) {
+    if (canExposeDevelopmentOtp(env)) {
       result.developmentCode = code;
     }
     return result;

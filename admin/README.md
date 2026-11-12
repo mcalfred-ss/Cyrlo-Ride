@@ -1,18 +1,14 @@
 # Admin
 
-There is no separate admin SPA in this repository yet.
+The staff admin SPA lives at **`apps/cyrlo_admin`** (Phase 1A authentication shell).
 
-Admin behaviour belongs to modules inside the one Ride backend process. A future web UI should call `/api/v1` with staff JWTs (never Mapbox / Cyrlo Maps API keys).
+```bash
+cd apps/cyrlo_admin
+cp .env.example .env   # set VITE_API_BASE_URL
+npm install
+npm run dev
+```
 
-Implemented backend surfaces include rider review, suspensions, payments, audit, **nationwide geo hierarchy** (`/admin/geo`), and **service-zone lifecycle** (`/admin/service-zones`).
+Call `/api/v1` with MFA staff JWTs. Never put Mapbox / Cyrlo Maps API keys in the admin app.
 
-Dashboard screens still to build against the API contract:
-
-- Country → region → district → community browser (`GET /admin/geo/tree`)
-- Community editor + verification
-- Service-zone map preview (boundary GeoJSON) + verification queue
-- Activate / lock / suspend controls (backend-enforced)
-- Coverage overview + audit history
-- Hierarchy CSV/JSON import preview + confirm
-
-See `docs/architecture/NATIONWIDE_GEO_ADMIN_CONTRACT.md`.
+Backend surfaces (geo, zones, Phase 0 console APIs, etc.) remain in the Ride API. Dashboard business screens after auth ship in later phases.

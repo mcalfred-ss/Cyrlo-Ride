@@ -153,3 +153,21 @@ describe('production encryption key validation', () => {
     expect(env.NODE_ENV).toBe('development');
   });
 });
+
+describe('OTP_DEV_EXPOSE_CODE production fail-closed', () => {
+  it('rejects OTP_DEV_EXPOSE_CODE=true when NODE_ENV=production', () => {
+    expect(() => loadEnv(productionEnv({ OTP_DEV_EXPOSE_CODE: 'true' }))).toThrow(
+      /OTP_DEV_EXPOSE_CODE/,
+    );
+  });
+
+  it('allows OTP_DEV_EXPOSE_CODE=false in production', () => {
+    const env = loadEnv(productionEnv({ OTP_DEV_EXPOSE_CODE: 'false' }));
+    expect(env.OTP_DEV_EXPOSE_CODE).toBe(false);
+  });
+
+  it('allows OTP_DEV_EXPOSE_CODE=true only outside production', () => {
+    const env = loadEnv(baseEnv({ NODE_ENV: 'development', OTP_DEV_EXPOSE_CODE: 'true' }));
+    expect(env.OTP_DEV_EXPOSE_CODE).toBe(true);
+  });
+});
