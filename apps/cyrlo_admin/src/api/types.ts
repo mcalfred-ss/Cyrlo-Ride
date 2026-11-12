@@ -71,3 +71,68 @@ export interface AdminMe {
 export interface LogoutResult {
   revoked: boolean;
 }
+
+/** Count + pesewas amount for BOOKING_FEE payment buckets. */
+export interface FeeAmountBucket {
+  count: number;
+  amountPesewas: number;
+}
+
+export interface RefundStatusBucket {
+  count: number;
+  amountPesewas: number;
+}
+
+/**
+ * Exact `GET /admin/analytics` data payload (Phase 0 console).
+ * Snapshot ignores date filters; period uses inclusive UTC createdAt.
+ */
+export interface AdminAnalytics {
+  generatedAt: string;
+  dateRange: {
+    from: string | null;
+    to: string | null;
+    timezone: string;
+    boundInclusivity: string;
+    field: string;
+    interpretation: string;
+  };
+  snapshot: {
+    passengers: { total: number; active: number; suspended: number };
+    riders: {
+      registered: number;
+      availableApprox: number;
+      pendingApplications: number;
+    };
+  };
+  period: {
+    bookings: {
+      byStatus: Record<string, number>;
+      completedConnections: number;
+    };
+    connectionFees: {
+      unitPesewas: number;
+      currency: 'GHS';
+      collected: FeeAmountBucket;
+      pending: FeeAmountBucket;
+      failed: FeeAmountBucket;
+    };
+    refunds: {
+      byStatus: Record<string, RefundStatusBucket>;
+    };
+    tokens: {
+      purchases: { count: number; amountPesewas: number; currency: 'GHS' };
+      usage: { deductionCount: number; tokensDeducted: number };
+    };
+  };
+  exclusions: {
+    transportationFareRevenue: boolean;
+    note: string;
+    abandonedBookingFeePayments: string;
+  };
+}
+
+export interface AnalyticsQuery {
+  from?: string;
+  to?: string;
+}

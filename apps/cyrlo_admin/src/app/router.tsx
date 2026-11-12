@@ -9,6 +9,7 @@ import { LoginPage } from '../pages/LoginPage';
 import { MfaEnrollPage } from '../pages/MfaEnrollPage';
 import { MfaVerifyPage } from '../pages/MfaVerifyPage';
 import { OtpPage } from '../pages/OtpPage';
+import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { SessionExpiredPage } from '../pages/SessionExpiredPage';
 
@@ -28,15 +29,7 @@ export function AppRouter() {
         <Route element={<RequireMfaSession />}>
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
-            <Route
-              path="overview"
-              element={
-                <PlaceholderPage
-                  title="Overview"
-                  description="Analytics KPIs land in a later phase."
-                />
-              }
-            />
+            <Route path="overview" element={<OverviewPage />} />
             <Route
               path="riders"
               element={
