@@ -73,7 +73,7 @@ class _SelectRoleScreenState extends ConsumerState<SelectRoleScreen> {
           const ScreenHeader(
             title: 'Create your account',
             subtitle:
-                'You’re new here. Choose passenger or rider, then verify your number.',
+                'Choose passenger or rider. Next you’ll confirm your phone number.',
           ),
           const SizedBox(height: AppSpacing.lg),
           Expanded(

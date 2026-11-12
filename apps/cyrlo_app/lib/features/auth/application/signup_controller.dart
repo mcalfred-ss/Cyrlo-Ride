@@ -234,17 +234,44 @@ class SignupController extends Notifier<SignupDraft> {
     _set(
       state.copyWith(
         phoneE164: phone,
+        phoneConfirmed: false,
         otpVerified: false,
         accountReady: returning,
-        role: knownRole,
-        clearRole: knownRole == null,
+        // Keep a role already chosen on the confirm step; prefer DB role when known.
+        role: knownRole ?? state.role,
+        clearRole: knownRole == null && state.role == null,
       ),
     );
     return true;
   }
 
   void chooseRole(RideRole role) {
-    _set(state.copyWith(role: role, otpVerified: false, accountReady: false));
+    _set(
+      state.copyWith(
+        role: role,
+        phoneConfirmed: false,
+        otpVerified: false,
+        accountReady: false,
+      ),
+    );
+  }
+
+  /// Confirm the current number so OTP can be requested.
+  void confirmPhoneForOtp() {
+    if (state.phoneE164 == null) return;
+    _set(state.copyWith(phoneConfirmed: true, otpVerified: false));
+  }
+
+  /// Wrong number after role — keep role, clear phone, go enter another.
+  void changePhoneKeepRole() {
+    _set(
+      state.copyWith(
+        clearPhone: true,
+        phoneConfirmed: false,
+        otpVerified: false,
+        accountReady: false,
+      ),
+    );
   }
 
   /// Sends an SMS OTP through the live API.

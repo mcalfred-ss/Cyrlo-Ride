@@ -3,6 +3,7 @@ abstract final class AppRoutes {
   static const onboarding = '/onboarding';
   static const welcome = '/welcome';
   static const createAccount = '/create-account';
+  static const confirmPhone = '/confirm-phone';
   static const verifyOtp = '/verify';
   static const selectRole = '/role';
   static const passengerDetails = '/passenger/details';

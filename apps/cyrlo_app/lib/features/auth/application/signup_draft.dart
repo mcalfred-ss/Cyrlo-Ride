@@ -17,6 +17,7 @@ class SignupDraft {
     this.onboardingDone = false,
     this.welcomeDone = false,
     this.phoneE164,
+    this.phoneConfirmed = false,
     this.otpVerified = false,
     this.role,
     this.passengerFirstName,
@@ -58,6 +59,8 @@ class SignupDraft {
   final bool onboardingDone;
   final bool welcomeDone;
   final String? phoneE164;
+  /// User confirmed this number after role selection (before OTP is sent).
+  final bool phoneConfirmed;
   final bool otpVerified;
   final RideRole? role;
   /// Returning DB user — skip profile / approval gates and open role home.
@@ -139,6 +142,7 @@ class SignupDraft {
         'onboardingDone': onboardingDone,
         'welcomeDone': welcomeDone,
         'phoneE164': phoneE164,
+        'phoneConfirmed': phoneConfirmed,
         'otpVerified': otpVerified,
         'role': switch (role) {
           RideRole.passenger => 'PASSENGER',
@@ -232,6 +236,8 @@ class SignupDraft {
       onboardingDone: json['onboardingDone'] as bool? ?? false,
       welcomeDone: json['welcomeDone'] as bool? ?? false,
       phoneE164: json['phoneE164'] as String?,
+      // Always re-confirm before OTP after a cold restore.
+      phoneConfirmed: false,
       otpVerified: json['otpVerified'] as bool? ?? false,
       role: role,
       passengerFirstName: json['passengerFirstName'] as String?,
@@ -303,6 +309,7 @@ class SignupDraft {
       onboardingDone: true,
       welcomeDone: true,
       phoneE164: phoneE164,
+      phoneConfirmed: true,
       otpVerified: true,
       role: role,
       accountReady: true,
@@ -320,6 +327,7 @@ class SignupDraft {
     bool? onboardingDone,
     bool? welcomeDone,
     String? phoneE164,
+    bool? phoneConfirmed,
     bool? otpVerified,
     RideRole? role,
     bool? accountReady,
@@ -355,6 +363,7 @@ class SignupDraft {
     bool? applicationSubmitted,
     bool? riderApproved,
     String? riderRejectionReason,
+    bool clearPhone = false,
     bool clearRole = false,
     bool clearDriverKind = false,
     bool clearRiderProfile = false,
@@ -364,7 +373,8 @@ class SignupDraft {
       splashDone: splashDone ?? this.splashDone,
       onboardingDone: onboardingDone ?? this.onboardingDone,
       welcomeDone: welcomeDone ?? this.welcomeDone,
-      phoneE164: phoneE164 ?? this.phoneE164,
+      phoneE164: clearPhone ? null : (phoneE164 ?? this.phoneE164),
+      phoneConfirmed: phoneConfirmed ?? this.phoneConfirmed,
       otpVerified: otpVerified ?? this.otpVerified,
       role: clearRole ? null : (role ?? this.role),
       accountReady: accountReady ?? this.accountReady,

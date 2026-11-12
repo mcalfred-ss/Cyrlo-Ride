@@ -136,7 +136,12 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     try {
       await ref.read(signupProvider.notifier).verifyOtp(code);
       if (!mounted) return;
-      setState(() => _verified = true);
+      _timer?.cancel();
+      setState(() {
+        _verified = true;
+        _secondsLeft = 0;
+        _waitKind = _OtpWaitKind.none;
+      });
       await Future<void>.delayed(const Duration(milliseconds: 1200));
       if (!mounted) return;
       // Router reacts to otpVerified on signupProvider.
@@ -195,6 +200,13 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
     };
 
     return FlowScaffold(
+      footer: _verified
+          ? null
+          : CyrloButton(
+              key: const Key('verify-otp'),
+              label: _busy ? 'Verifying…' : 'Verify',
+              onPressed: _busy || _sending ? null : _verify,
+            ),
       child: AnimatedSwitcher(
         duration: AppMotion.normal,
         switchInCurve: AppMotion.standard,
@@ -222,7 +234,7 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                               final notifier =
                                   ref.read(signupProvider.notifier);
                               // Returning users skip role — go edit phone.
-                              // New users go back to role picker.
+                              // New users go back to confirm/role.
                               if (returning) {
                                 notifier.editPhone();
                               } else {
@@ -286,12 +298,6 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
                         ),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
-                  CyrloButton(
-                    key: const Key('verify-otp'),
-                    label: _busy ? 'Verifying…' : 'Verify',
-                    onPressed: _busy || _sending ? null : _verify,
                   ),
                 ],
               ),

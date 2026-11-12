@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../features/auth/application/auth_session.dart';
 import '../../features/auth/application/signup_controller.dart';
 import '../../features/auth/application/signup_draft.dart';
+import '../../features/auth/presentation/confirm_phone_screen.dart';
 import '../../features/auth/presentation/create_account_screen.dart';
 import '../../features/auth/presentation/onboarding_screen.dart';
 import '../../features/auth/presentation/select_role_screen.dart';
@@ -70,8 +71,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       fadeFlowRoute(AppRoutes.onboarding, const OnboardingScreen()),
       flowRoute(AppRoutes.welcome, const WelcomeScreen()),
       flowRoute(AppRoutes.createAccount, const CreateAccountScreen()),
-      flowRoute(AppRoutes.verifyOtp, const VerifyOtpScreen()),
       flowRoute(AppRoutes.selectRole, const SelectRoleScreen()),
+      flowRoute(AppRoutes.confirmPhone, const ConfirmPhoneScreen()),
+      flowRoute(AppRoutes.verifyOtp, const VerifyOtpScreen()),
       flowRoute(AppRoutes.passengerDetails, const PassengerDetailsScreen()),
       flowRoute(AppRoutes.driverType, const DriverTypeScreen()),
       flowRoute(AppRoutes.riderDetails, const RiderDetailsScreen()),
@@ -223,6 +225,7 @@ String? _requiredLocation(SignupDraft draft) {
   if (!draft.welcomeDone) return AppRoutes.welcome;
   if (draft.phoneE164 == null) return AppRoutes.createAccount;
   if (draft.role == null) return AppRoutes.selectRole;
+  if (!draft.phoneConfirmed) return AppRoutes.confirmPhone;
   if (!draft.otpVerified) return AppRoutes.verifyOtp;
   if (draft.role == RideRole.passenger) {
     // Returning logins must still complete/hydrate profile before home.
