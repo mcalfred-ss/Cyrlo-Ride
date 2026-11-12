@@ -106,7 +106,8 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   @override
   Widget build(BuildContext context) {
     final pins = ref.watch(tripPinProvider);
-    final nearbyRiders = ref.watch(nearbyRidersProvider).items;
+    final nearbyState = ref.watch(nearbyRidersProvider);
+    final nearbyRiders = nearbyState.items;
     final mapPoses = ref.watch(nearbyRidersMapMotionProvider);
     final movingRiders = ridersWithMapPoses(nearbyRiders, mapPoses);
     final selectedRider = ref.watch(selectedNearbyRiderProvider);
@@ -119,6 +120,11 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     final sharedPickup = pins.pickup ?? activeRequest?.pickupPoint;
     final availableCount =
         nearbyRiders.where((rider) => rider.canRequest).length;
+    final nearbyStatus = nearbyState.isLoading
+        ? 'Checking nearby riders…'
+        : nearbyState.errorMessage ??
+            nearbyState.message ??
+            '$availableCount nearby on the map';
 
     ref.listen(selectedNearbyRiderProvider, (previous, next) {
       if (next != null) _focusNearbyRider(next);
@@ -260,7 +266,8 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                           Text(
                             shareContact
                                 ? '${activeRequest!.etaLabel}. Your exact location is shared — tap to adjust pickup.'
-                                : '$availableCount nearby on the map',
+                                : nearbyStatus,
+                            key: const Key('nearby-riders-status'),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: AppColors.textSecondary,
                               height: 1.35,

@@ -7,6 +7,7 @@ export const RealtimeEvent = {
   BookingRejected: 'booking.rejected',
   BookingCancelled: 'booking.cancelled',
   BookingCompleted: 'booking.completed',
+  MatchingOfferCreated: 'matching.offer.created',
   RiderLocationUpdated: 'rider.location.updated',
   RiderAvailabilityUpdated: 'rider.availability.updated',
 } as const;
@@ -17,7 +18,7 @@ export interface BookingRequestedPayload {
   bookingId: string;
   passengerId: string;
   pickup: Coordinates;
-  destination: Coordinates;
+  destination?: Coordinates | null;
   bookingFeePesewas: number;
   requestedAt: string;
 }
@@ -25,7 +26,19 @@ export interface BookingRequestedPayload {
 export interface BookingAcceptedPayload {
   bookingId: string;
   riderId: string;
+  passengerId: string;
   acceptedAt: string;
+}
+
+/** Delivered to the offered rider's user room (not broadcast). */
+export interface MatchingOfferCreatedPayload {
+  riderId: string;
+  offerId: string;
+  bookingId: string;
+  expiresAt: string;
+  vehicleCategory: string;
+  pickup: Coordinates;
+  pickupLabel?: string;
 }
 
 export interface BookingStartedPayload {

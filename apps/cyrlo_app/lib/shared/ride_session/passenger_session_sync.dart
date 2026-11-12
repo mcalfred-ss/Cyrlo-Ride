@@ -11,6 +11,7 @@ import '../../passenger_app/home/application/nearby_riders_provider.dart';
 import '../../passenger_app/home/application/passenger_notifications_provider.dart';
 import '../../passenger_app/map/application/trip_pin_controller.dart';
 import '../../passenger_app/rides/application/passenger_rides_provider.dart';
+import '../../rider_app/availability/application/rider_availability_provider.dart';
 import '../providers/core_providers.dart';
 import 'active_ride_request.dart';
 import 'active_ride_request_controller.dart';
@@ -159,6 +160,7 @@ void _applyBooking(Ref ref, ActiveRideRequest active, Booking booking) {
 
 /// Opens the authenticated socket and refreshes the inbox the moment the
 /// server stores a notification (booking accepted, cancelled, refunds, ...).
+/// Also refreshes rider offers / passenger booking sync on matching events.
 final realtimeLifecycleProvider = Provider<void>((ref) {
   final client = ref.watch(realtimeClientProvider);
 
@@ -173,6 +175,19 @@ final realtimeLifecycleProvider = Provider<void>((ref) {
         RealtimeEvents.notificationCreated: (_) => unawaited(
               ref.read(passengerNotificationsProvider.notifier).refresh(),
             ),
+        RealtimeEvents.matchingOfferCreated: (_) {
+          if (ref.read(authSessionProvider)?.user.role != RideRole.rider) {
+            return;
+          }
+          if (!ref.read(riderOnlineProvider)) return;
+          unawaited(ref.read(riderJobOffersProvider.notifier).refresh());
+        },
+        RealtimeEvents.bookingAccepted: (_) {
+          unawaited(ref.read(passengerNotificationsProvider.notifier).refresh());
+          if (ref.read(authSessionProvider)?.user.role == RideRole.rider) {
+            unawaited(ref.read(riderJobOffersProvider.notifier).refresh());
+          }
+        },
       },
     );
   }

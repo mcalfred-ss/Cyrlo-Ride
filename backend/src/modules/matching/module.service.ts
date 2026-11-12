@@ -1,9 +1,22 @@
-import { MATCHING_BATCH_SIZE } from '../../config/constants.js';
+import {
+  MATCHING_BATCH_SIZE,
+  MATCHING_RADIUS_METERS,
+  RIDER_LOCATION_MAX_AGE_MS,
+} from '../../config/constants.js';
 import { AppError } from '../../common/errors/app-error.js';
 import { enqueueInAppNotification } from '../../infrastructure/notifications/notify.js';
-import { publishRiderAvailabilityUpdated } from '../../infrastructure/realtime/publisher.js';
+import {
+  publishBookingAccepted,
+  publishMatchingOfferCreated,
+  publishRiderAvailabilityUpdated,
+} from '../../infrastructure/realtime/publisher.js';
 import type { AuditService } from '../audit/module.service.js';
 import type { BookingsService } from '../bookings/module.service.js';
+import {
+  approximateCoordinate,
+  etaMinutesFromDistance,
+  publicRiderDisplayName,
+} from './approximate-location.js';
 import { evaluateMatchingEligibility } from './matching-eligibility.js';
 import {
   defaultCandidateOrderingStrategy,
@@ -11,6 +24,7 @@ import {
   type MatchingCandidate,
 } from './candidate-ordering.js';
 import { offerExpiresAt, requireOfferResponseTimeoutSeconds } from './offer-timeout.js';
+import type { NearbyDiscoveryBody } from './module.schema.js';
 import type { MatchingRepository } from './module.repository.js';
 import type { PrismaClient } from '@prisma/client';
 
@@ -25,6 +39,7 @@ export interface MatchingServiceDeps {
 }
 
 export interface MatchingService {
+  discoverNearby(input: NearbyDiscoveryBody): Promise<unknown>;
   dispatchForBooking(bookingId: string): Promise<{ offered: number; batchSequence: number }>;
   dispatchOpenBookings(): Promise<{ bookings: number; offers: number }>;
   expireOffersAndSearches(): Promise<{ timedOutOffers: number; expiredBookings: number }>;
@@ -59,6 +74,119 @@ export class MatchingServiceImpl implements MatchingService {
       return this.deps.offerTimeoutSeconds;
     }
     return requireOfferResponseTimeoutSeconds();
+  }
+
+  /**
+   * Read-only nearby supply for the passenger map.
+   * Reuses loadMatchingCandidates + evaluateMatchingEligibility — no second matcher.
+   * Returns approximate coordinates only (never exact GPS or phone).
+   */
+  async discoverNearby(input: NearbyDiscoveryBody) {
+    const now = this.now();
+    const pickup = {
+      latitude: input.pickup.latitude,
+      longitude: input.pickup.longitude,
+    };
+    const limit = input.limit ?? 20;
+    const zone = await this.repository.findActiveZoneCoveringPickup(
+      pickup.latitude,
+      pickup.longitude,
+    );
+    if (!zone) {
+      return {
+        inServiceArea: false,
+        serviceZoneId: null,
+        radiusMeters: MATCHING_RADIUS_METERS,
+        freshnessWindowSeconds: Math.floor(RIDER_LOCATION_MAX_AGE_MS / 1000),
+        riders: [] as const,
+      };
+    }
+
+    const raw = await this.repository.loadMatchingCandidates({
+      pickupZoneId: zone.id,
+      vehicleCategory: input.vehicleCategory,
+      excludeRiderIds: new Set(),
+    });
+
+    const seen = new Set<string>();
+    const eligible: Array<{
+      riderId: string;
+      distanceMeters: number;
+      fullName: string;
+      vehicleCategory: string;
+      latitude: number;
+      longitude: number;
+    }> = [];
+
+    for (const rider of raw) {
+      if (!rider.location || seen.has(rider.userId)) continue;
+      const result = evaluateMatchingEligibility(
+        {
+          userStatus: rider.user.status,
+          riderVerificationStatus: rider.verificationStatus,
+          hasApprovedVehicle: rider.vehicles.length > 0,
+          hasApprovedVehicleForCategory: rider.vehicles.length > 0,
+          hasApprovedActiveZone: true,
+          hasApprovedActiveZoneForPickup: true,
+          availability: rider.availability,
+          onActiveTrip: rider.bookings.length > 0,
+          tokenBalance: rider.wallet?.tokenBalance ?? 0,
+          previouslyExcludedFromBooking: false,
+          location: {
+            sharingEnabled: rider.location.sharingEnabled,
+            recordedAt: rider.location.recordedAt,
+            receivedAt: rider.location.receivedAt,
+            latitude: Number(rider.location.latitude),
+            longitude: Number(rider.location.longitude),
+          },
+          pickup,
+        },
+        now,
+      );
+      if (!result.eligible || result.distanceMeters == null) continue;
+      seen.add(rider.userId);
+      eligible.push({
+        riderId: rider.userId,
+        distanceMeters: result.distanceMeters,
+        fullName: rider.fullName,
+        vehicleCategory: input.vehicleCategory,
+        latitude: Number(rider.location.latitude),
+        longitude: Number(rider.location.longitude),
+      });
+    }
+
+    const ordered = this.ordering.order(
+      eligible.map((row) => ({
+        riderId: row.riderId,
+        distanceMeters: row.distanceMeters,
+      })),
+    );
+    const byId = new Map(eligible.map((row) => [row.riderId, row]));
+    const riders = ordered.slice(0, limit).flatMap((candidate) => {
+      const row = byId.get(candidate.riderId);
+      if (!row) return [];
+      const approx = approximateCoordinate(row.latitude, row.longitude);
+      return [
+        {
+          id: row.riderId,
+          displayName: publicRiderDisplayName(row.fullName, row.vehicleCategory),
+          vehicleCategory: row.vehicleCategory,
+          etaMinutes: etaMinutesFromDistance(row.distanceMeters),
+          approximate: approx,
+          // Coarse band only — not exact meters.
+          distanceBandMeters: Math.round(row.distanceMeters / 100) * 100,
+          available: true,
+        },
+      ];
+    });
+
+    return {
+      inServiceArea: true,
+      serviceZoneId: zone.id,
+      radiusMeters: MATCHING_RADIUS_METERS,
+      freshnessWindowSeconds: Math.floor(RIDER_LOCATION_MAX_AGE_MS / 1000),
+      riders,
+    };
   }
 
   async dispatchForBooking(bookingId: string) {
@@ -173,6 +301,18 @@ export class MatchingServiceImpl implements MatchingService {
         title: 'New ride offer',
         body: 'A passenger nearby needs a ride. Respond before the offer expires.',
         data: { bookingId, offerId: offer.id, status: 'PENDING' },
+      });
+      publishMatchingOfferCreated({
+        riderId: offer.riderId,
+        offerId: offer.id,
+        bookingId,
+        expiresAt: expiresAt.toISOString(),
+        vehicleCategory: booking.vehicleCategory,
+        pickup: {
+          latitude: pickup.latitude,
+          longitude: pickup.longitude,
+        },
+        pickupLabel: booking.pickupLabel ?? undefined,
       });
     }
 
@@ -395,6 +535,12 @@ export class MatchingServiceImpl implements MatchingService {
       title: 'Rider assigned',
       body: 'A rider accepted your request. Pay the GH₵1 Cyrlo connection fee, then agree destination and transport fare with your rider.',
       data: { bookingId: booking.id, status: 'ACCEPTED' },
+    });
+    publishBookingAccepted({
+      bookingId: booking.id,
+      riderId,
+      passengerId: booking.passengerId,
+      acceptedAt: now.toISOString(),
     });
     publishRiderAvailabilityUpdated({
       riderId,

@@ -71,10 +71,13 @@ class PassengerHomeScreen extends ConsumerWidget {
                       const SizedBox(height: 6),
                       Text(
                         ridersState.isLoading
-                            ? 'Finding Pragya nearby…'
-                            : riders.isEmpty
-                            ? 'No Pragya riders nearby yet'
-                            : 'Tap a Pragya to request',
+                            ? 'Finding riders nearby…'
+                            : ridersState.message ??
+                                (availableCount > 0
+                                    ? '$availableCount rider${availableCount == 1 ? '' : 's'} nearby'
+                                    : riders.isEmpty
+                                        ? 'Set your pickup on the map, then find a rider'
+                                        : 'Tap a rider to request'),
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,

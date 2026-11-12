@@ -4,13 +4,15 @@ import {
   RealtimeEvent,
   bookingRoom,
   userRoom,
+  type BookingAcceptedPayload,
+  type MatchingOfferCreatedPayload,
   type RiderAvailabilityUpdatedPayload,
   type RiderLocationUpdatedPayload,
 } from './events.js';
 
 /**
  * Optional Socket.IO publisher. Persistence never depends on this.
- * Coordinates are emitted only to the rider's user room or an assigned booking room.
+ * Exact rider coordinates are never broadcast to passengers before assignment.
  */
 let io: Server | null = null;
 
@@ -34,6 +36,37 @@ export function publishRiderLocationUpdated(
   if (options?.bookingId) {
     io.to(bookingRoom(options.bookingId)).emit(RealtimeEvent.RiderLocationUpdated, payload);
   }
+}
+
+export function publishMatchingOfferCreated(payload: MatchingOfferCreatedPayload): void {
+  if (!io) return;
+  io.to(userRoom(payload.riderId)).emit(RealtimeEvent.MatchingOfferCreated, {
+    offerId: payload.offerId,
+    bookingId: payload.bookingId,
+    expiresAt: payload.expiresAt,
+    vehicleCategory: payload.vehicleCategory,
+    pickup: payload.pickup,
+    pickupLabel: payload.pickupLabel,
+  });
+}
+
+export function publishBookingAccepted(payload: BookingAcceptedPayload): void {
+  if (!io) return;
+  io.to(userRoom(payload.passengerId)).emit(RealtimeEvent.BookingAccepted, {
+    bookingId: payload.bookingId,
+    riderId: payload.riderId,
+    acceptedAt: payload.acceptedAt,
+  });
+  io.to(userRoom(payload.riderId)).emit(RealtimeEvent.BookingAccepted, {
+    bookingId: payload.bookingId,
+    riderId: payload.riderId,
+    acceptedAt: payload.acceptedAt,
+  });
+  io.to(bookingRoom(payload.bookingId)).emit(RealtimeEvent.BookingAccepted, {
+    bookingId: payload.bookingId,
+    riderId: payload.riderId,
+    acceptedAt: payload.acceptedAt,
+  });
 }
 
 export function publishNotificationCreated(payload: {
