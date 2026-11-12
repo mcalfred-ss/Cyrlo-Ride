@@ -180,7 +180,7 @@ The server stores the point and, if this rider is assigned, emits `rider.locatio
 
 Bearer, role `RIDER`. Empty body. Sets `sharingEnabled` false. Proposed `data`: `{ "sharingEnabled": false }`.
 
-There is no "list nearby riders" HTTP route. Passengers learn about a rider through booking events after accept, not by polling every GPS row.
+Passengers discover nearby supply via `POST /matching/nearby` (approximate coords only) and a count-only `GET /matching/supply` probe. Exact rider GPS is not exposed on those reads.
 
 ### `GET /matching/supply`
 
