@@ -272,6 +272,62 @@ export class MemoryRidersRepository {
     return user;
   }
 
+  /** Serializes concurrent approveApplicationAtomic calls per rider (test stand-in for FOR UPDATE). */
+  private approvalLocks = new Map<string, Promise<void>>();
+
+  async approveApplicationAtomic(input: {
+    riderId: string;
+    actorId: string;
+    reason?: string | null;
+  }): Promise<void> {
+    const previous = this.approvalLocks.get(input.riderId) ?? Promise.resolve();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.approvalLocks.set(
+      input.riderId,
+      previous.then(() => gate),
+    );
+    await previous;
+    try {
+      const profile = this.profiles.get(input.riderId);
+      if (!profile || profile.verificationStatus !== 'PENDING_REVIEW') {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'Application is not pending review',
+        });
+      }
+      if (profile.vehicles.some((vehicle) => vehicle.verificationStatus === 'PENDING_REVIEW')) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'All vehicles must be individually reviewed before application approval',
+        });
+      }
+      if (!profile.vehicles.some((vehicle) => vehicle.verificationStatus === 'APPROVED')) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'At least one vehicle must be approved before application approval',
+        });
+      }
+      profile.verificationStatus = 'APPROVED';
+      profile.verificationNotes = null;
+      await this.setUserRole(input.riderId, 'RIDER');
+      await this.ensureWallet(input.riderId);
+      await this.addReviewDecision({
+        riderId: input.riderId,
+        actorId: input.actorId,
+        decision: 'APPROVED',
+        reason: input.reason ?? null,
+      });
+    } finally {
+      release();
+    }
+  }
+
   walletBalances = new Map<string, number>();
 
   async ensureWallet(riderId: string) {

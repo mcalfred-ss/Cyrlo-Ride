@@ -13,9 +13,16 @@ import {
 import { setUnauthorizedHandler } from '../api/client';
 import type { AdminRiderListResponse, AdminRiderProfile } from '../api/types';
 import { clearMemorySession, setMemorySession } from '../auth/session-store';
+import type { StaffRole } from '../config/permissions';
 import { privilegedAccessToken } from '../test/jwt';
 import { RiderProfilePage } from './RiderProfilePage';
 import { RidersPage } from './RidersPage';
+
+vi.mock('../auth/AuthProvider', () => ({
+  useAuth: () => mockAuth,
+}));
+
+let mockAuth: { staffRole: StaffRole | null };
 
 function jsonOk(data: unknown) {
   return Promise.resolve(
@@ -112,6 +119,7 @@ describe('RiderProfilePage', () => {
     clearMemorySession();
     setUnauthorizedHandler(null);
     vi.restoreAllMocks();
+    mockAuth = { staffRole: 'SUPER_ADMIN' };
     vi.stubEnv('VITE_API_BASE_URL', 'http://localhost:3000/api/v1');
     setMemorySession({
       accessToken: privilegedAccessToken({ staffRole: 'SUPER_ADMIN' }),
@@ -273,4 +281,83 @@ describe('RiderProfilePage', () => {
     expect(screen.getByTestId('riders-filter-verification')).toHaveValue('PENDING_REVIEW');
     expect(screen.getByTestId('riders-search')).toHaveValue('Kofi');
   });
+
+  it('hides account actions for Support and Finance', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => jsonOk(sampleProfile)));
+    mockAuth = { staffRole: 'SUPPORT_ADMIN' };
+    const { unmount } = renderProfile();
+    await screen.findByTestId('rider-profile');
+    expect(screen.queryByTestId('rider-account-actions')).not.toBeInTheDocument();
+    unmount();
+
+    mockAuth = { staffRole: 'FINANCE_ADMIN' };
+    renderProfile();
+    await screen.findByTestId('rider-profile');
+    expect(screen.queryByTestId('rider-account-actions')).not.toBeInTheDocument();
+  });
+
+  it(
+    'suspends an active rider with confirmation and refreshes status',
+    async () => {
+      const user = userEvent.setup({ delay: null });
+      let profile: AdminRiderProfile = { ...sampleProfile };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (url.endsWith('/admin/users/suspend') && init?.method === 'POST') {
+            profile = { ...profile, status: 'SUSPENDED' };
+            return jsonOk({
+              userId: riderId,
+              status: 'SUSPENDED',
+              activeTripsPreserved: 1,
+              sessionsRevoked: 2,
+            });
+          }
+          return jsonOk(profile);
+        }),
+      );
+      renderProfile();
+      await screen.findByTestId('rider-suspend');
+      await user.click(screen.getByTestId('rider-suspend'));
+      expect(screen.getByTestId('account-confirm')).toHaveTextContent(/forced offline/i);
+      await user.clear(screen.getByTestId('account-confirm-reason'));
+      await user.type(screen.getByTestId('account-confirm-reason'), 'Safety review');
+      await user.click(screen.getByTestId('account-confirm-confirm'));
+      expect(await screen.findByTestId('rider-account-flash')).toHaveTextContent(/preserved/i);
+      expect(await screen.findByTestId('rider-reinstate')).toBeInTheDocument();
+      expect(screen.queryByTestId('rider-suspend')).not.toBeInTheDocument();
+    },
+    15000,
+  );
+
+  it(
+    'reinstates a suspended rider without claiming they go online',
+    async () => {
+      const user = userEvent.setup({ delay: null });
+      let profile: AdminRiderProfile = { ...sampleProfile, status: 'SUSPENDED' };
+      vi.stubGlobal(
+        'fetch',
+        vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = String(input);
+          if (url.endsWith('/admin/users/reinstate') && init?.method === 'POST') {
+            profile = { ...profile, status: 'ACTIVE' };
+            return jsonOk({ userId: riderId, status: 'ACTIVE' });
+          }
+          return jsonOk(profile);
+        }),
+      );
+      renderProfile();
+      await screen.findByTestId('rider-reinstate');
+      await user.click(screen.getByTestId('rider-reinstate'));
+      expect(screen.getByTestId('account-confirm')).toHaveTextContent(/goes online again/i);
+      await user.type(screen.getByTestId('account-confirm-reason'), 'Cleared');
+      await user.click(screen.getByTestId('account-confirm-confirm'));
+      expect(await screen.findByTestId('rider-account-flash')).toHaveTextContent(
+        /remains offline until they go online/i,
+      );
+      expect(await screen.findByTestId('rider-suspend')).toBeInTheDocument();
+    },
+    15000,
+  );
 });

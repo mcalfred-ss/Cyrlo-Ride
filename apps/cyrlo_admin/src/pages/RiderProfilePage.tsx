@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { fetchAdminRider } from '../api/admin-riders';
+import { reinstateUser, suspendUser } from '../api/admin-users';
 import { ApiError, type AdminRiderProfile } from '../api/types';
+import { useAuth } from '../auth/AuthProvider';
 import { Button, ErrorBanner, Muted, Panel } from '../components/ui';
+import { Permission, staffRoleHasPermission } from '../config/permissions';
+import { ConfirmReasonPanel } from '../features/applications/ConfirmReasonPanel';
 import {
   AccountStatusBadge,
   AvailabilityBadge,
@@ -37,10 +41,19 @@ export function RiderProfilePage() {
   const { riderId = '' } = useParams<{ riderId: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const auth = useAuth();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [accountAction, setAccountAction] = useState<'suspend' | 'reinstate' | null>(null);
+  const [accountReason, setAccountReason] = useState('');
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountBusy, setAccountBusy] = useState(false);
+  const [accountFlash, setAccountFlash] = useState<string | null>(null);
   const requestId = useRef(0);
 
   const directoryHref = `/riders${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+  const canSuspendReinstate =
+    auth.staffRole != null &&
+    staffRoleHasPermission(auth.staffRole, Permission.SuspendReinstateRiders);
 
   const load = useCallback(async () => {
     if (!riderId) {
@@ -79,7 +92,41 @@ export function RiderProfilePage() {
     void load();
   }, [load]);
 
-  const busy = state.status === 'loading';
+  const submitAccountAction = async () => {
+    if (!accountAction || !riderId || accountBusy) return;
+    setAccountBusy(true);
+    setAccountError(null);
+    try {
+      if (accountAction === 'suspend') {
+        const result = await suspendUser({ userId: riderId, reason: accountReason.trim() });
+        setAccountFlash(
+          `Account suspended. ${result.activeTripsPreserved} active trip(s) preserved; ${result.sessionsRevoked} session(s) revoked. Token balance is unchanged.`,
+        );
+      } else {
+        await reinstateUser({ userId: riderId, reason: accountReason.trim() });
+        setAccountFlash(
+          'Account reinstated to ACTIVE. The rider remains offline until they go online themselves.',
+        );
+      }
+      setAccountAction(null);
+      setAccountReason('');
+      await load();
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.status === 401) {
+          navigate('/session-expired', { replace: true });
+          return;
+        }
+        setAccountError(err.message);
+        return;
+      }
+      setAccountError(err instanceof Error ? err.message : 'Account action failed');
+    } finally {
+      setAccountBusy(false);
+    }
+  };
+
+  const busy = state.status === 'loading' || accountBusy;
 
   return (
     <div className="space-y-4">
@@ -98,7 +145,7 @@ export function RiderProfilePage() {
               ? state.data.profile.fullName || state.data.displayName || 'Rider profile'
               : 'Rider profile'}
           </h2>
-          <Muted>Operational read-only view. Exact GPS coordinates are never shown here.</Muted>
+          <Muted>Operational view. Exact GPS coordinates are never shown here.</Muted>
         </div>
         <Button
           type="button"
@@ -109,6 +156,15 @@ export function RiderProfilePage() {
           Back to directory
         </Button>
       </div>
+
+      {accountFlash ? (
+        <p
+          className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-900"
+          data-testid="rider-account-flash"
+        >
+          {accountFlash}
+        </p>
+      ) : null}
 
       {state.status === 'loading' ? (
         <p className="text-sm text-[var(--color-muted)]" data-testid="rider-profile-loading">
@@ -283,6 +339,79 @@ export function RiderProfilePage() {
               <Field label="Note">{state.data.tokens.note}</Field>
             </dl>
           </Panel>
+
+          {canSuspendReinstate ? (
+            <Panel
+              title="Account actions"
+              description="Suspension forces the rider offline and revokes refresh sessions. Existing trips are preserved — suspension does not cancel active trips. Token balance is not removed."
+            >
+              <div className="flex flex-wrap gap-2" data-testid="rider-account-actions">
+                {state.data.status !== 'SUSPENDED' && state.data.status !== 'DELETED' ? (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    disabled={busy}
+                    onClick={() => {
+                      setAccountFlash(null);
+                      setAccountAction('suspend');
+                      setAccountReason('');
+                      setAccountError(null);
+                    }}
+                    data-testid="rider-suspend"
+                  >
+                    Suspend account
+                  </Button>
+                ) : null}
+                {state.data.status === 'SUSPENDED' ? (
+                  <Button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => {
+                      setAccountFlash(null);
+                      setAccountAction('reinstate');
+                      setAccountReason('');
+                      setAccountError(null);
+                    }}
+                    data-testid="rider-reinstate"
+                  >
+                    Reinstate account
+                  </Button>
+                ) : null}
+              </div>
+              {accountAction ? (
+                <div className="mt-3">
+                  <ConfirmReasonPanel
+                    testId="account-confirm"
+                    title={
+                      accountAction === 'suspend'
+                        ? 'Confirm suspension'
+                        : 'Confirm reinstatement'
+                    }
+                    description={
+                      accountAction === 'suspend'
+                        ? 'The account will become SUSPENDED. Active trips stay intact; the rider is forced offline and sessions are revoked.'
+                        : 'The account returns to ACTIVE. Availability stays offline until the rider goes online again.'
+                    }
+                    confirmLabel={accountAction === 'suspend' ? 'Suspend' : 'Reinstate'}
+                    reasonRequired
+                    reasonMinLength={2}
+                    reasonMaxLength={200}
+                    reason={accountReason}
+                    onReasonChange={setAccountReason}
+                    busy={accountBusy}
+                    error={accountError}
+                    danger={accountAction === 'suspend'}
+                    onCancel={() => {
+                      setAccountAction(null);
+                      setAccountReason('');
+                      setAccountError(null);
+                    }}
+                    onConfirm={() => void submitAccountAction()}
+                  />
+                </div>
+              ) : null}
+            </Panel>
+          ) : null}
         </div>
       ) : null}
     </div>

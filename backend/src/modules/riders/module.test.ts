@@ -237,6 +237,13 @@ describe('rider onboarding service', () => {
     expect(await service.verificationEligibility(userId)).toBe(false);
 
     await service.submitApplication(userId);
+    await expect(
+      service.reviewApplication(opsId, userId, { decision: 'APPROVED' }),
+    ).rejects.toMatchObject({
+      status: 409,
+      message: /individually reviewed/,
+    });
+    await service.reviewVehicle(opsId, vehicle.id, { decision: 'APPROVED' });
     await service.reviewApplication(opsId, userId, { decision: 'APPROVED' });
     expect(repo.users.get(userId)?.role).toBe('RIDER');
     expect(repo.wallets.has(userId)).toBe(true);

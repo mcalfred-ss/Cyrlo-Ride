@@ -380,6 +380,118 @@ export class RidersRepository {
     });
   }
 
+  /**
+   * Atomically approve a pending application after explicit vehicle reviews.
+   * Locks profile + vehicles (FOR UPDATE), refuses if any vehicle is still
+   * PENDING_REVIEW, requires ≥1 APPROVED vehicle, does not mutate vehicle rows.
+   */
+  async approveApplicationAtomic(input: {
+    riderId: string;
+    actorId: string;
+    reason?: string | null;
+  }): Promise<void> {
+    const bonus = RIDER_SIGNUP_TOKEN_BONUS;
+    const signupKey = IdempotencyKey.riderSignupBonus(input.riderId);
+
+    await this.prisma.$transaction(async (tx) => {
+      const profiles = await tx.$queryRaw<
+        Array<{ user_id: string; verification_status: string }>
+      >`
+        SELECT user_id, verification_status::text AS verification_status
+        FROM rider_profiles
+        WHERE user_id = ${input.riderId}::uuid
+        FOR UPDATE
+      `;
+      const profile = profiles[0];
+      if (!profile || profile.verification_status !== 'PENDING_REVIEW') {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'Application is not pending review',
+        });
+      }
+
+      const vehicles = await tx.$queryRaw<
+        Array<{ id: string; verification_status: string }>
+      >`
+        SELECT id, verification_status::text AS verification_status
+        FROM rider_vehicles
+        WHERE rider_id = ${input.riderId}::uuid
+        FOR UPDATE
+      `;
+
+      if (vehicles.some((vehicle) => vehicle.verification_status === 'PENDING_REVIEW')) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'All vehicles must be individually reviewed before application approval',
+        });
+      }
+      if (!vehicles.some((vehicle) => vehicle.verification_status === 'APPROVED')) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'At least one vehicle must be approved before application approval',
+        });
+      }
+
+      await tx.riderProfile.update({
+        where: { userId: input.riderId },
+        data: {
+          verificationStatus: 'APPROVED',
+          verificationNotes: null,
+        },
+      });
+      await tx.user.update({
+        where: { id: input.riderId },
+        data: { role: 'RIDER' },
+      });
+
+      await tx.riderWallet.upsert({
+        where: { riderId: input.riderId },
+        create: { riderId: input.riderId, tokenBalance: 0 },
+        update: {},
+      });
+      const existingBonus = await tx.tokenLedgerEntry.findUnique({
+        where: { idempotencyKey: signupKey },
+      });
+      if (!existingBonus) {
+        const locked = await tx.$queryRaw<Array<{ token_balance: number }>>`
+          SELECT token_balance
+          FROM rider_wallets
+          WHERE rider_id = ${input.riderId}::uuid
+          FOR UPDATE
+        `;
+        const current = locked[0]?.token_balance ?? 0;
+        const balanceAfter = current + bonus;
+        await tx.tokenLedgerEntry.create({
+          data: {
+            riderId: input.riderId,
+            type: 'ADJUSTMENT',
+            tokenDelta: bonus,
+            balanceAfter,
+            idempotencyKey: signupKey,
+            reason: 'rider_signup_bonus',
+          },
+        });
+        await tx.riderWallet.update({
+          where: { riderId: input.riderId },
+          data: { tokenBalance: balanceAfter },
+        });
+      }
+
+      await tx.riderReviewDecision.create({
+        data: {
+          riderId: input.riderId,
+          vehicleId: null,
+          actorId: input.actorId,
+          decision: 'APPROVED',
+          reason: input.reason ?? null,
+        },
+      });
+    });
+  }
+
   async ensureWallet(riderId: string) {
     const bonus = RIDER_SIGNUP_TOKEN_BONUS;
     const key = IdempotencyKey.riderSignupBonus(riderId);

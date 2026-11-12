@@ -236,3 +236,111 @@ export interface AdminRiderProfile {
     tokens: string;
   };
 }
+
+/** `GET /admin/riders/applications` list row (`listPendingForOps`). */
+export interface AdminPendingApplicationItem {
+  riderId: string;
+  fullName: string;
+  phoneNumber: string;
+  status: UserAccountStatus;
+  verificationStatus: RiderVerificationStatus;
+  submittedAt: string | null;
+  vehicleCount: number;
+}
+
+export type AdminPendingApplicationsResponse = AdminPendingApplicationItem[];
+
+export type AdminReviewDecision = 'APPROVED' | 'REJECTED';
+
+/**
+ * Body for `POST .../applications/:riderId/review` and `POST .../vehicles/:vehicleId/review`.
+ * Live riders-module schema (`reviewRiderSchema`) — not the unused admin legacy schema.
+ * Reject requires reason length ≥ 5 (enforced by backend).
+ */
+export interface AdminReviewDecisionInput {
+  decision: AdminReviewDecision;
+  reason?: string;
+}
+
+/** Document metadata on `GET /admin/riders/applications/:riderId`. */
+export interface AdminApplicationDocument {
+  id: string;
+  kind: string;
+  vehicleId: string | null;
+  contentType: string;
+  sizeBytes: number;
+  createdAt: string;
+}
+
+export interface AdminApplicationVehicle {
+  id: string;
+  category: string;
+  registrationNumber: string;
+  make: string;
+  model: string;
+  colour: string;
+  capacity: number;
+  verificationStatus: string;
+  rejectionReason: string | null;
+}
+
+export interface AdminApplicationReviewHistoryItem {
+  id: string;
+  decision: AdminReviewDecision;
+  reason: string | null;
+  vehicleId: string | null;
+  createdAt: string;
+  actorId: string;
+}
+
+/** Exact application detail / review result from ops application endpoints. */
+export interface AdminRiderApplication {
+  riderId: string;
+  fullName: string;
+  verificationStatus: RiderVerificationStatus;
+  driversLicenceNumber: string | null;
+  driversLicenceExpiry: string | null;
+  submittedAt: string | null;
+  hasEncryptedGhanaCard: boolean;
+  ghanaCardNumber: null;
+  documents: AdminApplicationDocument[];
+  vehicles: AdminApplicationVehicle[];
+  reviewHistory: AdminApplicationReviewHistoryItem[];
+}
+
+/** `POST /admin/riders/vehicles/:vehicleId/review` response (`publicVehicleView`). */
+export interface AdminVehicleReviewResult {
+  id: string;
+  category: string;
+  registrationNumber: string;
+  make: string;
+  model: string;
+  colour: string;
+  capacity: number;
+  verificationStatus: string;
+  rejectionReason: string | null;
+}
+
+/** `POST /admin/users/suspend` body. */
+export interface AdminSuspendUserInput {
+  userId: string;
+  reason: string;
+}
+
+/** `POST /admin/users/reinstate` body (same shape as suspend). */
+export interface AdminReinstateUserInput {
+  userId: string;
+  reason: string;
+}
+
+export interface AdminSuspendUserResult {
+  userId: string;
+  status: 'SUSPENDED';
+  activeTripsPreserved: number;
+  sessionsRevoked: number;
+}
+
+export interface AdminReinstateUserResult {
+  userId: string;
+  status: 'ACTIVE';
+}

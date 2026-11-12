@@ -9,6 +9,8 @@ import { LoginPage } from '../pages/LoginPage';
 import { MfaEnrollPage } from '../pages/MfaEnrollPage';
 import { MfaVerifyPage } from '../pages/MfaVerifyPage';
 import { OtpPage } from '../pages/OtpPage';
+import { ApplicationDetailPage } from '../pages/ApplicationDetailPage';
+import { ApplicationsPage } from '../pages/ApplicationsPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
 import { RiderProfilePage } from '../pages/RiderProfilePage';
@@ -34,6 +36,8 @@ export function AppRouter() {
             <Route path="overview" element={<OverviewPage />} />
             <Route path="riders" element={<RidersPage />} />
             <Route path="riders/:riderId" element={<RiderProfilePage />} />
+            <Route path="applications" element={<ApplicationsPage />} />
+            <Route path="applications/:riderId" element={<ApplicationDetailPage />} />
             <Route
               path="passengers"
               element={

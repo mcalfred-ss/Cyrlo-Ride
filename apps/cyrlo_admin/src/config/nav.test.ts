@@ -35,6 +35,16 @@ describe('role-aware navigation', () => {
     expect(canAccessPath('FINANCE_ADMIN', '/riders')).toBe(false);
   });
 
+  it('gates applications queue and detail to ReviewRiders', () => {
+    expect(canAccessPath('OPERATIONS_ADMIN', '/applications')).toBe(true);
+    expect(
+      canAccessPath('OPERATIONS_ADMIN', '/applications/11111111-1111-1111-1111-111111111111'),
+    ).toBe(true);
+    expect(canAccessPath('SUPPORT_ADMIN', '/applications')).toBe(false);
+    expect(navItemsForRole('OPERATIONS_ADMIN').map((i) => i.id)).toContain('applications');
+    expect(navItemsForRole('FINANCE_ADMIN').map((i) => i.id)).not.toContain('applications');
+  });
+
   it('allows audit only for SUPER_ADMIN via ManageAdmins', () => {
     expect(canAccessPath('SUPER_ADMIN', '/audit')).toBe(true);
     expect(canAccessPath('SUPPORT_ADMIN', '/audit')).toBe(false);

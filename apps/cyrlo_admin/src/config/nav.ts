@@ -37,6 +37,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     anyOf: [Permission.ReviewRiders],
   },
   {
+    id: 'applications',
+    label: 'Applications',
+    path: '/applications',
+    anyOf: [Permission.ReviewRiders],
+  },
+  {
     id: 'passengers',
     label: 'Passengers',
     path: '/passengers',

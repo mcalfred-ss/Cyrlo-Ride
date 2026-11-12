@@ -641,6 +641,26 @@ export class RidersServiceImpl implements RidersService {
         message: 'Rejection reason is required',
       });
     }
+
+    if (input.decision === 'APPROVED') {
+      // Guard + status/role/wallet/decision write are one DB transaction (FOR UPDATE).
+      // Does not auto-approve vehicles — each PENDING_REVIEW vehicle must be reviewed first.
+      await this.repository.approveApplicationAtomic({
+        riderId,
+        actorId,
+        reason: input.reason ?? null,
+      });
+      await this.deps.audit.record({
+        actorId,
+        action: 'rider.application.approved',
+        entityType: 'rider_profile',
+        entityId: riderId,
+        metadata: { reason: input.reason ?? null },
+        ipAddress: ip,
+      });
+      return this.getApplicationForOps(riderId);
+    }
+
     const profile = await this.repository.findProfile(riderId);
     if (!profile || profile.verificationStatus !== 'PENDING_REVIEW') {
       throw new AppError({
@@ -650,66 +670,29 @@ export class RidersServiceImpl implements RidersService {
       });
     }
     const now = this.now();
-    if (input.decision === 'APPROVED') {
-      const hasApprovedOrPendingVehicle = profile.vehicles.some(
-        (vehicle) =>
-          vehicle.verificationStatus === 'APPROVED' ||
-          vehicle.verificationStatus === 'PENDING_REVIEW',
-      );
-      if (!hasApprovedOrPendingVehicle) {
-        throw new AppError({
-          status: 400,
-          code: 'VALIDATION_ERROR',
-          message: 'At least one vehicle must be reviewed with the application',
+    await this.repository.updateProfile(riderId, {
+      verificationStatus: 'REJECTED',
+      verificationNotes: input.reason ?? null,
+    });
+    for (const vehicle of profile.vehicles) {
+      if (vehicle.verificationStatus === 'PENDING_REVIEW') {
+        await this.repository.updateVehicle(vehicle.id, {
+          verificationStatus: 'REJECTED',
+          rejectionReason: input.reason ?? null,
+          reviewedAt: now,
         });
-      }
-      for (const vehicle of profile.vehicles) {
-        if (vehicle.verificationStatus === 'PENDING_REVIEW') {
-          await this.repository.updateVehicle(vehicle.id, {
-            verificationStatus: 'APPROVED',
-            reviewedAt: now,
-            rejectionReason: null,
-          });
-          await this.repository.addReviewDecision({
-            riderId,
-            vehicleId: vehicle.id,
-            actorId,
-            decision: 'APPROVED',
-          });
-        }
-      }
-      await this.repository.updateProfile(riderId, {
-        verificationStatus: 'APPROVED',
-        verificationNotes: null,
-      });
-      await this.repository.setUserRole(riderId, 'RIDER');
-      await this.repository.ensureWallet(riderId);
-    } else {
-      await this.repository.updateProfile(riderId, {
-        verificationStatus: 'REJECTED',
-        verificationNotes: input.reason ?? null,
-      });
-      for (const vehicle of profile.vehicles) {
-        if (vehicle.verificationStatus === 'PENDING_REVIEW') {
-          await this.repository.updateVehicle(vehicle.id, {
-            verificationStatus: 'REJECTED',
-            rejectionReason: input.reason ?? null,
-            reviewedAt: now,
-          });
-        }
       }
     }
 
     await this.repository.addReviewDecision({
       riderId,
       actorId,
-      decision: input.decision,
+      decision: 'REJECTED',
       reason: input.reason ?? null,
     });
     await this.deps.audit.record({
       actorId,
-      action:
-        input.decision === 'APPROVED' ? 'rider.application.approved' : 'rider.application.rejected',
+      action: 'rider.application.rejected',
       entityType: 'rider_profile',
       entityId: riderId,
       metadata: { reason: input.reason ?? null },
