@@ -353,7 +353,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   }
 }
 
-class _TripPlanPanel extends StatelessWidget {
+class _TripPlanPanel extends ConsumerWidget {
   const _TripPlanPanel({
     required this.plan,
     required this.onFindRider,
@@ -363,14 +363,22 @@ class _TripPlanPanel extends StatelessWidget {
   final Future<void> Function()? onFindRider;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final nearby = ref.watch(nearbyRidersProvider);
     final ctaLabel = plan.isSubmitting ||
             plan.phase == TripPlanPhase.submittingBooking
         ? 'Finding…'
         : plan.phase == TripPlanPhase.serviceUnavailable
             ? 'Service unavailable'
             : 'Find a Rider';
+    final supplyLine = nearby.isLoading
+        ? 'Checking nearby riders…'
+        : nearby.errorMessage ??
+            nearby.message ??
+            (nearby.items.isEmpty
+                ? null
+                : '${nearby.items.length} rider${nearby.items.length == 1 ? '' : 's'} nearby');
 
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.96),
@@ -394,6 +402,17 @@ class _TripPlanPanel extends StatelessWidget {
                 color: AppColors.inkDim,
               ),
             ),
+            if (supplyLine != null) ...[
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                supplyLine,
+                key: const Key('nearby-riders-status'),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: AppColors.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.sm),
             Ink(
               padding: const EdgeInsets.symmetric(

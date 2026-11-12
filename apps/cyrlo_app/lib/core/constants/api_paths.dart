@@ -23,6 +23,7 @@ abstract final class ApiPaths {
 
   static const bookingFeePayment = '/payments/booking-fee';
 
+  static const matchingNearby = '/matching/nearby';
   static const matchingOffers = '/matching/offers';
   static String matchingOfferAccept(String offerId) =>
       '/matching/offers/$offerId/accept';

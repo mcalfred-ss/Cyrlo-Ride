@@ -6,6 +6,15 @@ import type { MatchingService } from './module.service.js';
 export class MatchingController {
   constructor(private readonly service: MatchingService) {}
 
+  nearby: RequestHandler = async (req, res, next) => {
+    try {
+      const data = await this.service.discoverNearby(req.body);
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
   listMyOffers: RequestHandler = async (req, res, next) => {
     try {
       const data = await this.service.listMyPendingOffers(req.auth!.sub);

@@ -8,6 +8,11 @@ import {
   BOOKING_FEE_PESEWAS,
   BOOKING_PAYMENT_TIMEOUT_MS,
 } from '../../config/constants.js';
+import {
+  isInsideBoundingBox,
+  isPointInBoundary,
+  type ZoneBoundary,
+} from '../service-zones/zone-geometry.js';
 import { ACTIVE_TRIP_BOOKING_STATUSES } from '../riders/operational-eligibility.js';
 import { WalletRepository } from '../wallet/module.repository.js';
 import { evaluateMatchingEligibility } from './matching-eligibility.js';
@@ -93,6 +98,47 @@ export class MatchingRepository {
       _max: { batchSequence: true },
     });
     return (agg._max.batchSequence ?? 0) + 1;
+  }
+
+  /**
+   * Same ACTIVE + PIP rules as booking create. Shared so discovery and dispatch
+   * agree on which zone covers a pickup.
+   */
+  async findActiveZoneCoveringPickup(latitude: number, longitude: number) {
+    const candidates = await this.prisma.serviceZone.findMany({
+      where: {
+        isActive: true,
+        status: 'ACTIVE',
+        minLatitude: { lte: latitude },
+        maxLatitude: { gte: latitude },
+        minLongitude: { lte: longitude },
+        maxLongitude: { gte: longitude },
+      },
+    });
+    const matches = [];
+    for (const zone of candidates) {
+      const box = {
+        minLatitude: Number(zone.minLatitude),
+        maxLatitude: Number(zone.maxLatitude),
+        minLongitude: Number(zone.minLongitude),
+        maxLongitude: Number(zone.maxLongitude),
+      };
+      if (!isInsideBoundingBox({ latitude, longitude }, box)) continue;
+      const boundary = zone.boundary as unknown as ZoneBoundary;
+      if (!isPointInBoundary(latitude, longitude, boundary)) continue;
+      matches.push({
+        zone,
+        area:
+          Math.max(0, box.maxLatitude - box.minLatitude) *
+          Math.max(0, box.maxLongitude - box.minLongitude),
+      });
+    }
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => {
+      if (a.area !== b.area) return a.area - b.area;
+      return a.zone.createdAt.getTime() - b.zone.createdAt.getTime();
+    });
+    return matches[0]!.zone;
   }
 
   async loadMatchingCandidates(input: {

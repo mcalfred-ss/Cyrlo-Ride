@@ -14,6 +14,7 @@ import '../../../shared/ride_session/active_ride_request.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/skeleton.dart';
+import '../../map/application/passenger_booking_recovery.dart';
 import '../../map/application/passenger_trip_plan.dart';
 import '../../map/application/trip_pin_controller.dart';
 import '../../rides/application/passenger_rides_provider.dart';
@@ -97,6 +98,9 @@ Future<void> startLiveBookingFlow({
             pickup,
             message: 'Looking for a nearby rider…',
           );
+      ref
+          .read(passengerBookingRecoveryProvider.notifier)
+          .trackSearching(booking.id);
       _toast(context, 'Looking for a rider…');
       context.go(AppRoutes.passengerMap);
       return;

@@ -3,7 +3,11 @@ import { Router, type RequestHandler } from 'express';
 import { authenticate, requireActiveAccount, requireRole } from '../../common/middleware/authenticate.js';
 import { validate } from '../../common/middleware/validate.js';
 import type { MatchingController } from './module.controller.js';
-import { bookingIdParamSchema, offerIdParamSchema } from './module.schema.js';
+import {
+  bookingIdParamSchema,
+  nearbyDiscoveryBodySchema,
+  offerIdParamSchema,
+} from './module.schema.js';
 
 const riderAuth: RequestHandler[] = [authenticate, requireActiveAccount, requireRole('RIDER')];
 const passengerAuth: RequestHandler[] = [
@@ -14,6 +18,12 @@ const passengerAuth: RequestHandler[] = [
 
 export function createMatchingRouter(controller: MatchingController): Router {
   const router = Router();
+  router.post(
+    '/nearby',
+    ...passengerAuth,
+    validate({ body: nearbyDiscoveryBodySchema }),
+    controller.nearby,
+  );
   router.get('/offers', ...riderAuth, controller.listMyOffers);
   router.post(
     '/offers/:offerId/accept',

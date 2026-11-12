@@ -49,6 +49,7 @@ class NearbyRidersMapMotionController
     _targets.removeWhere((id, _) => !alive.contains(id));
 
     for (final rider in riders) {
+      // Rider.point is already privacy-snapped by the backend.
       _poses.putIfAbsent(
         rider.id,
         () => MapRiderPose(
@@ -56,7 +57,12 @@ class NearbyRidersMapMotionController
           headingRadians: _seedHeading(rider.id),
         ),
       );
-      _targets.putIfAbsent(rider.id, () => _nudgeTarget(rider.point, rider.id));
+      final previousTarget = _targets[rider.id];
+      if (previousTarget == null ||
+          (previousTarget.latitude - rider.point.latitude).abs() > 0.002 ||
+          (previousTarget.longitude - rider.point.longitude).abs() > 0.002) {
+        _targets[rider.id] = _nudgeTarget(rider.point, rider.id);
+      }
     }
 
     _timer ??= Timer.periodic(const Duration(milliseconds: 700), (_) => _tick());
