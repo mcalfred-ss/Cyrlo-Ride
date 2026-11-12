@@ -74,6 +74,22 @@ describe('role-aware navigation', () => {
     expect(navItemsForRole('FINANCE_ADMIN').map((i) => i.id)).not.toContain('applications');
   });
 
+  it('allows nested finance paths for finance and support viewers but not operations', () => {
+    expect(canAccessPath('FINANCE_ADMIN', '/finance/refunds')).toBe(true);
+    expect(canAccessPath('SUPPORT_ADMIN', '/finance/refunds')).toBe(true);
+    expect(canAccessPath('SUPER_ADMIN', '/finance/ledgers')).toBe(true);
+    expect(canAccessPath('OPERATIONS_ADMIN', '/finance/refunds')).toBe(false);
+  });
+
+  it('gates /reports to operations, finance, and payment viewers', () => {
+    expect(canAccessPath('OPERATIONS_ADMIN', '/reports')).toBe(true);
+    expect(canAccessPath('FINANCE_ADMIN', '/reports')).toBe(true);
+    expect(canAccessPath('SUPPORT_ADMIN', '/reports')).toBe(true);
+    expect(canAccessPath('SUPER_ADMIN', '/reports')).toBe(true);
+    expect(navItemsForRole('FINANCE_ADMIN').map((i) => i.id)).toContain('reports');
+    expect(navItemsForRole('OPERATIONS_ADMIN').map((i) => i.id)).toContain('reports');
+  });
+
   it('allows audit only for SUPER_ADMIN via ManageAdmins', () => {
     expect(canAccessPath('SUPER_ADMIN', '/audit')).toBe(true);
     expect(canAccessPath('SUPPORT_ADMIN', '/audit')).toBe(false);

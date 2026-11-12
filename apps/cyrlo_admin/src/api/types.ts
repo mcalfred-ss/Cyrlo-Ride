@@ -546,3 +546,249 @@ export interface AdminBookingDetail extends AdminBookingListItem {
     note: string;
   };
 }
+/** Phase 4+ finance / tokens / zones / geo / audit types matching backend DTOs. */
+
+export interface AdminFinancialReport {
+  generatedAt: string;
+  dateRange: {
+    from: string | null;
+    to: string | null;
+    timezone: string;
+    boundInclusivity: string;
+    field: string;
+    interpretation: string;
+  };
+  snapshot: { note: string };
+  period: {
+    connectionFees: {
+      unitPesewas: number;
+      currency: 'GHS';
+      collected: { count: number; amountPesewas: number };
+      pending: { count: number; amountPesewas: number };
+      failed: { count: number; amountPesewas: number };
+    };
+    refunds: { byStatus: Record<string, { count: number; amountPesewas: number }> };
+    tokens: {
+      purchases: { count: number; amountPesewas: number; currency: 'GHS' };
+      usage: { deductionCount: number; tokensDeducted: number };
+    };
+    completedConnections: number;
+  };
+  exclusions: {
+    transportationFareRevenue: boolean;
+    note: string;
+    abandonedBookingFeePayments: string;
+  };
+}
+
+export type PaymentRefundStatus =
+  | 'REQUESTED'
+  | 'PROCESSING'
+  | 'SUCCEEDED'
+  | 'FAILED'
+  | 'MANUAL_RECONCILIATION';
+
+export interface AdminPaymentRefund {
+  id: string;
+  paymentId: string;
+  bookingId: string | null;
+  amountPesewas: number;
+  currency: string;
+  status: PaymentRefundStatus;
+  reason: string | null;
+  attemptNumber: number;
+  maxAttempts: number;
+  providerRefundId: string | null;
+  providerStatus: string | null;
+  authorizedAt: string | null;
+  authorizedById: string | null;
+  submittedAt: string | null;
+  confirmedAt: string | null;
+  nextAttemptAt: string | null;
+  failureReason: string | null;
+  reconciliationNote: string | null;
+  createdAt: string;
+  payment: {
+    id: string;
+    providerReference: string | null;
+    amountPesewas: number;
+    status: string;
+    bookingId: string | null;
+  } | null;
+}
+
+export interface AdminRefundReconciliationAttempt {
+  id: string;
+  outcome: string;
+  localStatus: string | null;
+  providerStatus: string | null;
+  notes: string | null;
+  actorId: string | null;
+  attemptedAt: string;
+}
+
+export type ReconciliationCaseStatus = 'OPEN' | 'IN_REVIEW' | 'RESOLVED';
+
+export interface AdminReconciliationCase {
+  id: string;
+  caseType: string;
+  status: ReconciliationCaseStatus;
+  paymentId: string | null;
+  refundId: string | null;
+  tokenPurchaseId: string | null;
+  providerReference: string | null;
+  reason: string;
+  notes: string | null;
+  resolvedById: string | null;
+  resolvedAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminTokenPackage {
+  id: string;
+  code: string;
+  name: string;
+  tokenQuantity: number;
+  pricePesewas: number;
+  currency: string;
+  isActive: boolean;
+  displayOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateTokenPackageInput {
+  code: string;
+  name: string;
+  tokenQuantity: number;
+  pricePesewas: number;
+  currency?: 'GHS';
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
+export interface UpdateTokenPackageInput {
+  name?: string;
+  tokenQuantity?: number;
+  pricePesewas?: number;
+  isActive?: boolean;
+  displayOrder?: number;
+}
+
+export type TokenPurchaseStatus = 'PENDING' | 'PAID' | 'FAILED' | 'ABANDONED';
+
+export interface AdminTokenPurchase {
+  id: string;
+  riderId: string;
+  packageId: string;
+  paymentId: string;
+  packageCode: string;
+  packageName: string;
+  tokenQuantity: number;
+  pricePesewas: number;
+  currency: string;
+  status: TokenPurchaseStatus;
+  paidAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  payment: {
+    id: string;
+    status: string;
+    providerReference: string | null;
+    amountPesewas: number;
+    currency: string;
+  } | null;
+}
+
+export interface AdminTokenPurchasesResponse {
+  items: AdminTokenPurchase[];
+  pagination: { page: number; pageSize: number; total: number; hasNextPage: boolean };
+}
+
+export type TokenLedgerType = 'PURCHASE' | 'DEDUCTION' | 'REFUND' | 'ADJUSTMENT';
+
+export interface AdminTokenLedgerEntry {
+  id: string;
+  riderId: string;
+  rider: { fullName: string; phoneNumber: string; status: string };
+  bookingId: string | null;
+  paymentId: string | null;
+  type: TokenLedgerType;
+  tokenDelta: number;
+  balanceAfter: number;
+  reason: string;
+  reversesEntryId: string | null;
+  createdAt: string;
+  kind: string;
+}
+
+export interface AdminTokenLedgersResponse {
+  items: AdminTokenLedgerEntry[];
+  pagination: { page: number; pageSize: number; total: number; hasNextPage: boolean };
+}
+
+export type ServiceZoneStatus = 'DRAFT' | 'UNDER_REVIEW' | 'LOCKED' | 'ACTIVE' | 'SUSPENDED';
+
+export interface AdminServiceZone {
+  id: string;
+  communityId: string | null;
+  name: string;
+  slug: string | null;
+  description: string | null;
+  isActive: boolean;
+  status: ServiceZoneStatus;
+  boundaryVerificationStatus: string;
+  activatedAt: string | null;
+  activatedById: string | null;
+  suspendedAt: string | null;
+  suspendedById: string | null;
+  boundary: unknown;
+  boundingBox: {
+    minLatitude: number;
+    maxLatitude: number;
+    minLongitude: number;
+    maxLongitude: number;
+  };
+  createdById: string | null;
+  updatedById: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminServiceZonesResponse {
+  items: AdminServiceZone[];
+  pagination: { page: number; pageSize: number; total: number; hasNextPage: boolean };
+}
+
+export interface AdminAuditLogItem {
+  id: string;
+  actorId: string | null;
+  actor: { id: string; displayName: string | null; role: string } | null;
+  action: string;
+  entityType: string;
+  entityId: string | null;
+  metadata: unknown;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+export interface AdminAuditLogsResponse {
+  items: AdminAuditLogItem[];
+  pagination: { page: number; pageSize: number; total: number; hasNextPage: boolean };
+}
+
+export interface CreateAdminInvitationInput {
+  phoneNumber: string;
+  staffRole: 'SUPER_ADMIN' | 'OPERATIONS_ADMIN' | 'FINANCE_ADMIN' | 'SUPPORT_ADMIN';
+}
+
+export interface CreateAdminInvitationResult {
+  invitationId: string;
+  expiresAt: string;
+  token: string;
+}
+
+export interface RevokeAdminInput {
+  userId: string;
+  reason: string;
+}

@@ -3,7 +3,20 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { RequireMfaSession } from '../auth/RequireMfaSession';
 import { AppShell } from '../layouts/AppShell';
 import { AuthLayout } from '../layouts/AuthLayout';
+import { FinanceLayout } from '../layouts/FinanceLayout';
+import { AdminsPage } from '../pages/AdminsPage';
+import { AuditLogsPage } from '../pages/AuditLogsPage';
+import { FinanceCasesPage } from '../pages/finance/FinanceCasesPage';
+import { FinanceHubPage } from '../pages/finance/FinanceHubPage';
+import { FinanceLedgersPage } from '../pages/finance/FinanceLedgersPage';
+import { FinancePackagesPage } from '../pages/finance/FinancePackagesPage';
+import { FinancePurchasesPage } from '../pages/finance/FinancePurchasesPage';
+import { FinanceRefundsPage } from '../pages/finance/FinanceRefundsPage';
 import { ForbiddenPage } from '../pages/ForbiddenPage';
+import { GeoPage } from '../pages/GeoPage';
+import { ReportsPage } from '../pages/ReportsPage';
+import { ZoneDetailPage } from '../pages/ZoneDetailPage';
+import { ZonesPage } from '../pages/ZonesPage';
 import { HomePage } from '../pages/HomePage';
 import { LoginPage } from '../pages/LoginPage';
 import { MfaEnrollPage } from '../pages/MfaEnrollPage';
@@ -46,33 +59,18 @@ export function AppRouter() {
             <Route path="passengers/:passengerId" element={<PassengerProfilePage />} />
             <Route path="bookings" element={<BookingsPage />} />
             <Route path="bookings/:bookingId" element={<BookingDetailPage />} />
-            <Route
-              path="zones"
-              element={
-                <PlaceholderPage
-                  title="Service zones"
-                  description="Zone management UI is not in Phase 1A."
-                />
-              }
-            />
-            <Route
-              path="geo"
-              element={
-                <PlaceholderPage
-                  title="Geography"
-                  description="Geo hierarchy UI is not in Phase 1A."
-                />
-              }
-            />
-            <Route
-              path="finance"
-              element={
-                <PlaceholderPage
-                  title="Finance"
-                  description="Finance screens are not in Phase 1A."
-                />
-              }
-            />
+            <Route path="zones" element={<ZonesPage />} />
+            <Route path="zones/:zoneId" element={<ZoneDetailPage />} />
+            <Route path="geo" element={<GeoPage />} />
+            <Route path="reports" element={<ReportsPage />} />
+            <Route path="finance" element={<FinanceLayout />}>
+              <Route index element={<FinanceHubPage />} />
+              <Route path="refunds" element={<FinanceRefundsPage />} />
+              <Route path="cases" element={<FinanceCasesPage />} />
+              <Route path="packages" element={<FinancePackagesPage />} />
+              <Route path="purchases" element={<FinancePurchasesPage />} />
+              <Route path="ledgers" element={<FinanceLedgersPage />} />
+            </Route>
             <Route
               path="support"
               element={
@@ -82,24 +80,8 @@ export function AppRouter() {
                 />
               }
             />
-            <Route
-              path="admins"
-              element={
-                <PlaceholderPage
-                  title="Administrators"
-                  description="Invite/revoke UI is not in Phase 1A."
-                />
-              }
-            />
-            <Route
-              path="audit"
-              element={
-                <PlaceholderPage
-                  title="Audit logs"
-                  description="Audit browser UI is not in Phase 1A."
-                />
-              }
-            />
+            <Route path="admins" element={<AdminsPage />} />
+            <Route path="audit" element={<AuditLogsPage />} />
           </Route>
         </Route>
 

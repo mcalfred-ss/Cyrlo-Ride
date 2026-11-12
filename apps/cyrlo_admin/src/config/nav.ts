@@ -9,8 +9,10 @@ export interface NavItem {
 }
 
 /**
- * Phase 1A placeholders only — later phases fill real screens.
- * Visibility mirrors ADMIN_ROLE_PERMISSION_MATRIX module access.
+ * Visibility mirrors ADMIN_ROLE_PERMISSION_MATRIX module access. Only Support remains a
+ * placeholder screen. Finance (/finance/*) covers the financial report, refunds, reconciliation
+ * cases, token packages/purchases/ledgers; mutations stay gated by ExecuteRefunds,
+ * ReconcilePaystack and ManageTokenPackages (never granted to Support or Operations).
  */
 export const NAV_ITEMS: readonly NavItem[] = [
   {
@@ -27,6 +29,16 @@ export const NAV_ITEMS: readonly NavItem[] = [
       Permission.MonitorOperations,
       Permission.ViewFinancialReports,
       Permission.InvestigateDisputes,
+      Permission.ViewPayments,
+    ],
+  },
+  {
+    id: 'reports',
+    label: 'Reports',
+    path: '/reports',
+    anyOf: [
+      Permission.MonitorOperations,
+      Permission.ViewFinancialReports,
       Permission.ViewPayments,
     ],
   },
