@@ -11,6 +11,8 @@ import { MfaVerifyPage } from '../pages/MfaVerifyPage';
 import { OtpPage } from '../pages/OtpPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { PlaceholderPage } from '../pages/PlaceholderPage';
+import { RiderProfilePage } from '../pages/RiderProfilePage';
+import { RidersPage } from '../pages/RidersPage';
 import { SessionExpiredPage } from '../pages/SessionExpiredPage';
 
 export function AppRouter() {
@@ -30,12 +32,8 @@ export function AppRouter() {
           <Route element={<AppShell />}>
             <Route index element={<HomePage />} />
             <Route path="overview" element={<OverviewPage />} />
-            <Route
-              path="riders"
-              element={
-                <PlaceholderPage title="Riders" description="Rider review UI is not in Phase 1A." />
-              }
-            />
+            <Route path="riders" element={<RidersPage />} />
+            <Route path="riders/:riderId" element={<RiderProfilePage />} />
             <Route
               path="passengers"
               element={

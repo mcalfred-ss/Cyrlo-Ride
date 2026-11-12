@@ -136,3 +136,103 @@ export interface AnalyticsQuery {
   from?: string;
   to?: string;
 }
+
+export type UserAccountStatus = 'ACTIVE' | 'SUSPENDED' | 'DELETED';
+export type RiderVerificationStatus = 'DRAFT' | 'PENDING_REVIEW' | 'APPROVED' | 'REJECTED';
+export type RiderAvailabilityStatus = 'OFFLINE' | 'AVAILABLE' | 'BUSY';
+export type AdminUserRole = 'PASSENGER' | 'RIDER' | 'ADMIN';
+
+export interface PaginationMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasNextPage: boolean;
+}
+
+/** Exact list item from `GET /admin/riders`. */
+export interface AdminRiderListItem {
+  id: string;
+  phoneNumber: string;
+  role: AdminUserRole;
+  status: UserAccountStatus;
+  displayName: string | null;
+  fullName: string;
+  verificationStatus: RiderVerificationStatus;
+  availability: RiderAvailabilityStatus;
+  submittedAt: string | null;
+  createdAt: string;
+}
+
+export interface AdminRiderListResponse {
+  items: AdminRiderListItem[];
+  pagination: PaginationMeta;
+  semantics: {
+    availability: string;
+    note: string;
+  };
+}
+
+export interface AdminRidersQuery {
+  page?: number;
+  pageSize?: number;
+  q?: string;
+  status?: UserAccountStatus;
+  verificationStatus?: RiderVerificationStatus;
+  availability?: RiderAvailabilityStatus;
+}
+
+/** Exact profile from `GET /admin/riders/:riderId`. */
+export interface AdminRiderProfile {
+  id: string;
+  phoneNumber: string;
+  role: AdminUserRole;
+  status: UserAccountStatus;
+  displayName: string | null;
+  createdAt: string;
+  updatedAt: string;
+  profile: {
+    fullName: string;
+    verificationStatus: RiderVerificationStatus;
+    availability: RiderAvailabilityStatus;
+    submittedAt: string | null;
+    driversLicenceNumber: string | null;
+    driversLicenceExpiry: string | null;
+    verificationNotes: string | null;
+  };
+  vehicles: Array<{
+    id: string;
+    category: string;
+    registrationNumber: string;
+    make: string;
+    model: string;
+    colour: string;
+    capacity: number;
+    verificationStatus: string;
+    rejectionReason: string | null;
+    submittedAt: string | null;
+    reviewedAt: string | null;
+  }>;
+  gps: {
+    sharingEnabled: boolean;
+    recordedAt: string;
+    receivedAt: string;
+    fresh: boolean;
+    maxAgeMs: number;
+    snapshot: true;
+  } | null;
+  tokens: {
+    balance: number;
+    note: string;
+  };
+  privacy: {
+    exactCoordinatesIncluded: boolean;
+    note: string;
+  };
+  semantics: {
+    accountStatus: string;
+    verificationStatus: string;
+    availability: string;
+    gps: string;
+    tokens: string;
+  };
+}

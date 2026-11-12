@@ -25,6 +25,16 @@ describe('role-aware navigation', () => {
     expect(canAccessPath('OPERATIONS_ADMIN', '/riders')).toBe(true);
   });
 
+  it('inherits ReviewRiders for nested rider profile paths', () => {
+    expect(canAccessPath('OPERATIONS_ADMIN', '/riders/11111111-1111-1111-1111-111111111111')).toBe(
+      true,
+    );
+    expect(canAccessPath('SUPPORT_ADMIN', '/riders/11111111-1111-1111-1111-111111111111')).toBe(
+      false,
+    );
+    expect(canAccessPath('FINANCE_ADMIN', '/riders')).toBe(false);
+  });
+
   it('allows audit only for SUPER_ADMIN via ManageAdmins', () => {
     expect(canAccessPath('SUPER_ADMIN', '/audit')).toBe(true);
     expect(canAccessPath('SUPPORT_ADMIN', '/audit')).toBe(false);

@@ -74,6 +74,47 @@ describe('RequireMfaSession', () => {
     expect(screen.getByText('forbidden')).toBeInTheDocument();
   });
 
+  it('allows Operations Admin nested rider profile routes', () => {
+    setMemorySession({
+      accessToken: privilegedAccessToken({ staffRole: 'OPERATIONS_ADMIN' }),
+      refreshToken: 'refresh-token-value-20chars',
+    });
+    render(
+      <MemoryRouter initialEntries={['/riders/11111111-1111-1111-1111-111111111111']}>
+        <Routes>
+          <Route element={<RequireMfaSession />}>
+            <Route path="/riders/:riderId" element={<div>rider-profile-ok</div>} />
+          </Route>
+          <Route path="/forbidden" element={<div>forbidden</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('rider-profile-ok')).toBeInTheDocument();
+  });
+
+  it('blocks Support Admin direct rider profile navigation', () => {
+    mockAuth = {
+      phase: 'authenticated',
+      me: { ...me, staffRole: 'SUPPORT_ADMIN', displayName: 'Support' },
+      staffRole: 'SUPPORT_ADMIN',
+    };
+    setMemorySession({
+      accessToken: privilegedAccessToken({ staffRole: 'SUPPORT_ADMIN' }),
+      refreshToken: 'refresh-token-value-20chars',
+    });
+    render(
+      <MemoryRouter initialEntries={['/riders/11111111-1111-1111-1111-111111111111']}>
+        <Routes>
+          <Route element={<RequireMfaSession />}>
+            <Route path="/riders/:riderId" element={<div>rider-profile-ok</div>} />
+          </Route>
+          <Route path="/forbidden" element={<div>forbidden</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('forbidden')).toBeInTheDocument();
+  });
+
   it('redirects anonymous users to login', () => {
     mockAuth = { phase: 'anonymous', me: null, staffRole: null };
     render(

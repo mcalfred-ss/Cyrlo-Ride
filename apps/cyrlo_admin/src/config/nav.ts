@@ -98,7 +98,15 @@ export function navItemsForRole(role: StaffRole): NavItem[] {
 }
 
 export function canAccessPath(role: StaffRole, path: string): boolean {
-  const item = NAV_ITEMS.find((nav) => nav.path === path);
-  if (!item) return false;
-  return item.anyOf.some((permission) => staffRoleHasPermission(role, permission));
+  const normalized = path.split('?')[0] || path;
+  const exact = NAV_ITEMS.find((nav) => nav.path === normalized);
+  if (exact) {
+    return exact.anyOf.some((permission) => staffRoleHasPermission(role, permission));
+  }
+  // Nested routes inherit the nearest parent nav item (e.g. /riders/:id → /riders).
+  const parent = NAV_ITEMS.filter((nav) => nav.path !== '/').find(
+    (nav) => normalized === nav.path || normalized.startsWith(`${nav.path}/`),
+  );
+  if (!parent) return false;
+  return parent.anyOf.some((permission) => staffRoleHasPermission(role, permission));
 }
