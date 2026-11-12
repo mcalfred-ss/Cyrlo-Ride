@@ -182,6 +182,14 @@ Bearer, role `RIDER`. Empty body. Sets `sharingEnabled` false. Proposed `data`: 
 
 There is no "list nearby riders" HTTP route. Passengers learn about a rider through booking events after accept, not by polling every GPS row.
 
+### `GET /matching/supply`
+
+Bearer, role `PASSENGER`. Query: `vehicleCategory` (`OKADA` | `PRAGYA` | `ABOBOYAA`, default `PRAGYA`), `latitude`, `longitude`.
+
+Returns a count-only probe using the same eligibility gates as dispatch (AVAILABLE, fresh location, matching radius, tokens, zone). No rider identities or coordinates.
+
+Proposed `data`: `{ "available": true, "count": 2, "vehicleCategory": "PRAGYA" }`.
+
 ## Bookings
 
 ### `POST /bookings`

@@ -23,3 +23,14 @@ export const nearbyDiscoveryBodySchema = z
   .strict();
 
 export type NearbyDiscoveryBody = z.infer<typeof nearbyDiscoveryBodySchema>;
+
+/** Passenger supply probe — count only, no rider identities or coordinates. */
+export const supplyQuerySchema = z
+  .object({
+    vehicleCategory: z.enum(['OKADA', 'PRAGYA', 'ABOBOYAA']).default('PRAGYA'),
+    latitude: z.coerce.number().gte(-90).lte(90),
+    longitude: z.coerce.number().gte(-180).lte(180),
+  })
+  .strict();
+
+export type SupplyQuery = z.infer<typeof supplyQuerySchema>;

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/errors/api_exception.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
 import '../../../core/theme/theme_mode_provider.dart';
@@ -13,6 +14,7 @@ import '../../../shared/review/app_review_service.dart';
 import '../../../shared/ride_session/active_ride_request_controller.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/skeleton.dart';
+import 'edit_personal_details_screen.dart';
 import 'help_support_screen.dart';
 import 'in_app_web_screen.dart';
 
@@ -88,7 +90,8 @@ class AccountScreen extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
         title: const Text('Delete account?'),
         content: const Text(
-          'This permanently removes your profile and ride data from this device. You can’t undo this.',
+          'This deactivates your Cyrlo Ride account and signs you out. '
+          'You can sign up again later with the same phone number.',
           style: TextStyle(height: 1.4),
         ),
         actions: [
@@ -110,17 +113,57 @@ class AccountScreen extends ConsumerWidget {
     );
     if (ok != true || !context.mounted) return;
     _clearSession(ref);
-    ref.read(signupProvider.notifier).deleteAccount();
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        behavior: SnackBarBehavior.floating,
-        backgroundColor: AppColors.darkGrey,
-        content: Text(
-          'Your account has been deleted.',
-          style: TextStyle(fontWeight: FontWeight.w700),
+    try {
+      await ref.read(signupProvider.notifier).deleteAccount();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            'Your account has been deleted.',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
         ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            error is ApiException
+                ? error.message
+                : 'Could not delete account. Try again.',
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _editPersonalDetails(
+    BuildContext context,
+    WidgetRef ref,
+  ) async {
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => EditPersonalDetailsScreen(role: role),
       ),
     );
+    if (saved == true && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          backgroundColor: AppColors.darkGrey,
+          content: Text(
+            'Personal details updated.',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+      );
+    }
   }
 
   void _clearSession(WidgetRef ref) {
@@ -222,16 +265,35 @@ class AccountScreen extends ConsumerWidget {
                     initials: initials.isEmpty ? 'C' : initials,
                   ),
                   const SizedBox(height: AppSpacing.lg),
-                  Text(
-                    'Personal details',
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      color: AppColors.textPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Personal details',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            color: AppColors.textPrimary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      TextButton(
+                        key: const Key('edit-personal-details'),
+                        onPressed: () => _editPersonalDetails(context, ref),
+                        child: const Text(
+                          'Edit',
+                          style: TextStyle(fontWeight: FontWeight.w800),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.sm),
                   _AccountSectionCard(
                     children: [
+                      _AccountDetailRow(
+                        icon: Icons.badge_outlined,
+                        label: 'Name',
+                        value: name,
+                      ),
                       _AccountDetailRow(
                         icon: Icons.place_rounded,
                         label: 'Location',

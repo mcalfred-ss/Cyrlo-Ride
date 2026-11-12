@@ -18,16 +18,47 @@ import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../availability/application/rider_availability_provider.dart';
+import '../../token/application/rider_token_provider.dart';
+import '../../token/domain/token_thresholds.dart';
+import '../../token/presentation/rider_top_up_dialog.dart';
 import 'rider_job_card.dart';
 
-class RiderJobsScreen extends ConsumerWidget {
+class RiderJobsScreen extends ConsumerStatefulWidget {
   const RiderJobsScreen({super.key});
 
-  Future<void> _confirmCancel(
-    BuildContext context,
-    WidgetRef ref,
-    ActiveRideRequest job,
-  ) async {
+  @override
+  ConsumerState<RiderJobsScreen> createState() => _RiderJobsScreenState();
+}
+
+class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
+  var _lowTokenPromptShown = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      ref.read(riderTokenWalletProvider.notifier).refresh();
+    });
+  }
+
+  void _maybeRemindLowTokens(int balance) {
+    if (_lowTokenPromptShown) return;
+    if (balance <= 0 || balance > TokenThresholds.lowBalance) return;
+    _lowTokenPromptShown = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      await showRiderTopUpDialog(
+        context,
+        title: 'Tokens running low',
+        message:
+            'You have $balance token${balance == 1 ? '' : 's'} left. Top up so you can keep taking jobs.',
+        confirmLabel: 'Top up',
+      );
+    });
+  }
+
+
+  Future<void> _confirmCancel(ActiveRideRequest job) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -55,11 +86,7 @@ class RiderJobsScreen extends ConsumerWidget {
     await ref.read(riderJobOffersProvider.notifier).decline(job.id);
   }
 
-  Future<void> _confirmAccept(
-    BuildContext context,
-    WidgetRef ref,
-    ActiveRideRequest job,
-  ) async {
+  Future<void> _confirmAccept(ActiveRideRequest job) async {
     final waitingOthers = ref
         .read(riderJobOffersProvider)
         .items
@@ -117,7 +144,7 @@ class RiderJobsScreen extends ConsumerWidget {
     context.go(AppRoutes.riderMap);
   }
 
-  Future<void> _confirmGoOffline(BuildContext context, WidgetRef ref) async {
+  Future<void> _confirmGoOffline() async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -161,13 +188,21 @@ class RiderJobsScreen extends ConsumerWidget {
   }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final offersState = ref.watch(riderJobOffersProvider);
     final offers = offersState.items;
     final active = ref.watch(activeRideRequestProvider);
     final online = ref.watch(riderOnlineProvider);
+    final wallet = ref.watch(riderTokenWalletProvider);
     final theme = Theme.of(context);
     final accepted = active?.isAccepted == true;
+    final balance = wallet.balance;
+    final showTokenBanner = !wallet.isLoading &&
+        (balance <= 0 || balance <= TokenThresholds.lowBalance);
+
+    ref.listen(riderTokenWalletProvider, (previous, next) {
+      if (!next.isLoading) _maybeRemindLowTokens(next.balance);
+    });
 
     return SizedBox.expand(
       child: Padding(
@@ -211,7 +246,7 @@ class RiderJobsScreen extends ConsumerWidget {
                   const SizedBox(width: AppSpacing.sm),
                   TextButton(
                     key: const Key('go-offline'),
-                    onPressed: () => _confirmGoOffline(context, ref),
+                    onPressed: _confirmGoOffline,
                     style: TextButton.styleFrom(
                       foregroundColor: AppColors.textPrimary,
                       backgroundColor: AppColors.field,
@@ -231,6 +266,13 @@ class RiderJobsScreen extends ConsumerWidget {
                 ],
               ],
             ),
+            if (showTokenBanner) ...[
+              const SizedBox(height: AppSpacing.md),
+              _TokenStatusBanner(
+                balance: balance,
+                onTopUp: () => context.go(AppRoutes.riderToken),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             if (!online && !accepted)
               const Expanded(child: _OfflineHome())
@@ -406,10 +448,8 @@ class RiderJobsScreen extends ConsumerWidget {
                               return RiderJobCard(
                                 key: Key('rider-job-${job.id}'),
                                 job: job,
-                                onAccept: () =>
-                                    _confirmAccept(context, ref, job),
-                                onCancel: () =>
-                                    _confirmCancel(context, ref, job),
+                                onAccept: () => _confirmAccept(job),
+                                onCancel: () => _confirmCancel(job),
                                 onOpenMap: () {
                                   ref
                                       .read(previewRiderJobProvider.notifier)
@@ -442,9 +482,43 @@ class _OfflineHomeState extends ConsumerState<_OfflineHome> {
     if (_busy) return;
     setState(() => _busy = true);
     try {
+      await ref.read(riderTokenWalletProvider.notifier).refresh();
+      if (!mounted) return;
+      final balance = ref.read(riderTokenWalletProvider).balance;
+      if (balance < TokenThresholds.minToGoOnline) {
+        await showRiderTopUpDialog(
+          context,
+          title: 'Top up to go online',
+          message:
+              'You need tokens to go online and take jobs. Buy a pack to continue.',
+          confirmLabel: 'Buy tokens',
+        );
+        return;
+      }
       await ref.read(riderOnlineProvider.notifier).goOnline();
+      if (!mounted) return;
+      final after = ref.read(riderTokenWalletProvider).balance;
+      if (after > 0 && after <= TokenThresholds.lowBalance) {
+        await showRiderTopUpDialog(
+          context,
+          title: 'Tokens running low',
+          message:
+              'You’re online with $after token${after == 1 ? '' : 's'} left. Top up so you don’t miss jobs.',
+          confirmLabel: 'Top up',
+        );
+      }
     } catch (error) {
       if (!mounted) return;
+      if (_isInsufficientTokens(error)) {
+        await showRiderTopUpDialog(
+          context,
+          title: 'Top up to go online',
+          message:
+              'You need tokens to go online and take jobs. Buy a pack to continue.',
+          confirmLabel: 'Buy tokens',
+        );
+        return;
+      }
       final message = _goOnlineErrorMessage(error);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -508,11 +582,24 @@ class _OfflineHomeState extends ConsumerState<_OfflineHome> {
   }
 }
 
+bool _isInsufficientTokens(Object error) {
+  if (error is! ApiException) return false;
+  if (error.code == 'INSUFFICIENT_TOKENS') return true;
+  final reasons = error.details?['reasons'];
+  if (reasons is List) {
+    return reasons.map((item) => '$item').contains('INSUFFICIENT_TOKENS');
+  }
+  return false;
+}
+
 String _goOnlineErrorMessage(Object error) {
   if (error is ApiException) {
     final reasons = error.details?['reasons'];
     if (reasons is List && reasons.isNotEmpty) {
       final codes = reasons.map((item) => '$item').toSet();
+      if (codes.contains('INSUFFICIENT_TOKENS')) {
+        return 'You need tokens to go online. Top up to continue.';
+      }
       if (codes.contains('NO_APPROVED_ACTIVE_ZONE')) {
         return 'Your zone isn’t active yet. Contact Cyrlo support.';
       }
@@ -529,6 +616,65 @@ String _goOnlineErrorMessage(Object error) {
     return error.message;
   }
   return 'Could not go online. Try again.';
+}
+
+class _TokenStatusBanner extends StatelessWidget {
+  const _TokenStatusBanner({
+    required this.balance,
+    required this.onTopUp,
+  });
+
+  final int balance;
+  final VoidCallback onTopUp;
+
+  @override
+  Widget build(BuildContext context) {
+    final empty = balance <= 0;
+    final theme = Theme.of(context);
+    return Material(
+      color: empty ? AppColors.tomato.withValues(alpha: 0.16) : AppColors.yellow,
+      borderRadius: BorderRadius.circular(AppRadii.md),
+      child: InkWell(
+        key: const Key('token-status-banner'),
+        onTap: onTopUp,
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpacing.md,
+            vertical: AppSpacing.sm + 2,
+          ),
+          child: Row(
+            children: [
+              Icon(
+                empty ? Icons.account_balance_wallet_outlined : Icons.toll_outlined,
+                color: empty ? AppColors.tomato : AppColors.darkGrey,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Expanded(
+                child: Text(
+                  empty
+                      ? 'No tokens left. Top up to go online.'
+                      : 'Running low — $balance token${balance == 1 ? '' : 's'} left.',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: empty ? AppColors.textPrimary : AppColors.darkGrey,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
+                ),
+              ),
+              Text(
+                'Top up',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: empty ? AppColors.tomato : AppColors.darkGrey,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _AcceptedJobBanner extends StatelessWidget {

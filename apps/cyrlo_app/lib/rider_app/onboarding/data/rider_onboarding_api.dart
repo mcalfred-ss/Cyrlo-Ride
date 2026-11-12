@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../../core/constants/api_paths.dart';
 import '../../../core/errors/api_exception.dart';
@@ -139,11 +140,25 @@ class LiveRiderOnboardingApi implements RiderOnboardingApi {
   }) async {
     _client.setAccessToken(accessToken);
     try {
-      final name = filePath.replaceAll('\\', '/').split('/').last;
+      // Web image_picker returns blob: URLs — fromFile fails there. Bytes work
+      // on mobile, desktop, and web.
+      final xfile = XFile(filePath);
+      final bytes = await xfile.readAsBytes();
+      if (bytes.isEmpty) {
+        throw const ApiException(
+          code: 'EMPTY_FILE',
+          message: 'Selected file is empty. Pick the photo again.',
+        );
+      }
+      var name = xfile.name.trim();
+      if (name.isEmpty || name == 'blob' || !name.contains('.')) {
+        final leaf = filePath.replaceAll('\\', '/').split('/').last;
+        name = leaf.contains('.') ? leaf : 'upload.jpg';
+      }
       final form = FormData.fromMap({
         'kind': kind.apiValue,
         if (vehicleId != null) 'vehicleId': vehicleId,
-        'file': await MultipartFile.fromFile(filePath, filename: name),
+        'file': MultipartFile.fromBytes(bytes, filename: name),
       });
       final response = await _client.dio.post(
         ApiPaths.riderDocuments,
@@ -151,8 +166,16 @@ class LiveRiderOnboardingApi implements RiderOnboardingApi {
         options: Options(contentType: 'multipart/form-data'),
       );
       return RiderDocumentView.fromJson(_dataMap(response.data));
+    } on ApiException {
+      rethrow;
     } on DioException catch (error) {
       throw _asApiException(error);
+    } catch (error) {
+      throw ApiException(
+        code: 'UPLOAD_FAILED',
+        message: 'Could not read the selected photo. Pick it again.',
+        details: {'cause': error.toString()},
+      );
     }
   }
 

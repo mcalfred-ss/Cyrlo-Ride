@@ -25,6 +25,7 @@ abstract final class ApiPaths {
 
   static const matchingNearby = '/matching/nearby';
   static const matchingOffers = '/matching/offers';
+  static const matchingSupply = '/matching/supply';
   static String matchingOfferAccept(String offerId) =>
       '/matching/offers/$offerId/accept';
   static String matchingOfferReject(String offerId) =>

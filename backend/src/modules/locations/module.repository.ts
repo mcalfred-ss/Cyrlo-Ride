@@ -130,7 +130,7 @@ export class LocationsRepository {
   }
 
   async loadOperationalSnapshot(riderId: string) {
-    const [user, profile, location, approvedZone, activeTrip] = await Promise.all([
+    const [user, profile, location, approvedZone, activeTrip, wallet] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: riderId },
         select: { status: true },
@@ -159,6 +159,10 @@ export class LocationsRepository {
         },
         select: { id: true },
       }),
+      this.prisma.riderWallet.findUnique({
+        where: { riderId },
+        select: { tokenBalance: true },
+      }),
     ]);
 
     if (!user || !profile) return null;
@@ -170,6 +174,7 @@ export class LocationsRepository {
       hasApprovedActiveZone: Boolean(approvedZone),
       availability: profile.availability,
       onActiveTrip: Boolean(activeTrip),
+      tokenBalance: wallet?.tokenBalance ?? 0,
       location: location
         ? {
             sharingEnabled: location.sharingEnabled,

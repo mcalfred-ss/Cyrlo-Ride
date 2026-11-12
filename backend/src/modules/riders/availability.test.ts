@@ -87,6 +87,7 @@ function seedEligibleRider(
     recordedAt: new Date(now.getTime() - age),
     receivedAt: new Date(now.getTime() - age),
   });
+  void repo.ensureWallet(riderId);
 }
 
 describe('operational eligibility helper', () => {
@@ -100,6 +101,7 @@ describe('operational eligibility helper', () => {
         hasApprovedActiveZone: false,
         availability: 'OFFLINE',
         onActiveTrip: false,
+        tokenBalance: 0,
         location: null,
       },
       { now },

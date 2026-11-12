@@ -227,9 +227,14 @@ class _RiderDocumentsScreenState extends ConsumerState<RiderDocumentsScreen> {
     } on ApiException catch (error) {
       if (!mounted) return;
       setState(() => _error = error.message);
-    } catch (_) {
+    } catch (error) {
       if (!mounted) return;
-      setState(() => _error = 'Could not submit. Check your connection.');
+      setState(
+        () => _error = error.toString().contains('SocketException') ||
+                error.toString().contains('TimeoutException')
+            ? 'Could not submit. Check your connection.'
+            : 'Could not submit. Try again.',
+      );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }

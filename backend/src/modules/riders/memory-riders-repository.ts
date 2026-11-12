@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { AppError } from '../../common/errors/app-error.js';
+import { RIDER_SIGNUP_TOKEN_BONUS } from '../../config/constants.js';
 import type { RidersRepository } from './module.repository.js';
 
 type Profile = Awaited<ReturnType<RidersRepository['findProfile']>>;
@@ -271,9 +272,18 @@ export class MemoryRidersRepository {
     return user;
   }
 
+  walletBalances = new Map<string, number>();
+
   async ensureWallet(riderId: string) {
     this.wallets.add(riderId);
-    return { riderId, tokenBalance: 0, updatedAt: new Date() };
+    if (!this.walletBalances.has(riderId)) {
+      this.walletBalances.set(riderId, RIDER_SIGNUP_TOKEN_BONUS);
+    }
+    return {
+      riderId,
+      tokenBalance: this.walletBalances.get(riderId) ?? RIDER_SIGNUP_TOKEN_BONUS,
+      updatedAt: new Date(),
+    };
   }
 
   locations = new Map<
@@ -318,6 +328,7 @@ export class MemoryRidersRepository {
       hasApprovedActiveZone: this.approvedActiveZones.has(riderId),
       availability: profile.availability,
       onActiveTrip: this.activeTrips.has(riderId),
+      tokenBalance: this.walletBalances.get(riderId) ?? 0,
       location: location
         ? {
             sharingEnabled: location.sharingEnabled,

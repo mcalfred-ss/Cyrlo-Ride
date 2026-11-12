@@ -84,6 +84,9 @@ class SignupController extends Notifier<SignupDraft> {
         state = state.copyWith(phoneConfirmed: true);
         unawaited(_persist());
       }
+      if (state.role == RideRole.passenger) {
+        await _healPassengerPreferencesDone(session.user.phoneNumber);
+      }
       unawaited(
         ref.read(authSessionProvider.notifier).ensureFreshAccess().then((_) {
           final fresh = ref.read(authSessionProvider);
@@ -108,6 +111,8 @@ class SignupController extends Notifier<SignupDraft> {
       displayName: session.user.displayName,
     );
     // Keep richer local profile fields when draft was already persisted.
+    // Never inherit a "prefs done" flag from restoredSession — OTP session
+    // restore was incorrectly skipping the passenger preference flow.
     state = fromSession.copyWith(
       passengerFirstName:
           state.passengerFirstName ?? fromSession.passengerFirstName,
@@ -143,9 +148,23 @@ class SignupController extends Notifier<SignupDraft> {
       applicationSubmitted: state.applicationSubmitted,
       riderApproved: state.riderApproved,
       riderRejectionReason: state.riderRejectionReason,
+      passengerPreferencesDone: state.passengerPreferencesDone,
     );
     _applyPassengerProfile(session.user.passengerProfile);
+    unawaited(_healPassengerPreferencesDone(session.user.phoneNumber));
     unawaited(_persist());
+  }
+
+  /// Keep the prefs flag aligned with saved answers (and undo the OTP restore bug).
+  Future<void> _healPassengerPreferencesDone(String phoneE164) async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasAnswers = prefs.containsKey('passenger_preferences_$phoneE164');
+    if (hasAnswers && !state.passengerPreferencesDone) {
+      _set(state.copyWith(passengerPreferencesDone: true));
+    } else if (!hasAnswers && state.passengerPreferencesDone) {
+      // Session restore used to mark prefs done without completing the survey.
+      _set(state.copyWith(passengerPreferencesDone: false));
+    }
   }
 
   void _applyPassengerProfile(PassengerProfileInfo? profile) {
@@ -367,6 +386,39 @@ class SignupController extends Notifier<SignupDraft> {
   /// Go back from vehicle type to role selection.
   void clearRole() {
     _set(state.copyWith(clearRole: true, clearDriverKind: true));
+  }
+
+  Future<void> completePassengerPreferences({
+    required bool skipped,
+    String? preferredName,
+    String? getAround,
+    String? okadaFrequency,
+    String? mattersMost,
+    String? frustration,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final phone = state.phoneE164 ?? 'unknown';
+    await prefs.setString(
+      'passenger_preferences_$phone',
+      jsonEncode({
+        'skipped': skipped,
+        'preferredName': preferredName,
+        'getAround': getAround,
+        'okadaFrequency': okadaFrequency,
+        'mattersMost': mattersMost,
+        'frustration': frustration,
+        'completedAt': DateTime.now().toUtc().toIso8601String(),
+      }),
+    );
+    final preferred = preferredName?.trim();
+    _set(
+      state.copyWith(
+        passengerPreferencesDone: true,
+        passengerFirstName: (preferred != null && preferred.length >= 2)
+            ? preferred
+            : null,
+      ),
+    );
   }
 
   Future<bool> savePassengerDetails({
@@ -710,8 +762,19 @@ class SignupController extends Notifier<SignupDraft> {
     );
   }
 
-  /// Clears local profile data and remote session.
+  /// Soft-deletes on the server, then clears local session/draft.
   Future<void> deleteAccount() async {
+    final session = ref.read(authSessionProvider);
+    if (session != null) {
+      try {
+        await ref.read(authApiProvider).deleteAccount(session.accessToken);
+      } on ApiException catch (error) {
+        // Already deleted / revoked — still wipe local state.
+        if (error.statusCode != 401 && error.code != 'UNAUTHORIZED') {
+          rethrow;
+        }
+      }
+    }
     await ref.read(pushMessagingControllerProvider).deactivateOnSignOut();
     await ref.read(authSessionProvider.notifier).clear();
     await ref.read(authSessionProvider.notifier).clearLastPhoneE164();
@@ -721,6 +784,39 @@ class SignupController extends Notifier<SignupDraft> {
       onboardingDone: state.onboardingDone,
       welcomeDone: state.welcomeDone,
     );
+  }
+
+  /// Updates rider personal details shown on Account (local draft).
+  bool saveRiderPersonalDetails({
+    required String firstName,
+    required String lastName,
+    required DateTime? dateOfBirth,
+    required PassengerGender? gender,
+    required String location,
+    GeoPoint? locationPoint,
+  }) {
+    final first = firstName.trim();
+    final last = lastName.trim();
+    final place = location.trim();
+    if (first.length < 2 ||
+        last.length < 2 ||
+        dateOfBirth == null ||
+        gender == null ||
+        place.length < 2 ||
+        !_isAtLeast16(dateOfBirth)) {
+      return false;
+    }
+    _set(
+      state.copyWith(
+        riderFirstName: first,
+        riderLastName: last,
+        riderDateOfBirth: dateOfBirth,
+        riderGender: gender,
+        riderLocation: place,
+        riderLocationPoint: locationPoint,
+      ),
+    );
+    return true;
   }
 
   bool _isAtLeast16(DateTime dateOfBirth) {

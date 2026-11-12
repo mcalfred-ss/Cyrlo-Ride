@@ -24,6 +24,7 @@ export class MemoryLocationsRepository {
       user: { id: string; status: 'ACTIVE' | 'SUSPENDED' | 'DELETED'; role: string };
       hasApprovedVehicle: boolean;
       hasApprovedActiveZone: boolean;
+      tokenBalance: number;
       activeTripBookingId: string | null;
     }
   >();
@@ -35,6 +36,7 @@ export class MemoryLocationsRepository {
     userStatus?: 'ACTIVE' | 'SUSPENDED' | 'DELETED';
     hasApprovedVehicle?: boolean;
     hasApprovedActiveZone?: boolean;
+    tokenBalance?: number;
     activeTripBookingId?: string | null;
   }) {
     this.riders.set(input.userId, {
@@ -48,6 +50,7 @@ export class MemoryLocationsRepository {
       },
       hasApprovedVehicle: input.hasApprovedVehicle ?? true,
       hasApprovedActiveZone: input.hasApprovedActiveZone ?? true,
+      tokenBalance: input.tokenBalance ?? 10,
       activeTripBookingId: input.activeTripBookingId ?? null,
     });
   }
@@ -120,6 +123,7 @@ export class MemoryLocationsRepository {
       hasApprovedActiveZone: rider.hasApprovedActiveZone,
       availability: rider.availability,
       onActiveTrip: Boolean(rider.activeTripBookingId),
+      tokenBalance: rider.tokenBalance,
       location: location
         ? {
             sharingEnabled: location.sharingEnabled,

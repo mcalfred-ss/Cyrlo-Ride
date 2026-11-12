@@ -228,3 +228,24 @@ class MatchingStatus {
     );
   }
 }
+
+/// Count-only nearby supply from `GET /matching/supply`.
+class MatchingSupply {
+  const MatchingSupply({
+    required this.available,
+    required this.count,
+    required this.vehicleCategory,
+  });
+
+  final bool available;
+  final int count;
+  final String vehicleCategory;
+
+  factory MatchingSupply.fromJson(Map<String, dynamic> json) {
+    return MatchingSupply(
+      available: json['available'] == true,
+      count: (json['count'] as num?)?.toInt() ?? 0,
+      vehicleCategory: json['vehicleCategory'] as String? ?? 'PRAGYA',
+    );
+  }
+}

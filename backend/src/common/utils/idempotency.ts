@@ -5,6 +5,8 @@ export const IdempotencyKey = {
   /** Payment/purchase initialization idempotency (client-supplied request id). */
   tokenPurchaseInit: (riderId: string, clientRequestId: string) =>
     `token-purchase-init:${riderId}:${clientRequestId}`,
+  /** One-time rider signup / onboarding token bonus. */
+  riderSignupBonus: (riderId: string) => `rider-signup-bonus:${riderId}`,
   tokenDebit: (bookingId: string) => `token-debit:booking:${bookingId}`,
   tokenRefund: (bookingId: string) => `token-refund:booking:${bookingId}`,
   bookingFeeRefund: (paymentId: string, attempt = 1) =>

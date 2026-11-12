@@ -26,7 +26,8 @@ import {
 import { offerExpiresAt, requireOfferResponseTimeoutSeconds } from './offer-timeout.js';
 import type { NearbyDiscoveryBody } from './module.schema.js';
 import type { MatchingRepository } from './module.repository.js';
-import type { PrismaClient } from '@prisma/client';
+import type { SupplyQuery } from './module.schema.js';
+import type { PrismaClient, VehicleCategory } from '@prisma/client';
 
 export interface MatchingServiceDeps {
   audit: AuditService;
@@ -47,6 +48,10 @@ export interface MatchingService {
   acceptOffer(riderId: string, offerId: string, ip?: string): Promise<unknown>;
   rejectOffer(riderId: string, offerId: string, ip?: string): Promise<unknown>;
   getPassengerMatchingStatus(passengerId: string, bookingId: string): Promise<unknown>;
+  getSupplyAvailability(
+    passengerId: string,
+    query: SupplyQuery,
+  ): Promise<{ available: boolean; count: number; vehicleCategory: VehicleCategory }>;
 }
 
 export class MatchingServiceImpl implements MatchingService {
@@ -632,6 +637,33 @@ export class MatchingServiceImpl implements MatchingService {
         accepted: booking.offers.filter((o) => o.status === 'ACCEPTED').length,
         latestBatchSequence: booking.offers[0]?.batchSequence ?? null,
       },
+    };
+  }
+
+  async getSupplyAvailability(passengerId: string, query: SupplyQuery) {
+    void passengerId;
+    const pickup = { latitude: query.latitude, longitude: query.longitude };
+    const zone = await this.repository.findActiveZoneCoveringPickup(
+      pickup.latitude,
+      pickup.longitude,
+    );
+    if (!zone) {
+      return {
+        available: false,
+        count: 0,
+        vehicleCategory: query.vehicleCategory,
+      };
+    }
+    const count = await this.repository.countEligibleSupply({
+      pickupZoneId: zone.id,
+      vehicleCategory: query.vehicleCategory,
+      pickup,
+      now: this.now(),
+    });
+    return {
+      available: count > 0,
+      count,
+      vehicleCategory: query.vehicleCategory,
     };
   }
 

@@ -78,6 +78,12 @@ abstract class BookingsApi {
     required String accessToken,
     required String bookingId,
   });
+
+  Future<MatchingSupply> matchingSupply({
+    required String accessToken,
+    required GeoPoint pickup,
+    String vehicleCategory = 'PRAGYA',
+  });
 }
 
 class LiveBookingsApi implements BookingsApi {
@@ -262,6 +268,28 @@ class LiveBookingsApi implements BookingsApi {
       final response =
           await _client.dio.get(ApiPaths.matchingBookingStatus(bookingId));
       return MatchingStatus.fromJson(_dataMap(response.data));
+    } on DioException catch (error) {
+      throw _asApiException(error);
+    }
+  }
+
+  @override
+  Future<MatchingSupply> matchingSupply({
+    required String accessToken,
+    required GeoPoint pickup,
+    String vehicleCategory = 'PRAGYA',
+  }) async {
+    _client.setAccessToken(accessToken);
+    try {
+      final response = await _client.dio.get(
+        ApiPaths.matchingSupply,
+        queryParameters: {
+          'vehicleCategory': vehicleCategory,
+          'latitude': pickup.latitude,
+          'longitude': pickup.longitude,
+        },
+      );
+      return MatchingSupply.fromJson(_dataMap(response.data));
     } on DioException catch (error) {
       throw _asApiException(error);
     }

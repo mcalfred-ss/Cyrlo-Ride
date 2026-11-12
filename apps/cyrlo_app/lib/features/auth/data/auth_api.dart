@@ -37,6 +37,9 @@ abstract class AuthApi {
     double? homeLatitude,
     double? homeLongitude,
   });
+
+  /// Soft-deletes the signed-in account on the server.
+  Future<void> deleteAccount(String accessToken);
 }
 
 class LiveAuthApi implements AuthApi {
@@ -179,6 +182,16 @@ class LiveAuthApi implements AuthApi {
     }
   }
 
+  @override
+  Future<void> deleteAccount(String accessToken) async {
+    _client.setAccessToken(accessToken);
+    try {
+      await _client.dio.delete(ApiPaths.me);
+    } on DioException catch (error) {
+      throw _asApiException(error);
+    }
+  }
+
   Map<String, dynamic> _dataMap(Object? body) {
     if (body is Map && body['data'] is Map) {
       return Map<String, dynamic>.from(body['data'] as Map);
@@ -300,6 +313,9 @@ class FakeAuthApi implements AuthApi {
     );
     return _savedProfile!;
   }
+
+  @override
+  Future<void> deleteAccount(String accessToken) async {}
 }
 
 final authApiProvider = Provider<AuthApi>((ref) {

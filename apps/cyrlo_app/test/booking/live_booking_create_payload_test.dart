@@ -117,6 +117,14 @@ class _RecordingBookingsApi implements BookingsApi {
       throw UnimplementedError();
 
   @override
+  Future<MatchingSupply> matchingSupply({
+    required String accessToken,
+    required GeoPoint pickup,
+    String vehicleCategory = 'PRAGYA',
+  }) =>
+      throw UnimplementedError();
+
+  @override
   Future<Booking> riderCancel({
     required String accessToken,
     required String bookingId,

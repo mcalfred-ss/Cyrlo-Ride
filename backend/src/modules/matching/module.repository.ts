@@ -14,6 +14,11 @@ import {
   type ZoneBoundary,
 } from '../service-zones/zone-geometry.js';
 import { ACTIVE_TRIP_BOOKING_STATUSES } from '../riders/operational-eligibility.js';
+import {
+  isInsideBoundingBox,
+  isPointInBoundary,
+  type ZoneBoundary,
+} from '../service-zones/zone-geometry.js';
 import { WalletRepository } from '../wallet/module.repository.js';
 import { evaluateMatchingEligibility } from './matching-eligibility.js';
 
@@ -561,5 +566,87 @@ export class MatchingRepository {
         },
       },
     });
+  }
+
+  async findActiveZoneCoveringPickup(latitude: number, longitude: number) {
+    const candidates = await this.prisma.serviceZone.findMany({
+      where: {
+        isActive: true,
+        status: 'ACTIVE',
+        minLatitude: { lte: latitude },
+        maxLatitude: { gte: latitude },
+        minLongitude: { lte: longitude },
+        maxLongitude: { gte: longitude },
+      },
+    });
+    const matches = [];
+    for (const zone of candidates) {
+      const box = {
+        minLatitude: Number(zone.minLatitude),
+        maxLatitude: Number(zone.maxLatitude),
+        minLongitude: Number(zone.minLongitude),
+        maxLongitude: Number(zone.maxLongitude),
+      };
+      if (!isInsideBoundingBox({ latitude, longitude }, box)) continue;
+      const boundary = zone.boundary as unknown as ZoneBoundary;
+      if (!isPointInBoundary(latitude, longitude, boundary)) continue;
+      matches.push({
+        zone,
+        area:
+          Math.max(0, box.maxLatitude - box.minLatitude) *
+          Math.max(0, box.maxLongitude - box.minLongitude),
+      });
+    }
+    if (matches.length === 0) return null;
+    matches.sort((a, b) => {
+      if (a.area !== b.area) return a.area - b.area;
+      return a.zone.createdAt.getTime() - b.zone.createdAt.getTime();
+    });
+    return matches[0]!.zone;
+  }
+
+  /**
+   * Eligible online riders for a pickup (same gates as dispatch), count only.
+   */
+  async countEligibleSupply(input: {
+    pickupZoneId: string;
+    vehicleCategory: VehicleCategory;
+    pickup: { latitude: number; longitude: number };
+    now: Date;
+  }): Promise<number> {
+    const raw = await this.loadMatchingCandidates({
+      pickupZoneId: input.pickupZoneId,
+      vehicleCategory: input.vehicleCategory,
+      excludeRiderIds: new Set(),
+    });
+    let count = 0;
+    for (const rider of raw) {
+      if (!rider.location) continue;
+      const result = evaluateMatchingEligibility(
+        {
+          userStatus: rider.user.status,
+          riderVerificationStatus: rider.verificationStatus,
+          hasApprovedVehicle: rider.vehicles.length > 0,
+          hasApprovedVehicleForCategory: rider.vehicles.length > 0,
+          hasApprovedActiveZone: true,
+          hasApprovedActiveZoneForPickup: true,
+          availability: rider.availability,
+          onActiveTrip: rider.bookings.length > 0,
+          tokenBalance: rider.wallet?.tokenBalance ?? 0,
+          previouslyExcludedFromBooking: false,
+          location: {
+            sharingEnabled: rider.location.sharingEnabled,
+            recordedAt: rider.location.recordedAt,
+            receivedAt: rider.location.receivedAt,
+            latitude: Number(rider.location.latitude),
+            longitude: Number(rider.location.longitude),
+          },
+          pickup: input.pickup,
+        },
+        input.now,
+      );
+      if (result.eligible) count += 1;
+    }
+    return count;
   }
 }

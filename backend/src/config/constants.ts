@@ -10,6 +10,9 @@ export const BOOKING_FEE_PESEWAS = 100;
 /** Tokens removed when a rider accepts an eligible booking. */
 export const TOKEN_COST_PER_ACCEPTANCE = 1;
 
+/** One-time signup bonus credited when a rider wallet is first ensured. */
+export const RIDER_SIGNUP_TOKEN_BONUS = 10;
+
 /**
  * Unpaid connection-fee deadline after rider acceptance (checkout window).
  * Legacy AWAITING_PAYMENT rows also use this field.

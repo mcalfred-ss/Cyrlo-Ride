@@ -2,6 +2,7 @@ import type { RequestHandler } from 'express';
 
 import { sendSuccess } from '../../common/http/response.js';
 import type { MatchingService } from './module.service.js';
+import type { SupplyQuery } from './module.schema.js';
 
 export class MatchingController {
   constructor(private readonly service: MatchingService) {}
@@ -18,6 +19,16 @@ export class MatchingController {
   listMyOffers: RequestHandler = async (req, res, next) => {
     try {
       const data = await this.service.listMyPendingOffers(req.auth!.sub);
+      sendSuccess(res, data);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  supply: RequestHandler = async (req, res, next) => {
+    try {
+      const query = res.locals.validated.query as SupplyQuery;
+      const data = await this.service.getSupplyAvailability(req.auth!.sub, query);
       sendSuccess(res, data);
     } catch (error) {
       next(error);

@@ -53,6 +53,7 @@ class SignupDraft {
     this.riderApproved = false,
     this.riderRejectionReason,
     this.accountReady = false,
+    this.passengerPreferencesDone = false,
   });
 
   final bool splashDone;
@@ -65,6 +66,8 @@ class SignupDraft {
   final RideRole? role;
   /// Returning DB user — skip profile / approval gates and open role home.
   final bool accountReady;
+  /// Soft passenger preference survey completed or skipped.
+  final bool passengerPreferencesDone;
   final String? passengerFirstName;
   final String? passengerLastName;
   final DateTime? passengerDateOfBirth;
@@ -184,6 +187,7 @@ class SignupDraft {
         'riderApproved': riderApproved,
         'riderRejectionReason': riderRejectionReason,
         'accountReady': accountReady,
+        'passengerPreferencesDone': passengerPreferencesDone,
       };
 
   factory SignupDraft.fromJson(Map<String, dynamic> json) {
@@ -289,6 +293,8 @@ class SignupDraft {
       riderApproved: json['riderApproved'] as bool? ?? false,
       riderRejectionReason: json['riderRejectionReason'] as String?,
       accountReady: json['accountReady'] as bool? ?? false,
+      passengerPreferencesDone:
+          json['passengerPreferencesDone'] as bool? ?? false,
     );
   }
 
@@ -321,6 +327,8 @@ class SignupDraft {
       riderLastName: role == RideRole.rider ? last : null,
       applicationSubmitted: role == RideRole.rider,
       riderApproved: role == RideRole.rider,
+      // Preference survey is tracked separately (draft flag / local answers key).
+      passengerPreferencesDone: false,
     );
   }
 
@@ -365,6 +373,7 @@ class SignupDraft {
     bool? applicationSubmitted,
     bool? riderApproved,
     String? riderRejectionReason,
+    bool? passengerPreferencesDone,
     bool clearPhone = false,
     bool clearRole = false,
     bool clearDriverKind = false,
@@ -432,6 +441,8 @@ class SignupDraft {
       riderRejectionReason: clearRejectionReason
           ? null
           : (riderRejectionReason ?? this.riderRejectionReason),
+      passengerPreferencesDone:
+          passengerPreferencesDone ?? this.passengerPreferencesDone,
     );
   }
 }

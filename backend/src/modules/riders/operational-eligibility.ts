@@ -35,6 +35,8 @@ export interface OperationalEligibilitySnapshot {
   hasApprovedActiveZone: boolean;
   availability: 'OFFLINE' | 'AVAILABLE' | 'BUSY';
   onActiveTrip: boolean;
+  /** Wallet tokens available for accepting jobs. Required to go online. */
+  tokenBalance: number;
   location: {
     sharingEnabled: boolean;
     recordedAt: Date;
@@ -132,5 +134,15 @@ export function evaluateGoOnlineEligibility(
   snapshot: OperationalEligibilitySnapshot,
   now?: Date,
 ): OperationalEligibilityResult {
-  return evaluateOperationalEligibility(snapshot, { now, requireOnline: false });
+  const base = evaluateOperationalEligibility(snapshot, { now, requireOnline: false });
+  const reasons = [...base.reasons];
+  if (snapshot.tokenBalance < 1) {
+    reasons.push(IneligibilityReason.INSUFFICIENT_TOKENS);
+  }
+  const unique = [...new Set(reasons)];
+  return {
+    ...base,
+    eligible: unique.length === 0,
+    reasons: unique,
+  };
 }

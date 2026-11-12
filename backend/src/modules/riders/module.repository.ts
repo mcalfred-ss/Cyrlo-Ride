@@ -7,6 +7,8 @@ import type {
 } from '@prisma/client';
 
 import { AppError } from '../../common/errors/app-error.js';
+import { IdempotencyKey } from '../../common/utils/idempotency.js';
+import { RIDER_SIGNUP_TOKEN_BONUS } from '../../config/constants.js';
 
 /** Private to the riders module. */
 export class RidersRepository {
@@ -220,15 +222,50 @@ export class RidersRepository {
   }
 
   async ensureWallet(riderId: string) {
-    return this.prisma.riderWallet.upsert({
-      where: { riderId },
-      create: { riderId, tokenBalance: 0 },
-      update: {},
+    const bonus = RIDER_SIGNUP_TOKEN_BONUS;
+    const key = IdempotencyKey.riderSignupBonus(riderId);
+
+    return this.prisma.$transaction(async (tx) => {
+      await tx.riderWallet.upsert({
+        where: { riderId },
+        create: { riderId, tokenBalance: 0 },
+        update: {},
+      });
+
+      const existingBonus = await tx.tokenLedgerEntry.findUnique({
+        where: { idempotencyKey: key },
+      });
+      if (existingBonus) {
+        return tx.riderWallet.findUniqueOrThrow({ where: { riderId } });
+      }
+
+      const locked = await tx.$queryRaw<Array<{ token_balance: number }>>`
+        SELECT token_balance
+        FROM rider_wallets
+        WHERE rider_id = ${riderId}::uuid
+        FOR UPDATE
+      `;
+      const current = locked[0]?.token_balance ?? 0;
+      const balanceAfter = current + bonus;
+      await tx.tokenLedgerEntry.create({
+        data: {
+          riderId,
+          type: 'ADJUSTMENT',
+          tokenDelta: bonus,
+          balanceAfter,
+          idempotencyKey: key,
+          reason: 'rider_signup_bonus',
+        },
+      });
+      return tx.riderWallet.update({
+        where: { riderId },
+        data: { tokenBalance: balanceAfter },
+      });
     });
   }
 
   async loadOperationalSnapshot(riderId: string) {
-    const [user, profile, location, approvedZone, activeTrip] = await Promise.all([
+    const [user, profile, location, approvedZone, activeTrip, wallet] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: riderId },
         select: { status: true },
@@ -257,6 +294,10 @@ export class RidersRepository {
         },
         select: { id: true },
       }),
+      this.prisma.riderWallet.findUnique({
+        where: { riderId },
+        select: { tokenBalance: true },
+      }),
     ]);
 
     if (!user || !profile) return null;
@@ -268,6 +309,7 @@ export class RidersRepository {
       hasApprovedActiveZone: Boolean(approvedZone),
       availability: profile.availability,
       onActiveTrip: Boolean(activeTrip),
+      tokenBalance: wallet?.tokenBalance ?? 0,
       location: location
         ? {
             sharingEnabled: location.sharingEnabled,

@@ -16,6 +16,7 @@ import '../../passenger_app/account/presentation/passenger_account_screen.dart';
 import '../../passenger_app/home/presentation/passenger_home_screen.dart';
 import '../../passenger_app/home/presentation/passenger_rider_detail_screen.dart';
 import '../../passenger_app/map/presentation/passenger_map_screen.dart';
+import '../../passenger_app/onboarding/presentation/passenger_preferences_screen.dart';
 import '../../passenger_app/profile/presentation/passenger_details_screen.dart';
 import '../../passenger_app/rides/presentation/passenger_rides_screen.dart';
 import '../../rider_app/account/presentation/rider_account_screen.dart';
@@ -57,7 +58,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       final next = _requiredLocation(draft);
       if (next == null) {
         if (draft.role == RideRole.passenger && location.startsWith('/passenger/')) {
-          return location == AppRoutes.passengerDetails ? AppRoutes.passengerHome : null;
+          if (location == AppRoutes.passengerDetails ||
+              location == AppRoutes.passengerPreferences) {
+            return AppRoutes.passengerHome;
+          }
+          return null;
         }
         if (draft.role == RideRole.rider && _isRiderHome(location)) return null;
         if (draft.role == RideRole.passenger) return AppRoutes.passengerHome;
@@ -75,6 +80,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       flowRoute(AppRoutes.confirmPhone, const ConfirmPhoneScreen()),
       flowRoute(AppRoutes.verifyOtp, const VerifyOtpScreen()),
       flowRoute(AppRoutes.passengerDetails, const PassengerDetailsScreen()),
+      flowRoute(
+        AppRoutes.passengerPreferences,
+        const PassengerPreferencesScreen(),
+      ),
       flowRoute(AppRoutes.driverType, const DriverTypeScreen()),
       flowRoute(AppRoutes.riderDetails, const RiderDetailsScreen()),
       flowRoute(AppRoutes.riderDocuments, const RiderDocumentsScreen()),
@@ -234,6 +243,9 @@ String? _requiredLocation(SignupDraft draft) {
     // Returning logins must still complete/hydrate profile before home.
     if (!draft.hasPassengerProfile) {
       return AppRoutes.passengerDetails;
+    }
+    if (!draft.passengerPreferencesDone) {
+      return AppRoutes.passengerPreferences;
     }
     return null;
   }

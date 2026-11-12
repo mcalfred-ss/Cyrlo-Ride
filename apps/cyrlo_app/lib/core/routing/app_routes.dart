@@ -7,6 +7,7 @@ abstract final class AppRoutes {
   static const verifyOtp = '/verify';
   static const selectRole = '/role';
   static const passengerDetails = '/passenger/details';
+  static const passengerPreferences = '/passenger/preferences';
   static const passengerHome = '/passenger/home';
   static const passengerRiderDetail = '/passenger/home/rider/:riderId';
   static const passengerMap = '/passenger/map';

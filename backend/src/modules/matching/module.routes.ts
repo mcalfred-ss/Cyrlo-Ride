@@ -7,6 +7,7 @@ import {
   bookingIdParamSchema,
   nearbyDiscoveryBodySchema,
   offerIdParamSchema,
+  supplyQuerySchema,
 } from './module.schema.js';
 
 const riderAuth: RequestHandler[] = [authenticate, requireActiveAccount, requireRole('RIDER')];
@@ -23,6 +24,12 @@ export function createMatchingRouter(controller: MatchingController): Router {
     ...passengerAuth,
     validate({ body: nearbyDiscoveryBodySchema }),
     controller.nearby,
+  );
+  router.get(
+    '/supply',
+    ...passengerAuth,
+    validate({ query: supplyQuerySchema }),
+    controller.supply,
   );
   router.get('/offers', ...riderAuth, controller.listMyOffers);
   router.post(

@@ -20,6 +20,7 @@ import '../../map/application/trip_pin_controller.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
+import '../application/pragya_supply_provider.dart';
 import 'live_booking_flow.dart';
 import 'nearby_rider_card.dart';
 import 'notification_bell_button.dart';
@@ -34,6 +35,7 @@ class PassengerHomeScreen extends ConsumerWidget {
     final draft = ref.watch(signupProvider);
     final ridersState = ref.watch(nearbyRidersProvider);
     final riders = ridersState.items;
+    final supply = ref.watch(pragyaSupplyProvider);
     final activeRequest = ref.watch(activeRideRequestProvider);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final shareContact = activeRequest?.sharesContact == true;
@@ -70,14 +72,16 @@ class PassengerHomeScreen extends ConsumerWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        ridersState.isLoading
-                            ? 'Finding riders nearby…'
-                            : ridersState.message ??
-                                (availableCount > 0
-                                    ? '$availableCount rider${availableCount == 1 ? '' : 's'} nearby'
+                        supply.isLoading || ridersState.isLoading
+                            ? 'Finding Pragya nearby…'
+                            : availableCount > 0
+                                ? '$availableCount rider${availableCount == 1 ? '' : 's'} nearby'
+                                : !supply.available
+                                    ? (ridersState.message ??
+                                        'No Pragya riders online nearby')
                                     : riders.isEmpty
-                                        ? 'Set your pickup on the map, then find a rider'
-                                        : 'Tap a rider to request'),
+                                        ? 'Pragya available — book below'
+                                        : 'Tap a Pragya to request',
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: AppColors.textSecondary,
                           fontWeight: FontWeight.w500,
@@ -99,7 +103,9 @@ class PassengerHomeScreen extends ConsumerWidget {
                 ),
               ],
             ),
-            if (activeRequest == null) ...[
+            if (activeRequest == null &&
+                !supply.isLoading &&
+                (supply.available || availableCount > 0)) ...[
               const SizedBox(height: AppSpacing.md),
               CyrloButton(
                 key: const Key('book-live-ride'),

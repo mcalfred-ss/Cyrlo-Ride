@@ -17,6 +17,7 @@ import '../../../shared/ride_session/passenger_cancel_ride.dart';
 import '../../../shared/widgets/active_contact_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../home/application/nearby_riders_provider.dart';
+import '../../home/application/pragya_supply_provider.dart';
 import '../../home/domain/nearby_rider.dart';
 import '../../home/presentation/live_booking_flow.dart';
 import '../../home/presentation/request_ride_flow.dart';
@@ -111,6 +112,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     final mapPoses = ref.watch(nearbyRidersMapMotionProvider);
     final movingRiders = ridersWithMapPoses(nearbyRiders, mapPoses);
     final selectedRider = ref.watch(selectedNearbyRiderProvider);
+    final supply = ref.watch(pragyaSupplyProvider);
     final activeRequest = ref.watch(activeRideRequestProvider);
     final project = ref.watch(passengerMapProjectProvider);
     final token = ref.watch(mapAccessTokenProvider).value ?? '';
@@ -337,6 +339,8 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                   ],
                   const Spacer(),
                   if (!shareContact &&
+                      !supply.isLoading &&
+                      supply.available &&
                       pins.pickup != null &&
                       pins.pickup!.isValid) ...[
                     CyrloButton(
