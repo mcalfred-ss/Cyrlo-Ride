@@ -3,10 +3,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/theme/app_spacing.dart';
+import '../../../core/utils/phone_numbers.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
 import '../../../shared/widgets/flow_scaffold.dart';
 import '../../../shared/widgets/ghana_phone_field.dart';
 import '../../../shared/widgets/screen_header.dart';
+import '../application/auth_session.dart';
 import '../application/signup_controller.dart';
 
 class CreateAccountScreen extends ConsumerStatefulWidget {
@@ -20,6 +22,26 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
   final _phoneController = TextEditingController();
   String? _error;
   var _busy = false;
+  var _returningHint = false;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(_prefillLastPhone);
+  }
+
+  Future<void> _prefillLastPhone() async {
+    final draftPhone = ref.read(signupProvider).phoneE164;
+    final remembered =
+        draftPhone ?? await ref.read(authSessionProvider.notifier).readLastPhoneE164();
+    final national = PhoneNumbers.ghanaNationalDigits(remembered);
+    if (!mounted || national == null || national.isEmpty) return;
+    if (_phoneController.text.trim().isNotEmpty) return;
+    setState(() {
+      _phoneController.text = national;
+      _returningHint = true;
+    });
+  }
 
   @override
   void dispose() {
@@ -51,9 +73,11 @@ class _CreateAccountScreenState extends ConsumerState<CreateAccountScreen> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const ScreenHeader(
-            title: 'Your phone number',
-            subtitle: 'We’ll text you a one-time code.',
+          ScreenHeader(
+            title: _returningHint ? 'Confirm it’s you' : 'Your phone number',
+            subtitle: _returningHint
+                ? 'We’ll text a one-time code to this number.'
+                : 'We’ll text you a one-time code.',
           ),
           const SizedBox(height: AppSpacing.xl),
           GhanaPhoneField(controller: _phoneController),

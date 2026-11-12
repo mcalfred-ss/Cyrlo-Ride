@@ -21,7 +21,19 @@ class SignupController extends Notifier<SignupDraft> {
   @override
   SignupDraft build() {
     ref.listen<AuthSession?>(authSessionProvider, (previous, next) {
-      if (next == null) return;
+      if (next == null) {
+        // Session revoked/expired — require OTP again; keep phone for confirm/prefill.
+        if (previous != null && state.otpVerified) {
+          _set(
+            state.copyWith(
+              otpVerified: false,
+              phoneConfirmed: false,
+              accountReady: false,
+            ),
+          );
+        }
+        return;
+      }
       if (state.otpVerified && state.phoneE164 != null) return;
       _applyRestoredSession(next);
     });
@@ -62,7 +74,14 @@ class SignupController extends Notifier<SignupDraft> {
       _applyRestoredSession(session);
     }
     if (session != null) {
-      unawaited(_hydrateProfileFromApi(session));
+      unawaited(
+        ref.read(authSessionProvider.notifier).ensureFreshAccess().then((_) {
+          final fresh = ref.read(authSessionProvider);
+          if (fresh != null) {
+            return _hydrateProfileFromApi(fresh);
+          }
+        }),
+      );
     }
     // Always play the branded splash once per cold start, even for
     // returning sessions that already persisted splashDone=true.
@@ -701,6 +720,7 @@ class SignupController extends Notifier<SignupDraft> {
   Future<void> deleteAccount() async {
     await ref.read(pushMessagingControllerProvider).deactivateOnSignOut();
     await ref.read(authSessionProvider.notifier).clear();
+    await ref.read(authSessionProvider.notifier).clearLastPhoneE164();
     await _clearPersisted();
     state = SignupDraft(
       splashDone: state.splashDone,

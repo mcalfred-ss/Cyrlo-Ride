@@ -7,8 +7,9 @@ import '../../features/auth/application/auth_session.dart';
 
 final apiClientProvider = Provider<ApiClient>((ref) {
   final client = ApiClient(baseUrl: AppConfig.apiBaseUrl);
-  // Late-bound so 401s can rotate the short-lived access token without signing out.
-  client.onUnauthorized = () => ref.read(authSessionProvider.notifier).tryRefresh();
+  // Late-bound so 401s rotate via the single-flight refresh (never parallel reuse).
+  client.onUnauthorized =
+      () => ref.read(authSessionProvider.notifier).tryRefresh(reason: 'api_401');
   ref.onDispose(client.dio.close);
   return client;
 });

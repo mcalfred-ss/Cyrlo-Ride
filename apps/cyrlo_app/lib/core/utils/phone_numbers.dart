@@ -29,4 +29,11 @@ abstract final class PhoneNumbers {
     final national = e164.substring(ghanaDialPrefix.length);
     return '$ghanaDialPrefix ${national.substring(0, 2)} ${national.substring(2, 5)} ${national.substring(5)}';
   }
+
+  /// National 9 digits for the Ghana phone field (no leading 0 / +233).
+  static String? ghanaNationalDigits(String? input) {
+    final e164 = normalizeGhanaToE164(input);
+    if (e164 == null) return null;
+    return e164.substring(ghanaDialPrefix.length);
+  }
 }
