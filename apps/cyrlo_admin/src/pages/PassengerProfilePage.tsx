@@ -396,7 +396,15 @@ export function PassengerProfilePage() {
                         className="border-b border-[var(--color-border)] last:border-b-0"
                         data-testid={`passenger-booking-${booking.id}`}
                       >
-                        <td className="px-2 py-2 font-mono text-xs">{booking.id}</td>
+                        <td className="px-2 py-2 font-mono text-xs">
+                          <Link
+                            to={`/bookings/${booking.id}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`}
+                            className="text-[var(--color-accent)] hover:underline"
+                            data-testid={`passenger-booking-link-${booking.id}`}
+                          >
+                            {booking.id}
+                          </Link>
+                        </td>
                         <td className="px-2 py-2">{booking.status}</td>
                         <td className="px-2 py-2">{booking.vehicleCategory}</td>
                         <td className="px-2 py-2">{booking.pickupLabel || '—'}</td>

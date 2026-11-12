@@ -48,6 +48,22 @@ describe('role-aware navigation', () => {
     ).toBe(false);
   });
 
+  it('inherits ViewBookingHistory for nested booking detail paths', () => {
+    expect(canAccessPath('OPERATIONS_ADMIN', '/bookings')).toBe(true);
+    expect(canAccessPath('SUPPORT_ADMIN', '/bookings')).toBe(true);
+    expect(
+      canAccessPath('OPERATIONS_ADMIN', '/bookings/22222222-2222-2222-2222-222222222222'),
+    ).toBe(true);
+    expect(
+      canAccessPath('SUPPORT_ADMIN', '/bookings/22222222-2222-2222-2222-222222222222'),
+    ).toBe(true);
+    expect(canAccessPath('FINANCE_ADMIN', '/bookings')).toBe(false);
+    expect(
+      canAccessPath('FINANCE_ADMIN', '/bookings/22222222-2222-2222-2222-222222222222'),
+    ).toBe(false);
+    expect(navItemsForRole('FINANCE_ADMIN').map((i) => i.id)).not.toContain('bookings');
+  });
+
   it('gates applications queue and detail to ReviewRiders', () => {
     expect(canAccessPath('OPERATIONS_ADMIN', '/applications')).toBe(true);
     expect(

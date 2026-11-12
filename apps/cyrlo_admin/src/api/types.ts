@@ -433,3 +433,116 @@ export interface AdminPassengerCancellationsResponse {
   items: AdminPassengerCancellationItem[];
   pagination: PaginationMeta;
 }
+
+/** Booking statuses accepted by `GET /admin/bookings` filters. */
+export type AdminBookingStatus =
+  | 'AWAITING_PAYMENT'
+  | 'PAYMENT_FAILED'
+  | 'SEARCHING'
+  | 'ACCEPTED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'EXPIRED'
+  | 'CANCELLED';
+
+export interface AdminBookingPartySummary {
+  id: string;
+  phoneNumber: string;
+  displayName: string | null;
+  status: string;
+}
+
+export interface AdminBookingRiderSummary {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+  status: string;
+}
+
+export interface AdminBookingFeePaymentSnapshot {
+  id: string;
+  status: string;
+  amountPesewas: number;
+  currency: string;
+  providerReference: string | null;
+  createdAt: string;
+}
+
+/** Exact list item from `GET /admin/bookings`. */
+export interface AdminBookingListItem {
+  id: string;
+  status: AdminBookingStatus | string;
+  vehicleCategory: string;
+  passengerId: string;
+  riderId: string | null;
+  serviceZoneId: string | null;
+  pickupLabel: string | null;
+  bookingFeePesewas: number;
+  paymentExpiresAt: string | null;
+  searchExpiresAt: string | null;
+  createdAt: string;
+  acceptedAt: string | null;
+  startedAt: string | null;
+  cancelledAt: string | null;
+  completedAt: string | null;
+  cancellationReason: string | null;
+  exactCoordinatesIncluded: false;
+  passenger: AdminBookingPartySummary;
+  rider: AdminBookingRiderSummary | null;
+  connectionFeePayment: AdminBookingFeePaymentSnapshot | null;
+}
+
+export interface AdminBookingListResponse {
+  items: AdminBookingListItem[];
+  pagination: PaginationMeta;
+  privacy: {
+    exactCoordinatesIncluded: false;
+    note: string;
+  };
+}
+
+export interface AdminBookingsQuery {
+  page?: number;
+  pageSize?: number;
+  status?: AdminBookingStatus;
+  passengerId?: string;
+  riderId?: string;
+  serviceZoneId?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface AdminBookingPaymentRecord {
+  id: string;
+  purpose: string;
+  status: string;
+  amountPesewas: number;
+  currency: string;
+  providerReference: string | null;
+  createdAt: string;
+}
+
+export interface AdminBookingStatusHistoryEntry {
+  fromStatus: string | null;
+  toStatus: string;
+  actorType: string;
+  createdAt: string;
+}
+
+/** Exact detail from `GET /admin/bookings/:bookingId`. */
+export interface AdminBookingDetail extends AdminBookingListItem {
+  destinationLabel: string | null;
+  cancellationActorType: string | null;
+  serviceZone: {
+    id: string;
+    name: string;
+    status: string;
+    isActive: boolean;
+  } | null;
+  payments: AdminBookingPaymentRecord[];
+  statusHistory: AdminBookingStatusHistoryEntry[];
+  privacy: {
+    exactCoordinatesIncluded: false;
+    note: string;
+  };
+}

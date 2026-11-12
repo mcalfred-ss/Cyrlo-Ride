@@ -11,6 +11,8 @@ import { MfaVerifyPage } from '../pages/MfaVerifyPage';
 import { OtpPage } from '../pages/OtpPage';
 import { ApplicationDetailPage } from '../pages/ApplicationDetailPage';
 import { ApplicationsPage } from '../pages/ApplicationsPage';
+import { BookingDetailPage } from '../pages/BookingDetailPage';
+import { BookingsPage } from '../pages/BookingsPage';
 import { OverviewPage } from '../pages/OverviewPage';
 import { PassengerProfilePage } from '../pages/PassengerProfilePage';
 import { PassengersPage } from '../pages/PassengersPage';
@@ -42,15 +44,8 @@ export function AppRouter() {
             <Route path="applications/:riderId" element={<ApplicationDetailPage />} />
             <Route path="passengers" element={<PassengersPage />} />
             <Route path="passengers/:passengerId" element={<PassengerProfilePage />} />
-            <Route
-              path="bookings"
-              element={
-                <PlaceholderPage
-                  title="Bookings"
-                  description="Booking browser UI is not in Phase 1A."
-                />
-              }
-            />
+            <Route path="bookings" element={<BookingsPage />} />
+            <Route path="bookings/:bookingId" element={<BookingDetailPage />} />
             <Route
               path="zones"
               element={
