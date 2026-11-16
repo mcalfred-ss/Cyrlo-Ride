@@ -193,6 +193,14 @@ class _VerifyOtpScreenState extends ConsumerState<VerifyOtpScreen> {
         return 'Could not reach Cyrlo Ride. If you are on Chrome/Edge, use a phone/emulator or ask ops to allow local web CORS.';
       }
     }
+    if (error is ApiException && error.message.isNotEmpty) {
+      return error.message;
+    }
+    // Prefer a real message over a fake "connection" failure after a 200 OTP.
+    final detail = error.toString().trim();
+    if (detail.isNotEmpty && detail != 'Exception') {
+      return detail;
+    }
     return api?.message ??
         'Could not reach Cyrlo Ride. Check your connection.';
   }

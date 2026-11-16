@@ -41,6 +41,14 @@ class SignupController extends Notifier<SignupDraft> {
         }
         return;
       }
+      // OTP verify calls save() before markOtpVerified(). Do not treat that
+      // session write as a cold restore — it was flipping otpVerified early,
+      // racing the router, and surfacing a fake "connection" error on web.
+      if (state.phoneConfirmed &&
+          !state.otpVerified &&
+          state.phoneE164 != null) {
+        return;
+      }
       _applyRestoredSession(next);
     });
     Future.microtask(_restore);

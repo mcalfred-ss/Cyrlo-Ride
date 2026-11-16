@@ -1,3 +1,4 @@
+import '../../../core/errors/api_exception.dart';
 import '../application/signup_draft.dart';
 
 class PassengerProfileInfo {
@@ -80,11 +81,20 @@ class AuthUser {
   final PassengerProfileInfo? passengerProfile;
 
   factory AuthUser.fromJson(Map<String, dynamic> json) {
+    final roleRaw = json['role'] as String? ?? '';
+    if (roleRaw != 'PASSENGER' && roleRaw != 'RIDER') {
+      throw const ApiException(
+        code: 'UNSUPPORTED_ROLE',
+        message:
+            'This number is linked to a staff account. Use a passenger or rider number in the app.',
+        statusCode: 403,
+      );
+    }
     final profileRaw = json['passengerProfile'];
     return AuthUser(
       id: json['id'] as String,
       phoneNumber: json['phoneNumber'] as String,
-      role: (json['role'] as String) == 'RIDER' ? RideRole.rider : RideRole.passenger,
+      role: roleRaw == 'RIDER' ? RideRole.rider : RideRole.passenger,
       status: json['status'] as String? ?? 'ACTIVE',
       displayName: json['displayName'] as String?,
       passengerProfile: profileRaw is Map
@@ -139,11 +149,26 @@ class AuthTokens {
   final bool isNewUser;
 
   factory AuthTokens.fromJson(Map<String, dynamic> json) {
+    final userRaw = json['user'];
+    if (userRaw is! Map) {
+      throw const ApiException(
+        code: 'BAD_RESPONSE',
+        message: 'Sign-in response was missing the user profile.',
+      );
+    }
+    final access = json['accessToken'];
+    final refresh = json['refreshToken'];
+    if (access is! String || access.isEmpty || refresh is! String || refresh.isEmpty) {
+      throw const ApiException(
+        code: 'BAD_RESPONSE',
+        message: 'Sign-in response was missing tokens.',
+      );
+    }
     return AuthTokens(
-      accessToken: json['accessToken'] as String,
-      refreshToken: json['refreshToken'] as String,
+      accessToken: access,
+      refreshToken: refresh,
       expiresIn: (json['expiresIn'] as num?)?.toInt() ?? 900,
-      user: AuthUser.fromJson(json['user'] as Map<String, dynamic>),
+      user: AuthUser.fromJson(Map<String, dynamic>.from(userRaw)),
       isNewUser: json['isNewUser'] as bool? ?? true,
     );
   }
