@@ -19,7 +19,10 @@ interface RequestOptions {
   auth?: boolean;
 }
 
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+async function fetchEnvelope(path: string, options: RequestOptions = {}): Promise<{
+  status: number;
+  payload: unknown;
+}> {
   if (!env.apiBaseUrl) {
     throw new ApiError(500, 'CONFIG_ERROR', 'VITE_API_BASE_URL is not configured');
   }
@@ -83,9 +86,57 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
     throw new ApiError(response.status, code, message, err?.error?.details);
   }
 
+  return { status: response.status, payload };
+}
+
+export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const { status, payload } = await fetchEnvelope(path, options);
   const success = payload as ApiSuccess<T> | null;
   if (!success || success.success !== true) {
-    throw new ApiError(response.status, 'INVALID_RESPONSE', 'Unexpected success envelope');
+    throw new ApiError(status, 'INVALID_RESPONSE', 'Unexpected success envelope');
   }
   return success.data;
+}
+
+export interface PageMeta {
+  page: number;
+  pageSize: number;
+  total: number;
+  hasNextPage: boolean;
+}
+
+/**
+ * List endpoints that use `sendSuccess(res, items, 200, meta)` put the array in `data`
+ * and pagination on a sibling `meta` field. Normalize to `{ items, meta }` for Admin pages.
+ */
+export async function apiRequestPaged<TItem>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<{ items: TItem[]; meta: PageMeta }> {
+  const { status, payload } = await fetchEnvelope(path, options);
+  const success = payload as {
+    success?: boolean;
+    data?: unknown;
+    meta?: Partial<PageMeta>;
+  } | null;
+
+  if (!success || success.success !== true || !Array.isArray(success.data)) {
+    throw new ApiError(
+      status,
+      'INVALID_RESPONSE',
+      'Expected paged list envelope with data[] and meta',
+    );
+  }
+
+  const meta = success.meta ?? {};
+  const page = Number(meta.page ?? 1);
+  const pageSize = Number(meta.pageSize ?? success.data.length);
+  const total = Number(meta.total ?? success.data.length);
+  const hasNextPage =
+    typeof meta.hasNextPage === 'boolean' ? meta.hasNextPage : page * pageSize < total;
+
+  return {
+    items: success.data as TItem[],
+    meta: { page, pageSize, total, hasNextPage },
+  };
 }

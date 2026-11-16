@@ -34,8 +34,9 @@ async function fetchAllZones(): Promise<AdminServiceZone[]> {
   const all: AdminServiceZone[] = [];
   for (let page = 1; page <= MAX_PAGES; page += 1) {
     const res = await fetchServiceZones({ page, pageSize: MAX_ZONE_PAGE_SIZE });
-    all.push(...res.items);
-    if (!res.meta.hasNextPage) break;
+    const items = Array.isArray(res.items) ? res.items : [];
+    all.push(...items);
+    if (!res.meta?.hasNextPage) break;
   }
   return all;
 }

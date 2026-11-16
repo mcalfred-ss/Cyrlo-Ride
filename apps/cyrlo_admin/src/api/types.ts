@@ -763,7 +763,8 @@ export interface AdminServiceZone {
 
 export interface AdminServiceZonesResponse {
   items: AdminServiceZone[];
-  pagination: { page: number; pageSize: number; total: number; hasNextPage: boolean };
+  /** Sibling `meta` from `sendSuccess(res, items, 200, meta)`. */
+  meta: { page: number; pageSize: number; total: number; hasNextPage: boolean };
 }
 
 export interface AdminAuditLogItem {

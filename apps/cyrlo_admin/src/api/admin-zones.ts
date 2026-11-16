@@ -1,4 +1,4 @@
-﻿import { apiRequest } from './client';
+﻿import { apiRequest, apiRequestPaged } from './client';
 import type { AdminServiceZone, ServiceZoneStatus } from './types';
 
 export interface AdminServiceZonesResponse {
@@ -33,7 +33,8 @@ export function fetchServiceZones(query: {
   if (query.districtId) params.set('districtId', query.districtId);
   if (query.regionId) params.set('regionId', query.regionId);
   if (query.q) params.set('q', query.q);
-  return apiRequest<AdminServiceZonesResponse>(`/admin/service-zones?${params}`, { method: 'GET' });
+  // Backend: sendSuccess(res, items, 200, meta) → { data: Zone[], meta }
+  return apiRequestPaged<AdminServiceZone>(`/admin/service-zones?${params}`, { method: 'GET' });
 }
 
 export function fetchServiceZone(zoneId: string): Promise<AdminServiceZone> {

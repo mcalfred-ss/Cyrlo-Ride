@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearMemorySession, getAccessToken, setMemorySession } from '../auth/session-store';
 import { privilegedAccessToken } from '../test/jwt';
-import { apiRequest, setUnauthorizedHandler } from './client';
+import { apiRequest, apiRequestPaged, setUnauthorizedHandler } from './client';
 
 describe('apiRequest', () => {
   beforeEach(() => {
@@ -127,5 +127,29 @@ describe('apiRequest', () => {
       code: 'FORBIDDEN',
     });
     expect(getAccessToken()).toBeTruthy();
+  });
+
+  it('normalizes sibling-meta list envelopes to { items, meta }', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({
+              success: true,
+              data: [{ id: 'z1', name: 'Atwima Kwanwoma' }],
+              meta: { page: 1, pageSize: 100, total: 43, hasNextPage: false },
+            }),
+            { status: 200, headers: { 'Content-Type': 'application/json' } },
+          ),
+      ),
+    );
+
+    const page = await apiRequestPaged<{ id: string; name: string }>(
+      '/admin/service-zones?page=1&pageSize=100',
+    );
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]?.name).toBe('Atwima Kwanwoma');
+    expect(page.meta).toEqual({ page: 1, pageSize: 100, total: 43, hasNextPage: false });
   });
 });
