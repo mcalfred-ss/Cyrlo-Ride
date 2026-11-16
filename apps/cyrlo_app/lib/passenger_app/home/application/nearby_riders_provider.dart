@@ -60,6 +60,10 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
   GeoPoint? _lastPickup;
 
   static const _pollInterval = Duration(seconds: 12);
+  static const _demoPilotPickup = GeoPoint(
+    latitude: demoPilotLatitude,
+    longitude: demoPilotLongitude,
+  );
 
   @override
   NearbyRidersState build() {
@@ -69,7 +73,12 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
     });
 
     void onPickup(GeoPoint? pickup) {
-      if (pickup == null || !pickup.isValid) {
+      final demoMode = ref.read(demoModeProvider);
+      final effective = _effectivePickup(
+        pinned: pickup,
+        demoMode: demoMode,
+      );
+      if (effective == null) {
         _poll?.cancel();
         _poll = null;
         _lastPickup = null;
@@ -78,8 +87,8 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
         );
         return;
       }
-      if (_lastPickup != pickup) {
-        _lastPickup = pickup;
+      if (_lastPickup != effective) {
+        _lastPickup = effective;
         unawaited(refresh());
       }
       _ensurePoll();
@@ -87,17 +96,37 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
 
     ref.listen(passengerTripPlanProvider, (_, next) => onPickup(next.pickup));
     ref.listen(tripPinProvider, (_, next) => onPickup(next.pickup));
-    ref.listen(demoModeProvider, (_, __) => unawaited(refresh()));
+    ref.listen(demoModeProvider, (previous, next) {
+      if (next) _seedDemoPickupIfNeeded();
+      unawaited(refresh());
+    });
 
-    final pickup = ref.read(passengerTripPlanProvider).pickup ??
-        ref.read(tripPinProvider).pickup;
-    if (pickup != null && pickup.isValid) {
+    final demoMode = ref.read(demoModeProvider);
+    if (demoMode) _seedDemoPickupIfNeeded();
+    final pickup = _effectivePickup(
+      pinned: ref.read(passengerTripPlanProvider).pickup ??
+          ref.read(tripPinProvider).pickup,
+      demoMode: demoMode,
+    );
+    if (pickup != null) {
       _lastPickup = pickup;
       Future.microtask(refresh);
       _ensurePoll();
+      if (demoMode) {
+        return NearbyRidersState(
+          items: buildDemoNearbyRiders(pickup),
+          isLoading: false,
+          inServiceArea: true,
+          message: 'Demo riders nearby — book to match a live rider phone.',
+        );
+      }
+      return const NearbyRidersState(isLoading: true);
     }
 
-    return const NearbyRidersState(isLoading: true);
+    // No pickup yet — never leave the home list spinning forever.
+    return const NearbyRidersState(
+      message: 'Set a pickup to see nearby riders.',
+    );
   }
 
   void _ensurePoll() {
@@ -106,18 +135,47 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
     });
   }
 
+  GeoPoint? _effectivePickup({
+    required GeoPoint? pinned,
+    required bool demoMode,
+  }) {
+    if (pinned != null && pinned.isValid) return pinned;
+    if (demoMode) return _demoPilotPickup;
+    return null;
+  }
+
+  /// Investor pitch: seed Kokobin so Home/Map show riders without waiting on GPS.
+  void _seedDemoPickupIfNeeded() {
+    final pinned = ref.read(tripPinProvider).pickup;
+    if (pinned != null && pinned.isValid) return;
+    ref.read(tripPinProvider.notifier).seedPickup(
+          _demoPilotPickup,
+          message: 'Demo Mode pickup set to the Kokobin pilot area.',
+        );
+  }
+
   Future<void> refresh() async {
     final session = ref.read(authSessionProvider);
-    final pickup = ref.read(passengerTripPlanProvider).pickup ??
-        ref.read(tripPinProvider).pickup;
-    if (session == null || pickup == null || !pickup.isValid) {
-      state = const NearbyRidersState(
-        message: 'Set a pickup to see nearby riders.',
+    final demoMode = ref.read(demoModeProvider);
+    if (demoMode) _seedDemoPickupIfNeeded();
+    final pickup = _effectivePickup(
+      pinned: ref.read(passengerTripPlanProvider).pickup ??
+          ref.read(tripPinProvider).pickup,
+      demoMode: demoMode,
+    );
+    if (session == null || pickup == null) {
+      state = NearbyRidersState(
+        items: demoMode ? buildDemoNearbyRiders(_demoPilotPickup) : const [],
+        isLoading: false,
+        inServiceArea: demoMode,
+        message: demoMode
+            ? 'Demo riders nearby — book to match a live rider phone.'
+            : 'Set a pickup to see nearby riders.',
       );
       return;
     }
     if (_inFlight != null) return;
-    final future = _load(session.accessToken, pickup);
+    final future = _load(session.accessToken, pickup, demoMode: demoMode);
     _inFlight = future;
     try {
       await future;
@@ -126,11 +184,22 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
     }
   }
 
-  Future<void> _load(String accessToken, GeoPoint pickup) async {
-    if (state.items.isEmpty) {
+  Future<void> _load(
+    String accessToken,
+    GeoPoint pickup, {
+    required bool demoMode,
+  }) async {
+    if (demoMode) {
+      // Show theater riders immediately so Home never stays on skeletons.
+      state = NearbyRidersState(
+        items: buildDemoNearbyRiders(pickup),
+        isLoading: false,
+        inServiceArea: true,
+        message: 'Demo riders nearby — book to match a live rider phone.',
+      );
+    } else if (state.items.isEmpty) {
       state = state.copyWith(isLoading: true, clearError: true);
     }
-    final demoMode = ref.read(demoModeProvider);
     try {
       final result = await ref.read(nearbyRidersApiProvider).discover(
             accessToken: accessToken,
