@@ -28,15 +28,22 @@ final mapAccessTokenProvider = FutureProvider<String>((ref) async {
   if (session == null) return '';
 
   try {
-    final api = ref.watch(apiClientProvider);
+    final api = ref.read(apiClientProvider);
+    // Always attach the session token on this request so Demo Mode / client
+    // recreation cannot leave /maps/config unauthenticated.
+    api.setAccessToken(session.accessToken);
     final response = await api.dio.get<Map<String, dynamic>>(
       ApiPaths.mapsConfig,
     );
-    final data = response.data?['data'];
-    if (data is Map) {
-      final token = data['mapboxPublicToken'];
-      if (token is String) {
-        return MapToken.acceptPublic(token);
+    final body = response.data;
+    if (body != null) {
+      final rawData = body['data'];
+      if (rawData is Map) {
+        final token = rawData['mapboxPublicToken'];
+        if (token is String) {
+          final accepted = MapToken.acceptPublic(token);
+          if (accepted.isNotEmpty) return accepted;
+        }
       }
     }
   } on DioException {

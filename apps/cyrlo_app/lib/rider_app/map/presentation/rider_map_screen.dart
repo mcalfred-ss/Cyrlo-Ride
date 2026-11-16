@@ -105,7 +105,9 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
     final acceptedJob = ref.watch(activeRideRequestProvider);
     final previewJob = ref.watch(previewRiderJobProvider);
     final project = ref.watch(passengerMapProjectProvider);
-    final token = ref.watch(mapAccessTokenProvider).value ?? '';
+    final tokenAsync = ref.watch(mapAccessTokenProvider);
+    final token = tokenAsync.value ?? '';
+    final tilesReady = tokenAsync.hasValue || tokenAsync.hasError;
     final theme = Theme.of(context);
 
     final job = (acceptedJob?.isAccepted == true) ? acceptedJob : previewJob;
@@ -164,27 +166,39 @@ class _RiderMapScreenState extends ConsumerState<RiderMapScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          CyrloMapView(
-            project: project,
-            accessToken: token,
-            isDark: Theme.of(context).brightness == Brightness.dark,
-            controller: _mapController,
-            markers: [
-              if (job.pickupPoint != null)
-                MapMarker(
-                  id: 'passenger-pickup',
-                  point: job.pickupPoint!.toMapCoordinate(),
-                  child: ClipOval(
-                    child: Image.asset(
-                      avatar,
-                      width: 40,
-                      height: 40,
-                      fit: BoxFit.cover,
+          if (!tilesReady)
+            const ColoredBox(
+              color: Color(0xFF1C1917),
+              child: Center(
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+              ),
+            )
+          else
+            CyrloMapView(
+              project: project,
+              accessToken: token,
+              isDark: Theme.of(context).brightness == Brightness.dark,
+              controller: _mapController,
+              markers: [
+                if (job.pickupPoint != null)
+                  MapMarker(
+                    id: 'passenger-pickup',
+                    point: job.pickupPoint!.toMapCoordinate(),
+                    child: ClipOval(
+                      child: Image.asset(
+                        avatar,
+                        width: 40,
+                        height: 40,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
+              ],
+            ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),

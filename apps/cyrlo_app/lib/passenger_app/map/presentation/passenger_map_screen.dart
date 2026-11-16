@@ -134,7 +134,9 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     final supply = ref.watch(pragyaSupplyProvider);
     final activeRequest = ref.watch(activeRideRequestProvider);
     final project = ref.watch(passengerMapProjectProvider);
-    final token = ref.watch(mapAccessTokenProvider).value ?? '';
+    final tokenAsync = ref.watch(mapAccessTokenProvider);
+    final token = tokenAsync.value ?? '';
+    final tilesReady = tokenAsync.hasValue || tokenAsync.hasError;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final shareContact = activeRequest?.sharesContact == true;
@@ -194,25 +196,38 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          CyrloMapView(
-            project: project,
-            accessToken: token,
-            isDark: isDark,
-            controller: _mapController,
-            markers: _markers(
-              pins: pins,
-              riders: movingRiders,
-              poses: mapPoses,
-              selectedId: selectedRider?.id ?? activeRequest?.riderId,
+          // Wait for /maps/config so we do not flash broken OSM tiles first.
+          if (!tilesReady)
+            const ColoredBox(
+              color: Color(0xFF1C1917),
+              child: Center(
+                child: SizedBox(
+                  width: 28,
+                  height: 28,
+                  child: CircularProgressIndicator(strokeWidth: 2.5),
+                ),
+              ),
+            )
+          else
+            CyrloMapView(
+              project: project,
+              accessToken: token,
+              isDark: isDark,
+              controller: _mapController,
+              markers: _markers(
+                pins: pins,
+                riders: movingRiders,
+                poses: mapPoses,
+                selectedId: selectedRider?.id ?? activeRequest?.riderId,
+              ),
+              onTap: (point) {
+                unawaited(
+                  ref
+                      .read(tripPinProvider.notifier)
+                      .placeAt(GeoPoint.fromMapCoordinate(point)),
+                );
+              },
             ),
-            onTap: (point) {
-              unawaited(
-                ref
-                    .read(tripPinProvider.notifier)
-                    .placeAt(GeoPoint.fromMapCoordinate(point)),
-              );
-            },
-          ),
           SafeArea(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.md),
