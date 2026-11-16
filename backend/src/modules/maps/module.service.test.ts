@@ -133,4 +133,49 @@ describe('MapsService passenger destination search', () => {
     expect(reverseGeocode).toHaveBeenCalledOnce();
     expect(route).toHaveBeenCalledOnce();
   });
+
+  it('resolves structured location from reverse label plus Ashanti catalogue', async () => {
+    const reverseGeocode = vi.fn(async () => ({
+      label: 'Kumasi, Ashanti Region, Ghana',
+      latitude: 6.626,
+      longitude: -1.65,
+    }));
+    const service = new MapsService(stubClient({ reverseGeocode }));
+
+    const resolved = await service.resolveLocation({
+      latitude: 6.626,
+      longitude: -1.65,
+      landmarkLimit: 3,
+    });
+
+    expect(reverseGeocode).toHaveBeenCalledWith({
+      latitude: 6.626,
+      longitude: -1.65,
+    });
+    expect(resolved.location.latitude).toBe(6.626);
+    expect(resolved.location.longitude).toBe(-1.65);
+    expect(resolved.location.locality).toMatch(/Ahenema/i);
+    expect(resolved.location.district).toMatch(/Atwima Kwanwoma/i);
+    expect(resolved.nearbyLandmarks.length).toBeLessThanOrEqual(3);
+  });
+
+  it('still resolves from catalogue when the provider reverse call fails', async () => {
+    const { AppError } = await import('../../common/errors/app-error.js');
+    const reverseGeocode = vi.fn(async () => {
+      throw new AppError({
+        status: 503,
+        code: 'provider_unavailable',
+        message: 'Maps provider is unavailable',
+      });
+    });
+    const service = new MapsService(stubClient({ reverseGeocode }));
+
+    const resolved = await service.resolveLocation({
+      latitude: 6.626,
+      longitude: -1.65,
+    });
+
+    expect(resolved.location.locality).toMatch(/Ahenema/i);
+    expect(resolved.location.source).toBe('catalogue');
+  });
 });

@@ -19,6 +19,16 @@ export const geocodeBodySchema = z
 
 export const reverseGeocodeBodySchema = coordinateSchema;
 
+/** Structured location resolution (provider reverse + Ashanti catalogue + landmarks). */
+export const locationResolveBodySchema = z
+  .object({
+    latitude: latitudeSchema,
+    longitude: longitudeSchema,
+    /** Max nearby landmarks to return (default 5, max 10). */
+    landmarkLimit: z.coerce.number().int().min(0).max(10).optional(),
+  })
+  .strict();
+
 /** Passenger destination search defaults — Ghana-only at the Ride proxy. */
 export const PASSENGER_DESTINATION_COUNTRY = 'GH' as const;
 
@@ -56,5 +66,6 @@ export const routeBodySchema = z
 
 export type GeocodeBody = z.infer<typeof geocodeBodySchema>;
 export type ReverseGeocodeBody = z.infer<typeof reverseGeocodeBodySchema>;
+export type LocationResolveBody = z.infer<typeof locationResolveBodySchema>;
 export type PlaceSearchBody = z.infer<typeof placeSearchBodySchema>;
 export type RouteBody = z.infer<typeof routeBodySchema>;
