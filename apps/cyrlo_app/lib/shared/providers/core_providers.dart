@@ -11,16 +11,11 @@ final apiClientProvider = Provider<ApiClient>((ref) {
   // Late-bound so 401s rotate via the single-flight refresh (never parallel reuse).
   client.onUnauthorized =
       () => ref.read(authSessionProvider.notifier).tryRefresh(reason: 'api_401');
-  // Keep the current session header on this instance — Demo Mode must not
-  // recreate a bare client and blank Mapbox tiles via unauth /maps/config.
-  final session = ref.read(authSessionProvider);
-  client.setAccessToken(session?.accessToken);
+  // Update Demo Mode in place — never watch(authSession) / watch(demoMode) here
+  // or we recreate the client and create a circular dependency with authSession.
   client.setDemoMode(ref.read(demoModeProvider));
   ref.listen<bool>(demoModeProvider, (_, enabled) {
     client.setDemoMode(enabled);
-  });
-  ref.listen<AuthSession?>(authSessionProvider, (_, next) {
-    client.setAccessToken(next?.accessToken);
   });
   ref.onDispose(client.dio.close);
   return client;
