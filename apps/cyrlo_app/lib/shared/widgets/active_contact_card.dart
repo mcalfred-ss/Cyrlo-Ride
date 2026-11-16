@@ -46,6 +46,7 @@ class ActiveContactCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final display = PhoneNumbers.formatGhanaDisplay(phoneE164);
+    final hasPhone = phoneE164.trim().isNotEmpty && display.isNotEmpty;
 
     return DecoratedBox(
       decoration: BoxDecoration(
@@ -81,64 +82,66 @@ class ActiveContactCard extends StatelessWidget {
                 height: 1.35,
               ),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: AppColors.brandLight,
-                borderRadius: BorderRadius.circular(AppRadii.md),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 42,
-                      height: 42,
-                      decoration: BoxDecoration(
-                        color: AppColors.yellow,
-                        borderRadius: BorderRadius.circular(14),
+            if (hasPhone) ...[
+              const SizedBox(height: AppSpacing.sm),
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: AppColors.brandLight,
+                  borderRadius: BorderRadius.circular(AppRadii.md),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: AppColors.yellow,
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: const Icon(
+                          Icons.phone_rounded,
+                          color: AppColors.darkGrey,
+                          size: 20,
+                        ),
                       ),
-                      child: const Icon(
-                        Icons.phone_rounded,
-                        color: AppColors.darkGrey,
-                        size: 20,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            contactLabel,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: AppColors.textSecondary,
-                              fontWeight: FontWeight.w700,
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              contactLabel,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: AppColors.textSecondary,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            display,
-                            key: const Key('shared-contact-number'),
-                            style: theme.textTheme.titleSmall?.copyWith(
-                              color: AppColors.onBrandLight,
-                              fontWeight: FontWeight.w800,
+                            const SizedBox(height: 2),
+                            Text(
+                              display,
+                              key: const Key('shared-contact-number'),
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: AppColors.onBrandLight,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    IconButton(
-                      key: const Key('copy-contact-number'),
-                      tooltip: 'Copy number',
-                      onPressed: () => _copyNumber(context),
-                      icon: const Icon(Icons.copy_rounded),
-                      color: AppColors.onBrandLight,
-                    ),
-                  ],
+                      IconButton(
+                        key: const Key('copy-contact-number'),
+                        tooltip: 'Copy number',
+                        onPressed: () => _copyNumber(context),
+                        icon: const Icon(Icons.copy_rounded),
+                        color: AppColors.onBrandLight,
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
+            ],
             if (onComplete != null || onCancel != null) ...[
               const SizedBox(height: AppSpacing.sm),
               Row(

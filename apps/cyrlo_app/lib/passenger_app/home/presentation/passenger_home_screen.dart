@@ -133,10 +133,20 @@ class PassengerHomeScreen extends ConsumerWidget {
                 },
               ),
             ],
-            if (shareContact) ...[
+            if (activeRequest?.isPending == true) ...[
               const SizedBox(height: AppSpacing.md),
               ActiveContactCard(
-                title: '${activeRequest!.kindLabel} requested',
+                title: 'Finding a ${activeRequest!.kindLabel}…',
+                subtitle:
+                    'We’re matching a nearby rider to your pickup. Keep this screen open — you’ll see their number when they accept.',
+                phoneE164: '',
+                contactLabel: 'Rider',
+                onCancel: () => cancelActiveRideWithFeedback(context, ref),
+              ),
+            ] else if (shareContact) ...[
+              const SizedBox(height: AppSpacing.md),
+              ActiveContactCard(
+                title: '${activeRequest!.kindLabel} is on the way',
                 subtitle:
                     'Your rider’s number is shared for this pickup. Open Map to mark where they should meet you.',
                 phoneE164: activeRequest.riderPhoneE164,

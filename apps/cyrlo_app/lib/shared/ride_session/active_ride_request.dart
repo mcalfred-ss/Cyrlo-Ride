@@ -69,8 +69,9 @@ class ActiveRideRequest {
     return '$mins mins away';
   }
 
+  /// Rider number is only shared after accept — SEARCHING has no rider yet.
   bool get sharesContact =>
-      status == ActiveRideStatus.requested || status == ActiveRideStatus.ongoing;
+      status == ActiveRideStatus.ongoing && riderPhoneE164.trim().isNotEmpty;
 
   bool get isPending => status == ActiveRideStatus.requested;
 

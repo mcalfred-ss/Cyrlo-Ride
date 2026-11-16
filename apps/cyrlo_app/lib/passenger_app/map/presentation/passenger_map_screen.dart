@@ -139,15 +139,19 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     final tilesReady = tokenAsync.hasValue || tokenAsync.hasError;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final demoMode = ref.watch(demoModeProvider);
     final shareContact = activeRequest?.sharesContact == true;
+    final isSearching = activeRequest?.isPending == true;
     final sharedPickup = pins.pickup ?? activeRequest?.pickupPoint;
     final availableCount =
         nearbyRiders.where((rider) => rider.canRequest).length;
-    final nearbyStatus = nearbyState.isLoading
-        ? 'Checking nearby riders…'
-        : nearbyState.errorMessage ??
-            nearbyState.message ??
-            '$availableCount nearby on the map';
+    final nearbyStatus = isSearching
+        ? 'Looking for a nearby ${activeRequest!.kindLabel}…'
+        : nearbyState.isLoading
+            ? 'Checking nearby riders…'
+            : nearbyState.errorMessage ??
+                nearbyState.message ??
+                '$availableCount nearby on the map';
 
     ref.listen(selectedNearbyRiderProvider, (previous, next) {
       if (next != null) _focusNearbyRider(next);
@@ -261,7 +265,9 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                                 child: Text(
                                   shareContact
                                       ? '${activeRequest!.kindLabel} coming to you'
-                                      : 'Nearby riders on the map',
+                                      : isSearching
+                                          ? 'Finding your ${activeRequest!.kindLabel}'
+                                          : 'Nearby riders on the map',
                                   style: theme.textTheme.titleMedium?.copyWith(
                                     fontWeight: FontWeight.w800,
                                     height: 1.2,
@@ -310,36 +316,38 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                               fontWeight: FontWeight.w500,
                             ),
                           ),
-                          if (!shareContact) ...[
+                          if (!shareContact && !isSearching) ...[
                             const SizedBox(height: 10),
                             const _MapKindLegend(),
                           ],
-                          const SizedBox(height: 12),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: _MapStatusPill(
-                                  key: const Key('rider-count-chip'),
-                                  icon: Icons.two_wheeler_rounded,
-                                  label: '$availableCount online',
-                                  filled: true,
+                          if (!isSearching) ...[
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: _MapStatusPill(
+                                    key: const Key('rider-count-chip'),
+                                    icon: Icons.two_wheeler_rounded,
+                                    label: '$availableCount online',
+                                    filled: true,
+                                  ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: _MapStatusPill(
-                                  key: const Key('focus-pickup'),
-                                  icon: pins.pickup == null
-                                      ? Icons.place_outlined
-                                      : Icons.check_circle_rounded,
-                                  label: pins.pickup == null
-                                      ? 'Pickup needed'
-                                      : 'Pickup set',
-                                  filled: pins.pickup != null,
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: _MapStatusPill(
+                                    key: const Key('focus-pickup'),
+                                    icon: pins.pickup == null
+                                        ? Icons.place_outlined
+                                        : Icons.check_circle_rounded,
+                                    label: pins.pickup == null
+                                        ? 'Pickup needed'
+                                        : 'Pickup set',
+                                    filled: pins.pickup != null,
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
+                              ],
+                            ),
+                          ],
                           if (pins.locationMessage != null) ...[
                             const SizedBox(height: 8),
                             Text(
@@ -359,7 +367,19 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                       ),
                     ),
                   ),
-                  if (shareContact) ...[
+                  if (isSearching) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    ActiveContactCard(
+                      title: 'Matching a ${activeRequest!.kindLabel}…',
+                      subtitle: demoMode
+                          ? 'Mock map pins are theater only. Accept the job on the rider phone to finish the pitch (connection fee auto-succeeds).'
+                          : 'Stay on this screen. When a rider accepts, their number appears here for pickup.',
+                      phoneE164: '',
+                      contactLabel: 'Rider',
+                      onCancel: () =>
+                          cancelActiveRideWithFeedback(context, ref),
+                    ),
+                  ] else if (shareContact) ...[
                     const SizedBox(height: AppSpacing.sm),
                     ActiveContactCard(
                       title: '${activeRequest!.kindLabel} is on the way',
@@ -373,6 +393,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                   ],
                   const Spacer(),
                   if (!shareContact &&
+                      !isSearching &&
                       !supply.isLoading &&
                       supply.available &&
                       pins.pickup != null &&
