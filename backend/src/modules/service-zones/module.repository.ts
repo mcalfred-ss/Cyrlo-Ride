@@ -22,9 +22,14 @@ export class ServiceZonesRepository {
     name: string;
     description?: string | null;
     communityId?: string | null;
+    districtId?: string | null;
     slug?: string | null;
     boundary: ZoneBoundary;
     box: BoundingBox;
+    geographicSource?: string | null;
+    geographicAttribution?: string | null;
+    geographicDatasetVersion?: string | null;
+    geographicShapeId?: string | null;
     actorId: string;
   }) {
     return this.prisma.serviceZone.create({
@@ -32,12 +37,17 @@ export class ServiceZonesRepository {
         name: input.name,
         description: input.description ?? null,
         communityId: input.communityId ?? null,
+        districtId: input.districtId ?? null,
         slug: input.slug ?? null,
         boundary: input.boundary as unknown as Prisma.InputJsonValue,
         minLatitude: input.box.minLatitude,
         maxLatitude: input.box.maxLatitude,
         minLongitude: input.box.minLongitude,
         maxLongitude: input.box.maxLongitude,
+        geographicSource: input.geographicSource ?? null,
+        geographicAttribution: input.geographicAttribution ?? null,
+        geographicDatasetVersion: input.geographicDatasetVersion ?? null,
+        geographicShapeId: input.geographicShapeId ?? null,
         status: 'DRAFT',
         boundaryVerificationStatus: 'UNVERIFIED',
         isActive: false,
@@ -64,10 +74,12 @@ export class ServiceZonesRepository {
         district: {
           select: {
             id: true,
+            name: true,
             status: true,
             region: {
               select: {
                 id: true,
+                name: true,
                 status: true,
                 country: { select: { id: true, status: true } },
               },
@@ -78,18 +90,50 @@ export class ServiceZonesRepository {
     });
   }
 
+  /** District with region → country chain, or null if missing. */
+  async findDistrictHierarchy(districtId: string) {
+    return this.prisma.district.findUnique({
+      where: { id: districtId },
+      select: {
+        id: true,
+        name: true,
+        code: true,
+        status: true,
+        catalogueId: true,
+        region: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            country: { select: { id: true, status: true } },
+          },
+        },
+      },
+    });
+  }
+
+  async findZoneByDistrictId(districtId: string) {
+    return this.prisma.serviceZone.findUnique({ where: { districtId } });
+  }
+
   async listZones(input: {
     page: number;
     pageSize: number;
     isActive?: boolean;
     status?: ServiceZoneStatus;
     communityId?: string;
+    districtId?: string;
+    regionId?: string;
     q?: string;
   }) {
     const where: Prisma.ServiceZoneWhereInput = {
       ...(input.isActive === undefined ? {} : { isActive: input.isActive }),
       ...(input.status === undefined ? {} : { status: input.status }),
       ...(input.communityId === undefined ? {} : { communityId: input.communityId }),
+      ...(input.districtId === undefined ? {} : { districtId: input.districtId }),
+      ...(input.regionId === undefined
+        ? {}
+        : { district: { regionId: input.regionId } }),
       ...(input.q
         ? { name: { contains: input.q, mode: 'insensitive' as const } }
         : {}),
@@ -112,9 +156,14 @@ export class ServiceZonesRepository {
       name?: string;
       description?: string | null;
       communityId?: string | null;
+      districtId?: string | null;
       slug?: string | null;
       boundary?: ZoneBoundary;
       box?: BoundingBox;
+      geographicSource?: string | null;
+      geographicAttribution?: string | null;
+      geographicDatasetVersion?: string | null;
+      geographicShapeId?: string | null;
       isActive?: boolean;
       status?: ServiceZoneStatus;
       boundaryVerificationStatus?: BoundaryVerificationStatus;
@@ -131,9 +180,14 @@ export class ServiceZonesRepository {
         name: data.name,
         description: data.description,
         communityId: data.communityId,
+        districtId: data.districtId,
         slug: data.slug,
         status: data.status,
         boundaryVerificationStatus: data.boundaryVerificationStatus,
+        geographicSource: data.geographicSource,
+        geographicAttribution: data.geographicAttribution,
+        geographicDatasetVersion: data.geographicDatasetVersion,
+        geographicShapeId: data.geographicShapeId,
         activatedAt: data.activatedAt,
         activatedById: data.activatedById,
         suspendedAt: data.suspendedAt,

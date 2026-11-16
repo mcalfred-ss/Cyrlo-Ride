@@ -441,20 +441,24 @@ model Region {
 }
 
 model District {
-  id          String            @id @default(uuid()) @db.Uuid
-  regionId    String            @map("region_id") @db.Uuid
-  name        String
-  code        String
-  adminType   DistrictAdminType @default(DISTRICT) @map("admin_type")
-  status      GeoEntityStatus   @default(ACTIVE)
-  createdById String?           @map("created_by_id") @db.Uuid
-  createdAt   DateTime          @default(now()) @map("created_at")
-  updatedAt   DateTime          @updatedAt @map("updated_at")
-  region      Region            @relation(fields: [regionId], references: [id], onDelete: Restrict)
-  communities Community[]
-  createdBy   User?             @relation("GeoDistrictCreator", fields: [createdById], references: [id], onDelete: SetNull)
+  id           String            @id @default(uuid()) @db.Uuid
+  regionId     String            @map("region_id") @db.Uuid
+  name         String
+  code         String
+  adminType    DistrictAdminType @default(DISTRICT) @map("admin_type")
+  status       GeoEntityStatus   @default(ACTIVE)
+  /// Open Admin / catalogue identity (e.g. gh-dist-atwima-kwanwoma). Optional.
+  catalogueId  String?           @map("catalogue_id")
+  createdById  String?           @map("created_by_id") @db.Uuid
+  createdAt    DateTime          @default(now()) @map("created_at")
+  updatedAt    DateTime          @updatedAt @map("updated_at")
+  region       Region            @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  communities  Community[]
+  serviceZones ServiceZone[]
+  createdBy    User?             @relation("GeoDistrictCreator", fields: [createdById], references: [id], onDelete: SetNull)
 
   @@unique([regionId, code])
+  @@unique([catalogueId])
   @@index([regionId, status])
   @@index([name])
   @@map("geo_districts")
@@ -485,7 +489,10 @@ model Community {
 
 model ServiceZone {
   id                         String                     @id @default(uuid()) @db.Uuid
+  /// Optional community link (legacy / sub-district ops). Prefer districtId for Ashanti district zones.
   communityId                String?                    @map("community_id") @db.Uuid
+  /// Exactly one service zone per district when set (Ashanti district-zone model).
+  districtId                 String?                    @unique @map("district_id") @db.Uuid
   name                       String
   slug                       String?
   description                String?
@@ -498,6 +505,11 @@ model ServiceZone {
   maxLatitude                Decimal                    @map("max_latitude") @db.Decimal(9, 6)
   minLongitude               Decimal                    @map("min_longitude") @db.Decimal(9, 6)
   maxLongitude               Decimal                    @map("max_longitude") @db.Decimal(9, 6)
+  /// Geographic provenance (e.g. geoBoundaries gbOpen GHA ADM2).
+  geographicSource           String?                    @map("geographic_source")
+  geographicAttribution      String?                    @map("geographic_attribution")
+  geographicDatasetVersion   String?                    @map("geographic_dataset_version")
+  geographicShapeId          String?                    @map("geographic_shape_id")
   activatedAt                DateTime?                  @map("activated_at")
   activatedById              String?                    @map("activated_by_id") @db.Uuid
   suspendedAt                DateTime?                  @map("suspended_at")
@@ -507,6 +519,7 @@ model ServiceZone {
   createdAt                  DateTime                   @default(now()) @map("created_at")
   updatedAt                  DateTime                   @updatedAt @map("updated_at")
   community                  Community?                 @relation(fields: [communityId], references: [id], onDelete: Restrict)
+  district                   District?                  @relation(fields: [districtId], references: [id], onDelete: Restrict)
   bookings                   Booking[]
   riderApprovals             RiderZoneApproval[]
   riderDecisions             RiderZoneDecision[]
@@ -518,6 +531,7 @@ model ServiceZone {
   @@index([isActive])
   @@index([status])
   @@index([communityId, status])
+  @@index([districtId, status])
   @@index([name])
   @@index([slug])
   @@map("service_zones")

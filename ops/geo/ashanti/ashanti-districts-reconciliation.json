@@ -1,0 +1,525 @@
+{
+  "expected": 43,
+  "matched": 43,
+  "unmatchedCatalog": [],
+  "unusedOverlappingAdm2": [
+    {
+      "shapeName": "Wenchi Municipal",
+      "shapeID": "2480657B27014820297576",
+      "vertices": 3089
+    },
+    {
+      "shapeName": "Tano South Municipal",
+      "shapeID": "2480657B7981851544250",
+      "vertices": 2613
+    },
+    {
+      "shapeName": "Sunyani Municipal",
+      "shapeID": "2480657B55840347650819",
+      "vertices": 3092
+    },
+    {
+      "shapeName": "Aowin",
+      "shapeID": "2480657B72501418673064",
+      "vertices": 1922
+    },
+    {
+      "shapeName": "Dormaa East",
+      "shapeID": "2480657B16380673722667",
+      "vertices": 2119
+    },
+    {
+      "shapeName": "Berekum East Municipal",
+      "shapeID": "2480657B78254100433505",
+      "vertices": 1182
+    },
+    {
+      "shapeName": "Sunyani West",
+      "shapeID": "2480657B93462158202754",
+      "vertices": 3990
+    },
+    {
+      "shapeName": "Asunafo North Municipal",
+      "shapeID": "2480657B96138797401471",
+      "vertices": 7235
+    },
+    {
+      "shapeName": "Tano North Municipal",
+      "shapeID": "2480657B68079094729511",
+      "vertices": 5413
+    },
+    {
+      "shapeName": "Wassa Amenfi West",
+      "shapeID": "2480657B13145859726554",
+      "vertices": 1974
+    },
+    {
+      "shapeName": "Wassa Amenfi Central",
+      "shapeID": "2480657B10255028610816",
+      "vertices": 3914
+    },
+    {
+      "shapeName": "Twifo Atti-morkwa",
+      "shapeID": "2480657B2289284937660",
+      "vertices": 3093
+    },
+    {
+      "shapeName": "Assin North",
+      "shapeID": "2480657B44214183650816",
+      "vertices": 3494
+    },
+    {
+      "shapeName": "Sefwi Akontombra",
+      "shapeID": "2480657B96818528094138",
+      "vertices": 3602
+    },
+    {
+      "shapeName": "Bibiani-anhwiaso-bekwai Municipal",
+      "shapeID": "2480657B81329004729189",
+      "vertices": 4062
+    },
+    {
+      "shapeName": "Sene West",
+      "shapeID": "2480657B37380438315906",
+      "vertices": 4390
+    },
+    {
+      "shapeName": "Upper Denkyira East Municipal",
+      "shapeID": "2480657B45731574572143",
+      "vertices": 1348
+    },
+    {
+      "shapeName": "Asutifi North",
+      "shapeID": "2480657B98266466330064",
+      "vertices": 2603
+    },
+    {
+      "shapeName": "Asutifi South",
+      "shapeID": "2480657B57037677938762",
+      "vertices": 7878
+    },
+    {
+      "shapeName": "Techiman Municipal",
+      "shapeID": "2480657B78695952433486",
+      "vertices": 1160
+    },
+    {
+      "shapeName": "Upper Denkyira West",
+      "shapeID": "2480657B72362309510067",
+      "vertices": 1939
+    },
+    {
+      "shapeName": "Sefwi-wiawso",
+      "shapeID": "2480657B7942392054994",
+      "vertices": 3845
+    },
+    {
+      "shapeName": "Asunafo South",
+      "shapeID": "2480657B2337940648547",
+      "vertices": 6816
+    },
+    {
+      "shapeName": "Nkoranza South",
+      "shapeID": "2480657B38880944597072",
+      "vertices": 1553
+    },
+    {
+      "shapeName": "Atebubu Amantin",
+      "shapeID": "2480657B7685147466351",
+      "vertices": 5688
+    },
+    {
+      "shapeName": "Wassa Amenfi East",
+      "shapeID": "2480657B15365927336493",
+      "vertices": 3096
+    },
+    {
+      "shapeName": "Berekum West",
+      "shapeID": "2480657B54527757245703",
+      "vertices": 999
+    },
+    {
+      "shapeName": "Kwahu South",
+      "shapeID": "2480657B68408124911047",
+      "vertices": 1456
+    },
+    {
+      "shapeName": "Asene Akroso Manso",
+      "shapeID": "2480657B68278489034036",
+      "vertices": 1614
+    },
+    {
+      "shapeName": "Achiase",
+      "shapeID": "2480657B77450065295387",
+      "vertices": 1069
+    },
+    {
+      "shapeName": "Atiwa West",
+      "shapeID": "2480657B65169023596143",
+      "vertices": 665
+    },
+    {
+      "shapeName": "Birim North",
+      "shapeID": "2480657B81401264659986",
+      "vertices": 3186
+    },
+    {
+      "shapeName": "Kwahu East",
+      "shapeID": "2480657B54162505201867",
+      "vertices": 2591
+    },
+    {
+      "shapeName": "Kwahu West",
+      "shapeID": "2480657B50723205918173",
+      "vertices": 2491
+    },
+    {
+      "shapeName": "Denkyembour",
+      "shapeID": "2480657B53762921220630",
+      "vertices": 1748
+    },
+    {
+      "shapeName": "Kwaebibirem",
+      "shapeID": "2480657B54074930978119",
+      "vertices": 1140
+    },
+    {
+      "shapeName": "Kwahu Afram Plains South",
+      "shapeID": "2480657B87039075961323",
+      "vertices": 3025
+    },
+    {
+      "shapeName": "Upper West Akim",
+      "shapeID": "2480657B98999442599484",
+      "vertices": 1166
+    },
+    {
+      "shapeName": "West Akim",
+      "shapeID": "2480657B57614018833162",
+      "vertices": 2487
+    },
+    {
+      "shapeName": "Akyem Mansa",
+      "shapeID": "2480657B32538733435540",
+      "vertices": 3294
+    },
+    {
+      "shapeName": "Atiwa East",
+      "shapeID": "2480657B7526405183619",
+      "vertices": 1685
+    },
+    {
+      "shapeName": "Birim South",
+      "shapeID": "2480657B71012260699376",
+      "vertices": 3446
+    },
+    {
+      "shapeName": "Birim Central Municipal",
+      "shapeID": "2480657B80684943588404",
+      "vertices": 942
+    }
+  ],
+  "matches": [
+    {
+      "catalogueId": "gh-dist-adansi-akrofuom",
+      "catalogueName": "Adansi Akrofuom",
+      "shapeName": "Adansi Akrofuom",
+      "shapeID": "2480657B88279606337785",
+      "vertices": 1722
+    },
+    {
+      "catalogueId": "gh-dist-adansi-asokwa",
+      "catalogueName": "Adansi Asokwa",
+      "shapeName": "Adansi Asokwa",
+      "shapeID": "2480657B45906044715427",
+      "vertices": 1918
+    },
+    {
+      "catalogueId": "gh-dist-adansi-north",
+      "catalogueName": "Adansi North",
+      "shapeName": "Adansi North",
+      "shapeID": "2480657B92670413622569",
+      "vertices": 1020
+    },
+    {
+      "catalogueId": "gh-dist-adansi-south",
+      "catalogueName": "Adansi South",
+      "shapeName": "Adansi South",
+      "shapeID": "2480657B97463209696641",
+      "vertices": 2875
+    },
+    {
+      "catalogueId": "gh-dist-afigya-kwabre-north",
+      "catalogueName": "Afigya Kwabre North",
+      "shapeName": "Afigya Kwabre North",
+      "shapeID": "2480657B47912218033723",
+      "vertices": 835
+    },
+    {
+      "catalogueId": "gh-dist-afigya-kwabre-south",
+      "catalogueName": "Afigya Kwabre South",
+      "shapeName": "Afigya Kwabre South",
+      "shapeID": "2480657B27047738560833",
+      "vertices": 1034
+    },
+    {
+      "catalogueId": "gh-dist-ahafo-ano-north",
+      "catalogueName": "Ahafo Ano North",
+      "shapeName": "Ahafo Ano North",
+      "shapeID": "2480657B6504340506710",
+      "vertices": 3889
+    },
+    {
+      "catalogueId": "gh-dist-ahafo-ano-south-east",
+      "catalogueName": "Ahafo Ano South East",
+      "shapeName": "Ahafo Ano South East",
+      "shapeID": "2480657B91945870955547",
+      "vertices": 2004
+    },
+    {
+      "catalogueId": "gh-dist-ahafo-ano-south-west",
+      "catalogueName": "Ahafo Ano South West",
+      "shapeName": "Ahafo Ano South West",
+      "shapeID": "2480657B58897854519282",
+      "vertices": 3529
+    },
+    {
+      "catalogueId": "gh-dist-amansie-central",
+      "catalogueName": "Amansie Central",
+      "shapeName": "Amansie Central",
+      "shapeID": "2480657B25462964367622",
+      "vertices": 4844
+    },
+    {
+      "catalogueId": "gh-dist-amansie-south",
+      "catalogueName": "Amansie South",
+      "shapeName": "Amansie South",
+      "shapeID": "2480657B37143689168174",
+      "vertices": 2800
+    },
+    {
+      "catalogueId": "gh-dist-amansie-west",
+      "catalogueName": "Amansie West",
+      "shapeName": "Amansie West",
+      "shapeID": "2480657B59515552665793",
+      "vertices": 2723
+    },
+    {
+      "catalogueId": "gh-dist-asante-akim-central-municipal",
+      "catalogueName": "Asante Akim Central Municipal",
+      "shapeName": "Asante Akim Central Municipal",
+      "shapeID": "2480657B1767599566587",
+      "vertices": 1260
+    },
+    {
+      "catalogueId": "gh-dist-asante-akim-north",
+      "catalogueName": "Asante Akim North",
+      "shapeName": "Asante Akim North",
+      "shapeID": "2480657B62831767110058",
+      "vertices": 3778
+    },
+    {
+      "catalogueId": "gh-dist-asante-akim-south",
+      "catalogueName": "Asante Akim South",
+      "shapeName": "Asante Akim South",
+      "shapeID": "2480657B39079904074923",
+      "vertices": 3389
+    },
+    {
+      "catalogueId": "gh-dist-asokore-mampong-municipal",
+      "catalogueName": "Asokore Mampong Municipal",
+      "shapeName": "Asokore Mampong Municipal",
+      "shapeID": "2480657B67032672358324",
+      "vertices": 275
+    },
+    {
+      "catalogueId": "gh-dist-asokwa-municipal",
+      "catalogueName": "Asokwa Municipal",
+      "shapeName": "Asokwa  Municipal",
+      "shapeID": "2480657B91188187265148",
+      "vertices": 391
+    },
+    {
+      "catalogueId": "gh-dist-atwima-kwanwoma",
+      "catalogueName": "Atwima Kwanwoma",
+      "shapeName": "Atwima Kwanwoma",
+      "shapeID": "2480657B14749544754301",
+      "vertices": 2797
+    },
+    {
+      "catalogueId": "gh-dist-atwima-mponua",
+      "catalogueName": "Atwima Mponua",
+      "shapeName": "Atwima Mponua",
+      "shapeID": "2480657B25907117051030",
+      "vertices": 11113
+    },
+    {
+      "catalogueId": "gh-dist-atwima-nwabiagya-north",
+      "catalogueName": "Atwima Nwabiagya North",
+      "shapeName": "Atwima Nwabiagya North",
+      "shapeID": "2480657B14484334363928",
+      "vertices": 968
+    },
+    {
+      "catalogueId": "gh-dist-atwima-nwabiagya-south",
+      "catalogueName": "Atwima Nwabiagya South",
+      "shapeName": "Atwima Nwabiagya South",
+      "shapeID": "2480657B44972771575405",
+      "vertices": 2438
+    },
+    {
+      "catalogueId": "gh-dist-bekwai-municipal",
+      "catalogueName": "Bekwai Municipal",
+      "shapeName": "Bekwai Municipal",
+      "shapeID": "2480657B55478680834493",
+      "vertices": 3171
+    },
+    {
+      "catalogueId": "gh-dist-bosome-freho",
+      "catalogueName": "Bosome Freho",
+      "shapeName": "Bosome Freho",
+      "shapeID": "2480657B30283206314404",
+      "vertices": 2186
+    },
+    {
+      "catalogueId": "gh-dist-bosomtwe",
+      "catalogueName": "Bosomtwe",
+      "shapeName": "Bosomtwe",
+      "shapeID": "2480657B90441463194933",
+      "vertices": 3312
+    },
+    {
+      "catalogueId": "gh-dist-ejisu-municipal",
+      "catalogueName": "Ejisu Municipal",
+      "shapeName": "Ejisu Municipal",
+      "shapeID": "2480657B74771824828795",
+      "vertices": 2145
+    },
+    {
+      "catalogueId": "gh-dist-ejura-sekyedumase",
+      "catalogueName": "Ejura-Sekyedumase",
+      "shapeName": "Ejura-sekyedumase",
+      "shapeID": "2480657B28564915274944",
+      "vertices": 2732
+    },
+    {
+      "catalogueId": "gh-dist-juaben-municipal",
+      "catalogueName": "Juaben Municipal",
+      "shapeName": "Juaben Municipal",
+      "shapeID": "2480657B53382680619634",
+      "vertices": 732
+    },
+    {
+      "catalogueId": "gh-dist-kumasi-metro",
+      "catalogueName": "Kumasi Metropolitan",
+      "shapeName": "Kumasi Metropolitan",
+      "shapeID": "2480657B53854728613413",
+      "vertices": 52
+    },
+    {
+      "catalogueId": "gh-dist-kwabre-east",
+      "catalogueName": "Kwabre East",
+      "shapeName": "Kwabre East",
+      "shapeID": "2480657B60556198830817",
+      "vertices": 663
+    },
+    {
+      "catalogueId": "gh-dist-kwadaso-municipal",
+      "catalogueName": "Kwadaso Municipal",
+      "shapeName": "Kwadaso Municipal",
+      "shapeID": "2480657B94630675221037",
+      "vertices": 486
+    },
+    {
+      "catalogueId": "gh-dist-mampong-municipal",
+      "catalogueName": "Mampong Municipal",
+      "shapeName": "Mampong Municipal",
+      "shapeID": "2480657B66784074859314",
+      "vertices": 2420
+    },
+    {
+      "catalogueId": "gh-dist-obuasi-east",
+      "catalogueName": "Obuasi East",
+      "shapeName": "Obuasi East",
+      "shapeID": "2480657B26017273678273",
+      "vertices": 340
+    },
+    {
+      "catalogueId": "gh-dist-obuasi-municipal",
+      "catalogueName": "Obuasi Municipal",
+      "shapeName": "Obuasi Municipal",
+      "shapeID": "2480657B43720081643569",
+      "vertices": 795
+    },
+    {
+      "catalogueId": "gh-dist-offinso-municipal",
+      "catalogueName": "Offinso Municipal",
+      "shapeName": "Offinso Municipal",
+      "shapeID": "2480657B80894926360364",
+      "vertices": 1450
+    },
+    {
+      "catalogueId": "gh-dist-offinso-north",
+      "catalogueName": "Offinso North",
+      "shapeName": "Offinso North",
+      "shapeID": "2480657B15542052325310",
+      "vertices": 1788
+    },
+    {
+      "catalogueId": "gh-dist-oforikrom-municipal",
+      "catalogueName": "Oforikrom Municipal",
+      "shapeName": "Oforikrom Municipal",
+      "shapeID": "2480657B70835976798974",
+      "vertices": 568
+    },
+    {
+      "catalogueId": "gh-dist-old-tafo-municipal",
+      "catalogueName": "Old Tafo Municipal",
+      "shapeName": "Old Tafo Municipal",
+      "shapeID": "2480657B10806173713075",
+      "vertices": 189
+    },
+    {
+      "catalogueId": "gh-dist-sekyere-afram-plains-north",
+      "catalogueName": "Sekyere Afram Plains North",
+      "shapeName": "Sekyere Afram Plains North",
+      "shapeID": "2480657B37542209080123",
+      "vertices": 8314
+    },
+    {
+      "catalogueId": "gh-dist-sekyere-central",
+      "catalogueName": "Sekyere Central",
+      "shapeName": "Sekyere Central",
+      "shapeID": "2480657B47319682331963",
+      "vertices": 2890
+    },
+    {
+      "catalogueId": "gh-dist-sekyere-east",
+      "catalogueName": "Sekyere East",
+      "shapeName": "Sekyere East",
+      "shapeID": "2480657B61321065662810",
+      "vertices": 1189
+    },
+    {
+      "catalogueId": "gh-dist-sekyere-kumawu",
+      "catalogueName": "Sekyere Kumawu",
+      "shapeName": "Sekyere Kumawu",
+      "shapeID": "2480657B32008532681061",
+      "vertices": 1836
+    },
+    {
+      "catalogueId": "gh-dist-sekyere-south",
+      "catalogueName": "Sekyere South",
+      "shapeName": "Sekyere South",
+      "shapeID": "2480657B66267254954762",
+      "vertices": 1348
+    },
+    {
+      "catalogueId": "gh-dist-suame-municipal",
+      "catalogueName": "Suame Municipal",
+      "shapeName": "Suame Municipal",
+      "shapeID": "2480657B48966175900279",
+      "vertices": 163
+    }
+  ]
+}

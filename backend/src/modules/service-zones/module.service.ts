@@ -81,13 +81,29 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
     if (input.communityId) {
       await this.requireCommunity(input.communityId);
     }
+    if (input.districtId) {
+      await this.requireDistrict(input.districtId);
+      const existingForDistrict = await this.repository.findZoneByDistrictId(input.districtId);
+      if (existingForDistrict) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'A service zone already exists for this district',
+        });
+      }
+    }
     const zone = await this.repository.createZone({
       name: input.name,
       description: input.description,
       communityId: input.communityId ?? null,
+      districtId: input.districtId ?? null,
       slug: input.slug ?? null,
       boundary,
       box: boundingBox,
+      geographicSource: input.geographicSource ?? null,
+      geographicAttribution: input.geographicAttribution ?? null,
+      geographicDatasetVersion: input.geographicDatasetVersion ?? null,
+      geographicShapeId: input.geographicShapeId ?? null,
       actorId,
     });
     await this.deps.audit.record({
@@ -100,6 +116,7 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
         status: zone.status,
         isActive: zone.isActive,
         communityId: zone.communityId,
+        districtId: zone.districtId,
         slug: zone.slug,
         geometryType: boundary.type,
       },
@@ -141,17 +158,30 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
       });
     }
     if (
-      (input.communityId !== undefined || input.slug !== undefined) &&
+      (input.communityId !== undefined ||
+        input.districtId !== undefined ||
+        input.slug !== undefined) &&
       existing.status === 'ACTIVE'
     ) {
       throw new AppError({
         status: 409,
         code: 'CONFLICT',
-        message: 'Community and slug cannot be changed while the zone is ACTIVE',
+        message: 'Community, district and slug cannot be changed while the zone is ACTIVE',
       });
     }
     if (input.communityId) {
       await this.requireCommunity(input.communityId);
+    }
+    if (input.districtId) {
+      await this.requireDistrict(input.districtId);
+      const existingForDistrict = await this.repository.findZoneByDistrictId(input.districtId);
+      if (existingForDistrict && existingForDistrict.id !== zoneId) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'A service zone already exists for this district',
+        });
+      }
     }
     let normalized: ReturnType<typeof validateAndNormalizeBoundary> | undefined;
     if (input.boundary !== undefined) {
@@ -162,7 +192,12 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
       name: input.name,
       description: input.description,
       communityId: input.communityId,
+      districtId: input.districtId,
       slug: input.slug,
+      geographicSource: input.geographicSource,
+      geographicAttribution: input.geographicAttribution,
+      geographicDatasetVersion: input.geographicDatasetVersion,
+      geographicShapeId: input.geographicShapeId,
       boundary: normalized?.boundary,
       box: normalized?.boundingBox,
       ...(boundaryChanged ? { boundaryVerificationStatus: 'UNVERIFIED' as const } : {}),
@@ -253,7 +288,9 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
   }
 
   /**
-   * Go-live. Requires VERIFIED boundary and a fully ACTIVE + VERIFIED community hierarchy.
+   * Go-live. Requires VERIFIED boundary and either:
+   * - a district-linked zone with ACTIVE district → region → country, or
+   * - a community-linked zone with ACTIVE + VERIFIED community hierarchy.
    * Allowed from LOCKED, SUSPENDED, or UNDER_REVIEW (if already verified).
    */
   async activateZone(actorId: string, zoneId: string, ip?: string) {
@@ -277,33 +314,49 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
     }
     // Re-validate stored geometry at activation time.
     validateAndNormalizeBoundary(existing.boundary);
-    if (!existing.communityId) {
+
+    if (existing.districtId) {
+      const district = await this.requireDistrict(existing.districtId);
+      if (
+        district.status !== 'ACTIVE' ||
+        district.region.status !== 'ACTIVE' ||
+        district.region.country.status !== 'ACTIVE'
+      ) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'District, region and country must all be ACTIVE to activate a district zone',
+        });
+      }
+    } else if (existing.communityId) {
+      const community = await this.requireCommunity(existing.communityId);
+      if (
+        community.status !== 'ACTIVE' ||
+        community.district.status !== 'ACTIVE' ||
+        community.district.region.status !== 'ACTIVE' ||
+        community.district.region.country.status !== 'ACTIVE'
+      ) {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'Community, district, region and country must all be ACTIVE to activate a zone',
+        });
+      }
+      if (community.verificationStatus !== 'VERIFIED') {
+        throw new AppError({
+          status: 409,
+          code: 'CONFLICT',
+          message: 'Community must be VERIFIED before its zone can be activated',
+        });
+      }
+    } else {
       throw new AppError({
         status: 409,
         code: 'CONFLICT',
-        message: 'Zone must be linked to a community before activation',
+        message: 'Zone must be linked to a district or community before activation',
       });
     }
-    const community = await this.requireCommunity(existing.communityId);
-    if (
-      community.status !== 'ACTIVE' ||
-      community.district.status !== 'ACTIVE' ||
-      community.district.region.status !== 'ACTIVE' ||
-      community.district.region.country.status !== 'ACTIVE'
-    ) {
-      throw new AppError({
-        status: 409,
-        code: 'CONFLICT',
-        message: 'Community, district, region and country must all be ACTIVE to activate a zone',
-      });
-    }
-    if (community.verificationStatus !== 'VERIFIED') {
-      throw new AppError({
-        status: 409,
-        code: 'CONFLICT',
-        message: 'Community must be VERIFIED before its zone can be activated',
-      });
-    }
+
     const zone = await this.repository.updateZone(zoneId, {
       status: 'ACTIVE',
       isActive: true,
@@ -318,7 +371,11 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
       action: 'service_zone.activated',
       entityType: 'service_zone',
       entityId: zoneId,
-      metadata: { previousStatus: existing.status, communityId: existing.communityId },
+      metadata: {
+        previousStatus: existing.status,
+        communityId: existing.communityId,
+        districtId: existing.districtId,
+      },
       ipAddress: ip,
     });
     return toZoneView(zone);
@@ -681,6 +738,14 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
     return community;
   }
 
+  private async requireDistrict(districtId: string) {
+    const district = await this.repository.findDistrictHierarchy(districtId);
+    if (!district) {
+      throw new AppError({ status: 404, code: 'NOT_FOUND', message: 'District not found' });
+    }
+    return district;
+  }
+
   private async requireApproval(approvalId: string) {
     const approval = await this.repository.findApprovalById(approvalId);
     if (!approval) {
@@ -697,12 +762,17 @@ export class ServiceZonesServiceImpl implements ServiceZonesService {
 function toZoneView(zone: {
   id: string;
   communityId?: string | null;
+  districtId?: string | null;
   name: string;
   slug?: string | null;
   description: string | null;
   isActive: boolean;
   status: string;
   boundaryVerificationStatus: string;
+  geographicSource?: string | null;
+  geographicAttribution?: string | null;
+  geographicDatasetVersion?: string | null;
+  geographicShapeId?: string | null;
   activatedAt?: Date | null;
   activatedById?: string | null;
   suspendedAt?: Date | null;
@@ -720,12 +790,17 @@ function toZoneView(zone: {
   return {
     id: zone.id,
     communityId: zone.communityId ?? null,
+    districtId: zone.districtId ?? null,
     name: zone.name,
     slug: zone.slug ?? null,
     description: zone.description,
     isActive: zone.isActive,
     status: zone.status,
     boundaryVerificationStatus: zone.boundaryVerificationStatus,
+    geographicSource: zone.geographicSource ?? null,
+    geographicAttribution: zone.geographicAttribution ?? null,
+    geographicDatasetVersion: zone.geographicDatasetVersion ?? null,
+    geographicShapeId: zone.geographicShapeId ?? null,
     activatedAt: zone.activatedAt?.toISOString() ?? null,
     activatedById: zone.activatedById ?? null,
     suspendedAt: zone.suspendedAt?.toISOString() ?? null,

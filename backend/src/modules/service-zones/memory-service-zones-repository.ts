@@ -15,20 +15,45 @@ export interface MemoryCommunityHierarchy {
   verificationStatus: BoundaryVerification;
   district: {
     id: string;
+    name?: string;
     status: GeoStatus;
-    region: { id: string; status: GeoStatus; country: { id: string; status: GeoStatus } };
+    region: {
+      id: string;
+      name?: string;
+      status: GeoStatus;
+      country: { id: string; status: GeoStatus };
+    };
+  };
+}
+
+export interface MemoryDistrictHierarchy {
+  id: string;
+  name: string;
+  code: string;
+  status: GeoStatus;
+  catalogueId: string | null;
+  region: {
+    id: string;
+    name: string;
+    status: GeoStatus;
+    country: { id: string; status: GeoStatus };
   };
 }
 
 type ZoneRow = {
   id: string;
   communityId: string | null;
+  districtId: string | null;
   name: string;
   slug: string | null;
   description: string | null;
   isActive: boolean;
   status: ZoneStatus;
   boundaryVerificationStatus: BoundaryVerification;
+  geographicSource: string | null;
+  geographicAttribution: string | null;
+  geographicDatasetVersion: string | null;
+  geographicShapeId: string | null;
   activatedAt: Date | null;
   activatedById: string | null;
   suspendedAt: Date | null;
@@ -70,6 +95,7 @@ type DecisionRow = {
 export class MemoryServiceZonesRepository {
   zones = new Map<string, ZoneRow>();
   communities = new Map<string, MemoryCommunityHierarchy>();
+  districts = new Map<string, MemoryDistrictHierarchy>();
   approvals = new Map<string, ApprovalRow>();
   decisions: DecisionRow[] = [];
   riders = new Map<
@@ -103,9 +129,11 @@ export class MemoryServiceZonesRepository {
       verificationStatus: overrides.verificationStatus ?? 'VERIFIED',
       district: {
         id: randomUUID(),
+        name: 'Test District',
         status: overrides.districtStatus ?? 'ACTIVE',
         region: {
           id: randomUUID(),
+          name: 'Test Region',
           status: overrides.regionStatus ?? 'ACTIVE',
           country: { id: randomUUID(), status: overrides.countryStatus ?? 'ACTIVE' },
         },
@@ -115,8 +143,47 @@ export class MemoryServiceZonesRepository {
     return community;
   }
 
+  seedDistrict(
+    overrides: {
+      id?: string;
+      name?: string;
+      code?: string;
+      status?: GeoStatus;
+      catalogueId?: string | null;
+      regionStatus?: GeoStatus;
+      countryStatus?: GeoStatus;
+    } = {},
+  ): MemoryDistrictHierarchy {
+    const district: MemoryDistrictHierarchy = {
+      id: overrides.id ?? randomUUID(),
+      name: overrides.name ?? 'Test District',
+      code: overrides.code ?? 'TST',
+      status: overrides.status ?? 'ACTIVE',
+      catalogueId: overrides.catalogueId ?? null,
+      region: {
+        id: randomUUID(),
+        name: 'Ashanti Region',
+        status: overrides.regionStatus ?? 'ACTIVE',
+        country: { id: randomUUID(), status: overrides.countryStatus ?? 'ACTIVE' },
+      },
+    };
+    this.districts.set(district.id, district);
+    return district;
+  }
+
   async findCommunityHierarchy(communityId: string) {
     return this.communities.get(communityId) ?? null;
+  }
+
+  async findDistrictHierarchy(districtId: string) {
+    return this.districts.get(districtId) ?? null;
+  }
+
+  async findZoneByDistrictId(districtId: string) {
+    for (const zone of this.zones.values()) {
+      if (zone.districtId === districtId) return zone;
+    }
+    return null;
   }
 
   seedRider(input: {
@@ -144,21 +211,31 @@ export class MemoryServiceZonesRepository {
     name: string;
     description?: string | null;
     communityId?: string | null;
+    districtId?: string | null;
     slug?: string | null;
     boundary: ZoneBoundary;
     box: BoundingBox;
+    geographicSource?: string | null;
+    geographicAttribution?: string | null;
+    geographicDatasetVersion?: string | null;
+    geographicShapeId?: string | null;
     actorId: string;
   }) {
     const now = new Date();
     const zone: ZoneRow = {
       id: randomUUID(),
       communityId: input.communityId ?? null,
+      districtId: input.districtId ?? null,
       name: input.name,
       slug: input.slug ?? null,
       description: input.description ?? null,
       isActive: false,
       status: 'DRAFT',
       boundaryVerificationStatus: 'UNVERIFIED',
+      geographicSource: input.geographicSource ?? null,
+      geographicAttribution: input.geographicAttribution ?? null,
+      geographicDatasetVersion: input.geographicDatasetVersion ?? null,
+      geographicShapeId: input.geographicShapeId ?? null,
       activatedAt: null,
       activatedById: null,
       suspendedAt: null,
@@ -187,6 +264,8 @@ export class MemoryServiceZonesRepository {
     isActive?: boolean;
     status?: ZoneStatus;
     communityId?: string;
+    districtId?: string;
+    regionId?: string;
     q?: string;
   }) {
     let items = [...this.zones.values()];
@@ -195,6 +274,16 @@ export class MemoryServiceZonesRepository {
     }
     if (input.communityId !== undefined) {
       items = items.filter((zone) => zone.communityId === input.communityId);
+    }
+    if (input.districtId !== undefined) {
+      items = items.filter((zone) => zone.districtId === input.districtId);
+    }
+    if (input.regionId !== undefined) {
+      items = items.filter((zone) => {
+        if (!zone.districtId) return false;
+        const district = this.districts.get(zone.districtId);
+        return district?.region.id === input.regionId;
+      });
     }
     if (input.isActive !== undefined) {
       items = items.filter((zone) => zone.isActive === input.isActive);
@@ -216,9 +305,14 @@ export class MemoryServiceZonesRepository {
       name?: string;
       description?: string | null;
       communityId?: string | null;
+      districtId?: string | null;
       slug?: string | null;
       boundary?: ZoneBoundary;
       box?: BoundingBox;
+      geographicSource?: string | null;
+      geographicAttribution?: string | null;
+      geographicDatasetVersion?: string | null;
+      geographicShapeId?: string | null;
       isActive?: boolean;
       status?: ZoneStatus;
       boundaryVerificationStatus?: BoundaryVerification;
@@ -241,7 +335,16 @@ export class MemoryServiceZonesRepository {
       zone.maxLongitude = data.box.maxLongitude;
     }
     if (data.communityId !== undefined) zone.communityId = data.communityId;
+    if (data.districtId !== undefined) zone.districtId = data.districtId;
     if (data.slug !== undefined) zone.slug = data.slug;
+    if (data.geographicSource !== undefined) zone.geographicSource = data.geographicSource;
+    if (data.geographicAttribution !== undefined) {
+      zone.geographicAttribution = data.geographicAttribution;
+    }
+    if (data.geographicDatasetVersion !== undefined) {
+      zone.geographicDatasetVersion = data.geographicDatasetVersion;
+    }
+    if (data.geographicShapeId !== undefined) zone.geographicShapeId = data.geographicShapeId;
     if (data.isActive !== undefined) zone.isActive = data.isActive;
     if (data.status !== undefined) zone.status = data.status;
     if (data.boundaryVerificationStatus !== undefined) {

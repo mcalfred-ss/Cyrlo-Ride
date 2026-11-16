@@ -1,0 +1,3 @@
+# National geoBoundaries downloads are large; rebuild with build-ashanti-adm2.mjs
+geoBoundaries-GHA-ADM2.geojson
+geoBoundaries-GHA-ADM2_simplified.geojson
