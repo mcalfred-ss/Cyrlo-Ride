@@ -65,7 +65,17 @@ Because the folder name has a space, build from the **D:** junction and keep cac
 $env:GRADLE_USER_HOME = "D:\DevCaches\gradle"
 $env:PUB_CACHE = "D:\DevCaches\pub-cache"
 cd D:\Projects\CyrloRide2\apps\cyrlo_app
-flutter build appbundle --release
+flutter build appbundle --release --no-tree-shake-icons
+```
+
+Before uploading, confirm the AAB includes Material Icons (missing font = Chinese/garbled icon glyphs on Android):
+
+```powershell
+$aab = "build\app\outputs\bundle\release\app-release.aab"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$z = [IO.Compression.ZipFile]::OpenRead((Resolve-Path $aab))
+$z.Entries | Where-Object { $_.FullName -match 'MaterialIcons' } | Select-Object FullName, Length
+$z.Dispose()
 ```
 
 AAB output:
@@ -145,7 +155,7 @@ Collect for app functionality (not tracking):
 ## Build dart-defines (optional production)
 
 ```bash
-flutter build appbundle --release \
+flutter build appbundle --release --no-tree-shake-icons \
   --dart-define=API_BASE_URL=https://cyrloride.eqostack.com/api/v1 \
   --dart-define=SOCKET_URL=https://cyrloride.eqostack.com
 ```

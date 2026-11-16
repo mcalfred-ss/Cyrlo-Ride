@@ -48,6 +48,12 @@ android {
         }
     }
 
+    // AGP can drop Flutter assets (incl. MaterialIcons) via ignoreAssetsPattern.
+    // Missing MaterialIcons renders icon glyphs as CJK garbage on Android.
+    androidResources {
+        ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:!CVS:!thumbs.db:!picasa.ini:!*~"
+    }
+
     buildTypes {
         release {
             // Prefer upload keystore when present; otherwise keep debug for local --release smoke.

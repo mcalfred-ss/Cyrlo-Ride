@@ -124,8 +124,8 @@ workflows:
           set -euo pipefail
           cd apps/cyrlo_app
           BUILD_NUMBER="${PROJECT_BUILD_NUMBER:-1}"
-          flutter build appbundle --release \
-            --build-name=1.0.1 \
+          flutter build appbundle --release --no-tree-shake-icons \
+            --build-name=1.0.3 \
             --build-number="$BUILD_NUMBER"
     artifacts:
       - apps/cyrlo_app/build/app/outputs/bundle/release/*.aab
