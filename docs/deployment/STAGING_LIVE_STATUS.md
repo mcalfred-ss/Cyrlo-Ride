@@ -57,7 +57,7 @@ bash /var/www/cyrlo-ride-api/app/ops/deploy/smoke-staging.sh
 ```bash
 SMS_PROVIDER=vynfy
 VYNFY_API_KEY=...
-VYNFY_SENDER_ID=...          # exact Vynfy-approved sender
+VYNFY_SENDER_ID=EQOSTACK     # temporary while CYRLO RIDE sender approval is pending
 
 MAPS_PROVIDER=cyrlo
 MAPS_BASE_URL=https://api.cyrlomap.eqostack.com

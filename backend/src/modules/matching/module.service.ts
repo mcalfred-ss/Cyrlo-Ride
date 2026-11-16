@@ -45,7 +45,12 @@ export interface MatchingService {
   dispatchOpenBookings(): Promise<{ bookings: number; offers: number }>;
   expireOffersAndSearches(): Promise<{ timedOutOffers: number; expiredBookings: number }>;
   listMyPendingOffers(riderId: string): Promise<unknown>;
-  acceptOffer(riderId: string, offerId: string, ip?: string): Promise<unknown>;
+  acceptOffer(
+    riderId: string,
+    offerId: string,
+    ip?: string,
+    options?: { demo?: boolean },
+  ): Promise<unknown>;
   rejectOffer(riderId: string, offerId: string, ip?: string): Promise<unknown>;
   getPassengerMatchingStatus(passengerId: string, bookingId: string): Promise<unknown>;
   getSupplyAvailability(
@@ -405,7 +410,12 @@ export class MatchingServiceImpl implements MatchingService {
     }));
   }
 
-  async acceptOffer(riderId: string, offerId: string, ip?: string) {
+  async acceptOffer(
+    riderId: string,
+    offerId: string,
+    ip?: string,
+    options?: { demo?: boolean },
+  ) {
     const offer = await this.repository.findOfferForRider(offerId, riderId);
     if (!offer) {
       throw new AppError({ status: 404, code: 'NOT_FOUND', message: 'Offer not found' });
@@ -538,8 +548,10 @@ export class MatchingServiceImpl implements MatchingService {
     enqueueInAppNotification(this.deps.prisma, {
       userId: booking.passengerId,
       title: 'Rider assigned',
-      body: 'A rider accepted your request. Pay the GH₵1 Cyrlo connection fee, then agree destination and transport fare with your rider.',
-      data: { bookingId: booking.id, status: 'ACCEPTED' },
+      body: options?.demo
+        ? 'A rider accepted your request (Demo Mode — connection fee skipped). Agree destination and fare with your rider.'
+        : 'A rider accepted your request. Pay the GH₵1 Cyrlo connection fee, then agree destination and transport fare with your rider.',
+      data: { bookingId: booking.id, status: 'ACCEPTED', demo: options?.demo === true },
     });
     publishBookingAccepted({
       bookingId: booking.id,
@@ -555,12 +567,14 @@ export class MatchingServiceImpl implements MatchingService {
 
     // PENDING fee row + paymentExpiresAt were committed with ACCEPTED.
     // Paystack init can fail; booking remains ACCEPTED until fee window expires.
+    // Demo Mode auto-SUCCESS the fee so unpaid cancel cannot kill the pitch.
     let connectionFee: unknown = null;
     let connectionFeeError: string | null = null;
     try {
       connectionFee = await this.deps.bookings.initiateConnectionFeeAfterAccept(
         booking.id,
         booking.passengerId,
+        { demo: options?.demo === true },
       );
     } catch (error) {
       connectionFeeError =

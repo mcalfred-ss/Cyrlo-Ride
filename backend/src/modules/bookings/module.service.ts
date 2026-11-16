@@ -89,6 +89,7 @@ export interface BookingsService {
   initiateConnectionFeeAfterAccept(
     bookingId: string,
     passengerId: string,
+    options?: { demo?: boolean },
   ): Promise<ConnectionFeeCheckout>;
   markSearchingAfterFeeSuccess(bookingId: string, now?: Date): Promise<unknown>;
   markPaymentFailed(bookingId: string, reason: string): Promise<unknown>;
@@ -911,6 +912,7 @@ export class BookingsServiceImpl implements BookingsService {
   async initiateConnectionFeeAfterAccept(
     bookingId: string,
     passengerId: string,
+    options?: { demo?: boolean },
   ): Promise<ConnectionFeeCheckout> {
     const booking = await this.repository.findBookingById(bookingId);
     if (!booking || booking.passengerId !== passengerId) {
@@ -928,11 +930,16 @@ export class BookingsServiceImpl implements BookingsService {
       (p) => p.purpose === 'BOOKING_FEE' && p.status === 'SUCCESS',
     );
     if (success) {
-      throw new AppError({
-        status: 409,
-        code: 'CONFLICT',
-        message: 'Connection fee was already paid for this booking',
-      });
+      return {
+        paymentId: success.id,
+        amountPesewas: BOOKING_FEE_PESEWAS,
+        currency: 'GHS',
+        status: 'SUCCESS',
+        reference: success.providerReference ?? `demo_${bookingId}`,
+        authorizationUrl: '',
+        accessCode: '',
+        paymentExpiresAt: (booking.paymentExpiresAt ?? this.now()).toISOString(),
+      };
     }
 
     const now = this.now();
@@ -957,11 +964,16 @@ export class BookingsServiceImpl implements BookingsService {
     });
 
     if (payment.status === 'SUCCESS') {
-      throw new AppError({
-        status: 409,
-        code: 'CONFLICT',
-        message: 'Connection fee was already paid for this booking',
-      });
+      return {
+        paymentId: payment.id,
+        amountPesewas: BOOKING_FEE_PESEWAS,
+        currency: 'GHS',
+        status: 'SUCCESS',
+        reference: payment.providerReference ?? providerReference,
+        authorizationUrl: '',
+        accessCode: '',
+        paymentExpiresAt: paymentExpiresAt.toISOString(),
+      };
     }
     if (payment.status === 'ABANDONED') {
       throw new AppError({
@@ -991,6 +1003,54 @@ export class BookingsServiceImpl implements BookingsService {
         where: { id: payment.id },
         data: { providerReference: reference },
       });
+    }
+
+    // Investor Demo Mode: mark fee SUCCESS without Paystack so the unpaid
+    // cancel job cannot kill the pitch mid-trip.
+    if (options?.demo) {
+      await this.deps.prisma.$transaction(async (tx) => {
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'SUCCESS',
+            providerReference: reference,
+            paidAt: now,
+          },
+        });
+        await tx.booking.update({
+          where: { id: bookingId },
+          data: { paymentExpiresAt: null },
+        });
+      });
+      await this.deps.audit.record({
+        action: 'payments.booking_fee.demo_success',
+        entityType: 'payment',
+        entityId: payment.id,
+        metadata: { bookingId, demo: true },
+      });
+      enqueueInAppNotification(this.deps.prisma, {
+        userId: passengerId,
+        title: 'Connection fee waived (demo)',
+        body: 'Demo Mode: GH₵1 fee skipped. Agree destination and transport fare with your rider.',
+        data: {
+          bookingId,
+          status: booking.status,
+          paymentId: payment.id,
+          connectionFee: 'SUCCESS',
+          demo: true,
+        },
+        dedupeKey: `connection_fee_demo:${bookingId}`,
+      });
+      return {
+        paymentId: payment.id,
+        amountPesewas: BOOKING_FEE_PESEWAS,
+        currency: 'GHS',
+        status: 'SUCCESS',
+        reference,
+        authorizationUrl: '',
+        accessCode: 'demo',
+        paymentExpiresAt: paymentExpiresAt.toISOString(),
+      };
     }
 
     try {

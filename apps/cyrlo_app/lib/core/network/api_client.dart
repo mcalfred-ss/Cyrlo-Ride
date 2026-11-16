@@ -90,6 +90,15 @@ class ApiClient {
     dio.options.headers['Authorization'] = 'Bearer $token';
   }
 
+  /// Investor Demo Mode — backend may auto-SUCCESS connection fee when allowed.
+  void setDemoMode(bool enabled) {
+    if (enabled) {
+      dio.options.headers['X-Cyrlo-Demo'] = '1';
+    } else {
+      dio.options.headers.remove('X-Cyrlo-Demo');
+    }
+  }
+
   DioException _asApiException(DioException error) {
     if (error.error is ApiException) return error;
     final response = error.response;

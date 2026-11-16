@@ -6,6 +6,8 @@ declare global {
       rawBody?: Buffer;
       requestId?: string;
       auth?: AccessTokenClaims;
+      /** Investor Demo Mode — set by attachDemoFlag when DEMO_MODE + header. */
+      demo?: boolean;
     }
   }
 }

@@ -41,6 +41,15 @@ const envSchema = z
       .default('false')
       .transform((value) => value === 'true'),
     /**
+     * When true, honor client `X-Cyrlo-Demo: 1` (investor pitch):
+     * auto-SUCCESS GH₵1 connection fee and skip Paystack.
+     * Keep false in production unless deliberately pitching.
+     */
+    DEMO_MODE: z
+      .enum(['true', 'false', '1', '0'])
+      .default('false')
+      .transform((value) => value === 'true' || value === '1'),
+    /**
      * Comma-separated phone:code pairs for App Store / Play review and internal QA.
      * Example: +233555010001:246810,+233555010002:246810
      * Allowed in production — only those exact numbers skip SMS and use the fixed code.

@@ -11,7 +11,9 @@ export class PaymentsController {
   initiateBookingFee: RequestHandler = async (req, res, next) => {
     try {
       const body = res.locals.validated.body as InitiateBookingFeeInput;
-      const data = await this.service.initiateBookingFee(req.auth!.sub, body, req.ip);
+      const data = await this.service.initiateBookingFee(req.auth!.sub, body, req.ip, {
+        demo: req.demo === true,
+      });
       sendSuccess(res, data);
     } catch (error) {
       next(error);

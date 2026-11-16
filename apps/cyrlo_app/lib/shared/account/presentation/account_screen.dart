@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/config/app_config.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../core/demo/demo_mode_provider.dart';
 import '../../../core/errors/api_exception.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -195,6 +196,7 @@ class AccountScreen extends ConsumerWidget {
     final draft = ref.watch(signupProvider);
     final bootstrapReady = ref.watch(authBootstrapProvider);
     final themePreference = ref.watch(themePreferenceProvider);
+    final demoMode = ref.watch(demoModeProvider);
     final theme = Theme.of(context);
     final isPassenger = role == RideRole.passenger;
 
@@ -378,6 +380,53 @@ class AccountScreen extends ConsumerWidget {
                           .read(themePreferenceProvider.notifier)
                           .setPreference(preference);
                     },
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  Text(
+                    'Demo',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: AppColors.textPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Investor pitch — mock riders, no real payment.',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: AppColors.textSecondary,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  _AccountSectionCard(
+                    children: [
+                      SwitchListTile.adaptive(
+                        key: const Key('demo-mode-toggle'),
+                        contentPadding: EdgeInsets.zero,
+                        title: Text(
+                          'Demo mode',
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        subtitle: Text(
+                          demoMode
+                              ? 'On — mock map riders; connection fee skipped'
+                              : 'Off — live marketplace behaviour',
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: AppColors.textSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        value: demoMode,
+                        activeThumbColor: AppColors.yellow,
+                        onChanged: (value) {
+                          ref
+                              .read(demoModeProvider.notifier)
+                              .setEnabled(value);
+                        },
+                      ),
+                    ],
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(

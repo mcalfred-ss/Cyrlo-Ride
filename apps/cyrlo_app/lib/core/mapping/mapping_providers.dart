@@ -4,7 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../config/app_config.dart';
 import '../constants/api_paths.dart';
+import '../demo/demo_mode_provider.dart';
 import '../../features/auth/application/auth_session.dart';
+import '../../shared/models/geo_point.dart';
 import '../../shared/providers/core_providers.dart';
 import 'device_location_gateway.dart';
 import 'maps_api/maps_api_client.dart';
@@ -48,6 +50,18 @@ final passengerMapProjectProvider = Provider<MapProject>((ref) {
 });
 
 final deviceLocationGatewayProvider = Provider<DeviceLocationGateway>((ref) {
+  if (ref.watch(demoModeProvider)) {
+    // Pitch venues may be outside the pilot zone — pin GPS to Kokobin/Kumasi.
+    return FakeDeviceLocationGateway(
+      DeviceLocationResult.fix(
+        const GeoPoint(
+          latitude: demoPilotLatitude,
+          longitude: demoPilotLongitude,
+        ),
+        accuracyMeters: 12,
+      ),
+    );
+  }
   return CyrloDeviceLocationGateway();
 });
 

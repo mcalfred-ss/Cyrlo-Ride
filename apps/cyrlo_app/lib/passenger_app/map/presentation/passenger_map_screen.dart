@@ -16,6 +16,7 @@ import '../../../shared/ride_session/passenger_cancel_notice.dart';
 import '../../../shared/ride_session/passenger_cancel_ride.dart';
 import '../../../shared/widgets/active_contact_card.dart';
 import '../../../shared/widgets/cyrlo_button.dart';
+import '../../../core/demo/demo_mode_provider.dart';
 import '../../home/application/nearby_riders_provider.dart';
 import '../../home/application/pragya_supply_provider.dart';
 import '../../home/domain/nearby_rider.dart';
@@ -95,8 +96,26 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
       barrierColor: Colors.black.withValues(alpha: 0.35),
       builder: (context) => _NearbyRiderMapSheet(
         rider: rider,
-        onRequest: () {
+        onRequest: () async {
           Navigator.of(context).pop();
+          final demoMode = ref.read(demoModeProvider);
+          if (demoMode || rider.id.startsWith('demo-rider-')) {
+            var pickup = ref.read(tripPinProvider).pickup;
+            if (pickup == null || !pickup.isValid) {
+              await ref
+                  .read(tripPinProvider.notifier)
+                  .useCurrentLocationAsPickup();
+              pickup = ref.read(tripPinProvider).pickup;
+            }
+            if (!mounted) return;
+            if (pickup == null || !pickup.isValid) return;
+            await startLiveBookingFlow(
+              context: context,
+              ref: ref,
+              pickup: pickup,
+            );
+            return;
+          }
           startRequestRideFlow(context: context, ref: ref, rider: rider);
         },
         onClose: () => Navigator.of(context).pop(),

@@ -41,6 +41,7 @@ export class MatchingController {
         req.auth!.sub,
         req.params.offerId as string,
         req.ip,
+        { demo: req.demo === true },
       );
       sendSuccess(res, data);
     } catch (error) {

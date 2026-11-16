@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/demo/demo_mode_provider.dart';
 import '../../../core/mapping/device_location_gateway.dart';
 import '../../../core/mapping/mapping_providers.dart';
 import '../../../features/auth/application/auth_session.dart';
@@ -58,6 +59,7 @@ class PragyaSupplyController extends Notifier<PragyaSupplyState> {
     ref.listen(tripPinProvider, (previous, next) {
       if (previous?.pickup != next.pickup) unawaited(refresh());
     });
+    ref.listen(demoModeProvider, (_, __) => unawaited(refresh()));
     Future.microtask(refresh);
     _poll = Timer.periodic(_pollInterval, (_) => unawaited(refresh()));
     return const PragyaSupplyState();
@@ -67,6 +69,17 @@ class PragyaSupplyController extends Notifier<PragyaSupplyState> {
     final session = ref.read(authSessionProvider);
     if (session == null) {
       state = const PragyaSupplyState(isLoading: false);
+      return;
+    }
+
+    final demoMode = ref.read(demoModeProvider);
+    if (demoMode) {
+      // Investor pitch: always allow Book a Pragya while Demo Mode is on.
+      state = const PragyaSupplyState(
+        available: true,
+        count: 5,
+        isLoading: false,
+      );
       return;
     }
 

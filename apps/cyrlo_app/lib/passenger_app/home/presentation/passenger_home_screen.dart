@@ -18,6 +18,7 @@ import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../map/application/trip_pin_controller.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
+import '../../../core/demo/demo_mode_provider.dart';
 import '../application/nearby_riders_provider.dart';
 import '../application/passenger_notifications_provider.dart';
 import '../application/pragya_supply_provider.dart';
@@ -36,6 +37,7 @@ class PassengerHomeScreen extends ConsumerWidget {
     final ridersState = ref.watch(nearbyRidersProvider);
     final riders = ridersState.items;
     final supply = ref.watch(pragyaSupplyProvider);
+    final demoMode = ref.watch(demoModeProvider);
     final activeRequest = ref.watch(activeRideRequestProvider);
     final unreadCount = ref.watch(unreadNotificationCountProvider);
     final shareContact = activeRequest?.sharesContact == true;
@@ -186,11 +188,33 @@ class PassengerHomeScreen extends ConsumerWidget {
                           NearbyRiderCard(
                             key: Key('nearby-rider-${riders[i].id}'),
                             rider: riders[i],
-                            onRequest: () {
+                            onRequest: () async {
+                              final rider = riders[i];
+                              // Demo pins are theater only — live matching hits the real rider phone.
+                              if (demoMode || rider.id.startsWith('demo-rider-')) {
+                                var pickup = ref.read(tripPinProvider).pickup;
+                                if (pickup == null || !pickup.isValid) {
+                                  await ref
+                                      .read(tripPinProvider.notifier)
+                                      .useCurrentLocationAsPickup();
+                                  pickup = ref.read(tripPinProvider).pickup;
+                                }
+                                if (!context.mounted) return;
+                                if (pickup == null || !pickup.isValid) {
+                                  context.go(AppRoutes.passengerMap);
+                                  return;
+                                }
+                                await startLiveBookingFlow(
+                                  context: context,
+                                  ref: ref,
+                                  pickup: pickup,
+                                );
+                                return;
+                              }
                               startRequestRideFlow(
                                 context: context,
                                 ref: ref,
-                                rider: riders[i],
+                                rider: rider,
                               );
                             },
                             onOpenMap: () {

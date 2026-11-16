@@ -9,6 +9,7 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { AppError } from './common/errors/app-error.js';
 import { errorHandler } from './common/errors/error-handler.js';
+import { attachDemoFlag } from './common/middleware/demo-mode.js';
 import {
   apiRateLimiter,
   usesDedicatedRateLimiter,
@@ -80,6 +81,7 @@ export function createApp(): Express {
 
   const modules = createModules({ prisma });
   const api = Router();
+  api.use(attachDemoFlag);
   api.use((req, res, next) => {
     if (req.path === '/health' || req.path.startsWith('/health/')) {
       next();

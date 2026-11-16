@@ -41,6 +41,7 @@ export interface PaymentsService {
     userId: string,
     input: InitiateBookingFeeInput,
     ip?: string,
+    options?: { demo?: boolean },
   ): Promise<unknown>;
   handlePaystackWebhook(input: PaystackWebhookInput): Promise<{ accepted: boolean }>;
   listRefundsForFinance(status?: PaymentRefundStatus): Promise<unknown>;
@@ -79,7 +80,19 @@ export class PaymentsServiceImpl implements PaymentsService {
     });
   }
 
-  async initiateBookingFee(userId: string, input: InitiateBookingFeeInput, _ip?: string) {
+  async initiateBookingFee(
+    userId: string,
+    input: InitiateBookingFeeInput,
+    _ip?: string,
+    options?: { demo?: boolean },
+  ) {
+    if (options?.demo) {
+      // Same auto-SUCCESS path as post-accept demo fee skip.
+      return this.deps.bookings.initiateConnectionFeeAfterAccept(input.bookingId, userId, {
+        demo: true,
+      });
+    }
+
     const payment = await this.repository.findBookingFeePayment(input.bookingId, userId);
     if (!payment || !payment.booking) {
       throw new AppError({ status: 404, code: 'NOT_FOUND', message: 'Booking payment not found' });

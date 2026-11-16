@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/demo/demo_mode_provider.dart';
+import '../../../core/demo/demo_nearby_riders.dart';
 import '../../../features/auth/application/auth_session.dart';
 import '../../../shared/models/geo_point.dart';
 import '../../map/application/passenger_trip_plan.dart';
@@ -85,6 +87,7 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
 
     ref.listen(passengerTripPlanProvider, (_, next) => onPickup(next.pickup));
     ref.listen(tripPinProvider, (_, next) => onPickup(next.pickup));
+    ref.listen(demoModeProvider, (_, __) => unawaited(refresh()));
 
     final pickup = ref.read(passengerTripPlanProvider).pickup ??
         ref.read(tripPinProvider).pickup;
@@ -127,23 +130,41 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
     if (state.items.isEmpty) {
       state = state.copyWith(isLoading: true, clearError: true);
     }
+    final demoMode = ref.read(demoModeProvider);
     try {
       final result = await ref.read(nearbyRidersApiProvider).discover(
             accessToken: accessToken,
             pickup: pickup,
           );
-      final message = !result.inServiceArea
+      final riders = mergeDemoNearbyRiders(
+        live: result.riders,
+        pickup: pickup,
+        demoMode: demoMode,
+      );
+      final message = !result.inServiceArea && !demoMode
           ? 'Pickup is outside the active service area.'
-          : result.riders.isEmpty
+          : riders.isEmpty
               ? 'No eligible riders nearby right now.'
-              : null;
+              : demoMode && result.riders.isEmpty
+                  ? 'Demo riders nearby — book to match a live rider phone.'
+                  : null;
       state = NearbyRidersState(
-        items: result.riders,
+        items: riders,
         isLoading: false,
-        inServiceArea: result.inServiceArea,
+        inServiceArea: result.inServiceArea || demoMode,
         message: message,
       );
     } catch (_) {
+      if (demoMode) {
+        final riders = buildDemoNearbyRiders(pickup);
+        state = NearbyRidersState(
+          items: riders,
+          isLoading: false,
+          inServiceArea: true,
+          message: 'Demo riders nearby — book to match a live rider phone.',
+        );
+        return;
+      }
       state = state.copyWith(
         isLoading: false,
         errorMessage: 'Could not refresh nearby riders. Trying again…',
