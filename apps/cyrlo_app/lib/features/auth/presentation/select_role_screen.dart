@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -53,8 +54,8 @@ class _SelectRoleScreenState extends ConsumerState<SelectRoleScreen> {
     super.dispose();
   }
 
-  void _selectCurrent() {
-    ref.read(signupProvider.notifier).chooseRole(_roles[_page].role);
+  Future<void> _selectCurrent() async {
+    await ref.read(signupProvider.notifier).chooseRole(_roles[_page].role);
   }
 
   @override
@@ -111,7 +112,11 @@ class _SelectRoleScreenState extends ConsumerState<SelectRoleScreen> {
                                 duration: AppMotion.normal,
                                 curve: AppMotion.standard,
                               );
-                              ref.read(signupProvider.notifier).chooseRole(item.role);
+                              unawaited(
+                                ref
+                                    .read(signupProvider.notifier)
+                                    .chooseRole(item.role),
+                              );
                             },
                           ),
                         ),

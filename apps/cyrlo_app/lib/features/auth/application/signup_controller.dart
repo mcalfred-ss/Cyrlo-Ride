@@ -293,21 +293,44 @@ class SignupController extends Notifier<SignupDraft> {
     return true;
   }
 
-  void chooseRole(RideRole role) {
+  /// Picks a role for signup. If this phone is already registered, snaps to
+  /// that account's role so the user lands in the linked experience.
+  Future<void> chooseRole(RideRole role) async {
+    final known = await _roleForPhone(state.phoneE164);
     _set(
       state.copyWith(
-        role: role,
+        role: known ?? role,
         phoneConfirmed: false,
         otpVerified: false,
-        accountReady: false,
+        accountReady: known != null,
       ),
     );
   }
 
   /// Confirm the current number so OTP can be requested.
-  void confirmPhoneForOtp() {
+  /// Re-checks the DB so a wrong role choice still opens the linked account.
+  Future<void> confirmPhoneForOtp() async {
     if (state.phoneE164 == null) return;
-    _set(state.copyWith(phoneConfirmed: true, otpVerified: false));
+    final known = await _roleForPhone(state.phoneE164);
+    _set(
+      state.copyWith(
+        role: known ?? state.role,
+        phoneConfirmed: true,
+        otpVerified: false,
+        accountReady: known != null || state.accountReady,
+      ),
+    );
+  }
+
+  Future<RideRole?> _roleForPhone(String? phone) async {
+    if (phone == null || phone.isEmpty) return null;
+    try {
+      final status = await ref.read(authApiProvider).lookupAccount(phone);
+      if (status.registered && status.role != null) return status.role;
+    } catch (_) {
+      // Lookup failure must not block the flow.
+    }
+    return null;
   }
 
   /// Wrong number after role — keep role, clear phone, go enter another.
@@ -339,18 +362,43 @@ class SignupController extends Notifier<SignupDraft> {
   /// first, then calls [markOtpVerified] so the router does not leave early.
   Future<AuthUser> verifyOtp(String code) async {
     final phone = state.phoneE164;
-    final role = state.role;
+    var role = state.role;
     if (phone == null || role == null) {
       throw const ApiException(
         code: 'SIGNUP_INCOMPLETE',
         message: 'Choose a role before verifying.',
       );
     }
-    final tokens = await ref.read(authApiProvider).verifyOtp(
-          phoneNumber: phone,
-          code: code.trim(),
-          role: role,
-        );
+    // Prefer the role already linked to this number when known.
+    final linked = await _roleForPhone(phone);
+    if (linked != null && linked != role) {
+      role = linked;
+      _set(state.copyWith(role: linked, accountReady: true));
+    }
+
+    AuthTokens tokens;
+    try {
+      tokens = await ref.read(authApiProvider).verifyOtp(
+            phoneNumber: phone,
+            code: code.trim(),
+            role: role,
+          );
+    } on ApiException catch (error) {
+      // Older APIs still 409 on role mismatch — snap to linked role and retry once.
+      final isRoleConflict = error.code == 'CONFLICT' ||
+          error.statusCode == 409 ||
+          error.message.toLowerCase().contains('different role');
+      if (!isRoleConflict) rethrow;
+      final known = await _roleForPhone(phone);
+      if (known == null || known == role) rethrow;
+      role = known;
+      _set(state.copyWith(role: known, accountReady: true));
+      tokens = await ref.read(authApiProvider).verifyOtp(
+            phoneNumber: phone,
+            code: code.trim(),
+            role: known,
+          );
+    }
     await ref.read(authSessionProvider.notifier).save(tokens);
     _set(
       state.copyWith(

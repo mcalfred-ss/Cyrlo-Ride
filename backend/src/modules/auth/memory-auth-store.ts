@@ -189,13 +189,7 @@ export class MemoryAuthStore implements AuthStore {
         this.usersByPhone.set(user.phoneNumber, user.id);
         created = true;
       } else {
-        if (user.role !== input.role) {
-          throw new AppError({
-            status: 409,
-            code: 'CONFLICT',
-            message: 'Phone number is registered with a different role',
-          });
-        }
+        // Open the account already linked to this phone (ignore mismatched role).
         if (user.status === 'SUSPENDED') {
           throw new AppError({
             status: 403,

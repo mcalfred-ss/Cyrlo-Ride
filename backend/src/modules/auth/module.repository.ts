@@ -264,16 +264,8 @@ export class AuthRepository {
             });
             created = true;
           } else {
-            if (existing.role !== input.role) {
-              return {
-                ok: false as const,
-                error: new AppError({
-                  status: 409,
-                  code: 'CONFLICT',
-                  message: 'Phone number is registered with a different role',
-                }),
-              };
-            }
+            // Phone already belongs to an account — open that role instead of
+            // rejecting when the client asked for the other role.
             if (existing.status === 'SUSPENDED') {
               return {
                 ok: false as const,
