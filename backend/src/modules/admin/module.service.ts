@@ -5,6 +5,7 @@ import type { PrismaClient } from '@prisma/client';
 import { Permission, staffRoleHasPermission } from '../../common/authz/permissions.js';
 import { AppError } from '../../common/errors/app-error.js';
 import { generateOtpCode, hashOtpCode } from '../../common/security/otp.js';
+import { staticOtpForPhone } from '../../common/security/static-otp.js';
 import { decryptSecret, encryptSecret } from '../../common/security/secret-box.js';
 import {
   createOpaqueToken,
@@ -392,7 +393,9 @@ export class AdminServiceImpl implements AdminService {
 
   async requestAdminOtp(input: AdminOtpRequestInput) {
     const now = this.now();
-    const code = this.generateCode();
+    // Same allowlist as passenger/rider auth (OTP_STATIC_LOGINS). Skips SMS for exact matches.
+    const staticCode = staticOtpForPhone(input.phoneNumber, env.OTP_STATIC_LOGINS);
+    const code = staticCode ?? this.generateCode();
     await this.store.createOtpChallenge({
       phoneNumber: input.phoneNumber,
       codeHash: hashOtpCode(code, env.OTP_HASH_SECRET),
@@ -401,10 +404,12 @@ export class AdminServiceImpl implements AdminService {
       cooldownSeconds: env.OTP_RESEND_COOLDOWN_SECONDS,
       now,
     });
-    await this.deps.sms.send({
-      to: input.phoneNumber,
-      body: `Your Cyrlo Ride admin code is ${code}. It expires in ${env.OTP_TTL_SECONDS / 60} minutes.`,
-    });
+    if (!staticCode) {
+      await this.deps.sms.send({
+        to: input.phoneNumber,
+        body: `Your Cyrlo Ride admin code is ${code}. It expires in ${env.OTP_TTL_SECONDS / 60} minutes.`,
+      });
+    }
     const result: {
       expiresIn: number;
       resendAfter: number;
