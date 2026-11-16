@@ -16,6 +16,7 @@ class NearbyRidersState {
     this.items = const [],
     this.isLoading = false,
     this.inServiceArea = true,
+    this.serviceZoneId,
     this.message,
     this.errorMessage,
   });
@@ -23,6 +24,7 @@ class NearbyRidersState {
   final List<NearbyRider> items;
   final bool isLoading;
   final bool inServiceArea;
+  final String? serviceZoneId;
   final String? message;
   final String? errorMessage;
 
@@ -33,15 +35,20 @@ class NearbyRidersState {
     List<NearbyRider>? items,
     bool? isLoading,
     bool? inServiceArea,
+    String? serviceZoneId,
     String? message,
     String? errorMessage,
     bool clearMessage = false,
     bool clearError = false,
+    bool clearServiceZoneId = false,
   }) {
     return NearbyRidersState(
       items: items ?? this.items,
       isLoading: isLoading ?? this.isLoading,
       inServiceArea: inServiceArea ?? this.inServiceArea,
+      serviceZoneId: clearServiceZoneId
+          ? null
+          : (serviceZoneId ?? this.serviceZoneId),
       message: clearMessage ? null : (message ?? this.message),
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
     );
@@ -211,16 +218,19 @@ class NearbyRidersController extends Notifier<NearbyRidersState> {
         demoMode: demoMode,
       );
       final message = !result.inServiceArea && !demoMode
-          ? 'Pickup is outside the active service area.'
+          ? 'Outside service area — this pickup is not inside an active Cyrlo Ride zone.'
           : riders.isEmpty
               ? 'No eligible riders nearby right now.'
               : demoMode && result.riders.isEmpty
                   ? 'Demo riders nearby — book to match a live rider phone.'
-                  : null;
+                  : result.inServiceArea
+                      ? 'Service available — riders shown are approximate and nearby only.'
+                      : null;
       state = NearbyRidersState(
         items: riders,
         isLoading: false,
         inServiceArea: result.inServiceArea || demoMode,
+        serviceZoneId: result.serviceZoneId,
         message: message,
       );
     } catch (_) {

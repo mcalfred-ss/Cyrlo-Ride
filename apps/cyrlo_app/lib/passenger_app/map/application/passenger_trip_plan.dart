@@ -2,7 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/errors/api_exception.dart';
 import '../../../core/mapping/device_location_gateway.dart';
+import '../../../core/mapping/location_label.dart';
 import '../../../core/mapping/mapping_providers.dart';
+import '../../../core/mapping/resolved_location.dart';
 import '../../../shared/models/geo_point.dart';
 import 'trip_pin_controller.dart';
 
@@ -107,7 +109,7 @@ class PassengerTripPlanController extends Notifier<PassengerTripPlanState> {
 
   Future<void> _applyPickup(GeoPoint point, {String? preferLabel}) async {
     final label = await _reverseLabel(point) ?? preferLabel ?? _coordLabel(point);
-    ref.read(tripPinProvider.notifier).seedPickup(point);
+    ref.read(tripPinProvider.notifier).seedPickup(point, label: label);
     state = state.copyWith(
       phase: TripPlanPhase.pickupSelected,
       pickup: point,
@@ -172,12 +174,23 @@ class PassengerTripPlanController extends Notifier<PassengerTripPlanState> {
 
   Future<String?> _reverseLabel(GeoPoint point) async {
     try {
+      final resolved =
+          await ref.read(placeLookupGatewayProvider).resolve(point);
+      if (resolved != null && resolved.hasAddress) {
+        final shaped = displayResolvedLocationLabel(resolved);
+        if (shaped.isNotEmpty) return shaped;
+      }
+    } catch (_) {
+      // Fall through to legacy reverse.
+    }
+    try {
       final hit = await ref.read(placeLookupGatewayProvider).reverse(point);
       if (hit == null) return null;
-      final address = hit.address?.trim();
-      if (address != null && address.isNotEmpty) return address;
-      final label = hit.label.trim();
-      return label.isEmpty ? null : label;
+      final raw = hit.address?.trim().isNotEmpty == true
+          ? hit.address!.trim()
+          : hit.label.trim();
+      final shaped = shapeLocationLabel(raw);
+      return shaped.isEmpty ? null : shaped;
     } catch (_) {
       return null;
     }

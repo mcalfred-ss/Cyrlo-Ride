@@ -18,6 +18,7 @@ import '../../../shared/widgets/illustration_view.dart';
 import '../../../shared/widgets/profile_avatar.dart';
 import '../../../shared/widgets/skeleton.dart';
 import '../../availability/application/rider_availability_provider.dart';
+import '../../eligibility/rider_eligibility_provider.dart';
 import '../../token/application/rider_token_provider.dart';
 import '../../token/domain/token_thresholds.dart';
 import '../../token/presentation/rider_top_up_dialog.dart';
@@ -194,6 +195,7 @@ class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
     final active = ref.watch(activeRideRequestProvider);
     final online = ref.watch(riderOnlineProvider);
     final wallet = ref.watch(riderTokenWalletProvider);
+    final eligibilityState = ref.watch(riderEligibilityProvider);
     final theme = Theme.of(context);
     final accepted = active?.isAccepted == true;
     final balance = wallet.balance;
@@ -271,6 +273,16 @@ class _RiderJobsScreenState extends ConsumerState<RiderJobsScreen> {
               _TokenStatusBanner(
                 balance: balance,
                 onTopUp: () => context.go(AppRoutes.riderToken),
+              ),
+            ],
+            if (!accepted) ...[
+              const SizedBox(height: AppSpacing.md),
+              _ZoneEligibilityBanner(
+                message: eligibilityState.errorMessage ??
+                    riderZoneStatusMessage(eligibilityState.eligibility),
+                isLoading: eligibilityState.isLoading,
+                needsSupport: eligibilityState.eligibility != null &&
+                    !eligibilityState.eligibility!.hasApprovedActiveZone,
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
@@ -601,7 +613,8 @@ String _goOnlineErrorMessage(Object error) {
         return 'You need tokens to go online. Top up to continue.';
       }
       if (codes.contains('NO_APPROVED_ACTIVE_ZONE')) {
-        return 'Your zone isn’t active yet. Contact Cyrlo support.';
+        return 'You are not approved for an active service zone. '
+            'GPS alone does not make you eligible — contact Cyrlo support.';
       }
       if (codes.contains('RIDER_NOT_APPROVED') ||
           codes.contains('NO_APPROVED_VEHICLE')) {
@@ -616,6 +629,70 @@ String _goOnlineErrorMessage(Object error) {
     return error.message;
   }
   return 'Could not go online. Try again.';
+}
+
+class _ZoneEligibilityBanner extends StatelessWidget {
+  const _ZoneEligibilityBanner({
+    required this.message,
+    required this.isLoading,
+    required this.needsSupport,
+  });
+
+  final String message;
+  final bool isLoading;
+  final bool needsSupport;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      key: const Key('rider-zone-eligibility'),
+      decoration: BoxDecoration(
+        color: needsSupport ? const Color(0xFFFFF1E8) : AppColors.field,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              needsSupport
+                  ? Icons.wrong_location_rounded
+                  : Icons.travel_explore_rounded,
+              color: needsSupport
+                  ? const Color(0xFF9A3412)
+                  : AppColors.textSecondary,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    needsSupport
+                        ? 'Zone approval required'
+                        : 'Service zone status',
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isLoading ? 'Checking zone approval…' : message,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _TokenStatusBanner extends StatelessWidget {
