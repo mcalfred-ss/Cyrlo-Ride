@@ -5,8 +5,10 @@ import {
   mergeLandmarkAndProviderHits,
   searchGhanaLandmarks,
 } from './landmarks/ghana-landmarks.search.js';
+import { resolveLocation } from './location-resolution/resolve-location.js';
 import type {
   GeocodeBody,
+  LocationResolveBody,
   PlaceSearchBody,
   ReverseGeocodeBody,
   RouteBody,
@@ -60,6 +62,40 @@ export class MapsService {
   async reverse(input: ReverseGeocodeBody) {
     const result = await this.requireClient().reverseGeocode(input);
     return { result };
+  }
+
+  /**
+   * Structured location resolution for Flutter / clients.
+   * Composes existing reverse geocode with the Ashanti catalogue and
+   * verified landmarks. Does not invent address parts or move coordinates.
+   */
+  async resolveLocation(input: LocationResolveBody) {
+    let providerLabel: string | null = null;
+    try {
+      const reverse = await this.requireClient().reverseGeocode({
+        latitude: input.latitude,
+        longitude: input.longitude,
+      });
+      providerLabel = reverse?.label?.trim() || null;
+    } catch (error) {
+      // Catalogue + landmarks can still produce a partial result.
+      if (!(error instanceof AppError)) throw error;
+      if (
+        error.code !== 'provider_unavailable' &&
+        error.code !== 'provider_timeout' &&
+        error.code !== 'provider_error' &&
+        error.code !== 'NOT_IMPLEMENTED'
+      ) {
+        throw error;
+      }
+    }
+
+    return resolveLocation({
+      latitude: input.latitude,
+      longitude: input.longitude,
+      providerLabel,
+      landmarkLimit: input.landmarkLimit,
+    });
   }
 
   /**

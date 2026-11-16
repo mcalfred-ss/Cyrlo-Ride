@@ -31,6 +31,10 @@ void main() {
       gateway.reverse(const GeoPoint(latitude: 6.69, longitude: -1.62)),
       throwsA(isA<PlaceLookupException>()),
     );
+    await expectLater(
+      gateway.resolve(const GeoPoint(latitude: 6.69, longitude: -1.62)),
+      throwsA(isA<PlaceLookupException>()),
+    );
   });
 
   test('unavailable route preview never invents a polyline', () async {

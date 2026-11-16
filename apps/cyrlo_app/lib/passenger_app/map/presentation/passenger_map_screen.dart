@@ -6,7 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/constants/app_colors.dart';
+import '../../../core/mapping/greater_kumasi_extent.dart';
+import '../../../core/mapping/location_label.dart';
 import '../../../core/mapping/mapping_providers.dart';
+import '../../../core/mapping/resolved_location.dart';
 import '../../../core/routing/app_routes.dart';
 import '../../../core/theme/app_radii.dart';
 import '../../../core/theme/app_spacing.dart';
@@ -23,6 +26,7 @@ import '../../home/presentation/live_booking_flow.dart';
 import '../../home/presentation/request_ride_flow.dart';
 import '../../rides/presentation/rate_rider_sheet.dart';
 import '../application/nearby_riders_map_motion.dart';
+import '../application/service_coverage.dart';
 import '../application/trip_pin_controller.dart';
 import '../application/trip_pin_state.dart';
 import 'bolt_rider_map_marker.dart';
@@ -49,12 +53,16 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     super.dispose();
   }
 
+  void _moveCamera(MapCoordinate target, double zoom) {
+    _mapController.move(GreaterKumasiExtent.clampCamera(target), zoom);
+  }
+
   void _focusNearbyRider(NearbyRider? rider, {double zoom = 15}) {
     if (rider == null) return;
     _focusedRiderId = rider.id;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mapController.move(rider.point.toMapCoordinate(), zoom);
+      _moveCamera(rider.point.toMapCoordinate(), zoom);
     });
   }
 
@@ -63,7 +71,10 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
     _focusedPickup = pickup;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mapController.move(pickup.toMapCoordinate(), 16);
+      _moveCamera(
+        pickup.toMapCoordinate(),
+        GreaterKumasiExtent.focusedZoom,
+      );
     });
   }
 
@@ -78,7 +89,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
             riders.length;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _mapController.move(
+      _moveCamera(
         MapCoordinate(latitude: lat, longitude: lng),
         14.2,
       );
@@ -108,6 +119,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
   Widget build(BuildContext context) {
     final pins = ref.watch(tripPinProvider);
     final nearbyState = ref.watch(nearbyRidersProvider);
+    final coverage = ref.watch(serviceCoverageProvider);
     final nearbyRiders = nearbyState.items;
     final mapPoses = ref.watch(nearbyRidersMapMotionProvider);
     final movingRiders = ridersWithMapPoses(nearbyRiders, mapPoses);
@@ -127,6 +139,13 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
         : nearbyState.errorMessage ??
             nearbyState.message ??
             '$availableCount nearby on the map';
+    final pickupLabelText = pins.pickupLabel == null
+        ? null
+        : (pins.approximateLocation || isCoarseRegionLabel(pins.pickupLabel))
+            ? 'Approximate area: ${pins.pickupLabel}'
+            : pins.pickupLabel;
+    final nearbyLandmarksText =
+        formatNearbyLandmarksSummary(pins.nearbyLandmarks);
 
     ref.listen(selectedNearbyRiderProvider, (previous, next) {
       if (next != null) _focusNearbyRider(next);
@@ -278,6 +297,31 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                           ),
                           if (!shareContact) ...[
                             const SizedBox(height: 10),
+                            _ServiceCoverageBanner(coverage: coverage),
+                            if (pickupLabelText != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                pickupLabelText,
+                                key: const Key('pickup-label'),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: AppColors.textPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              if (nearbyLandmarksText.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  nearbyLandmarksText,
+                                  key: const Key('pickup-nearby-landmarks'),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: AppColors.textSecondary,
+                                    fontWeight: FontWeight.w500,
+                                    height: 1.35,
+                                  ),
+                                ),
+                              ],
+                            ],
+                            const SizedBox(height: 10),
                             const _MapKindLegend(),
                           ],
                           const SizedBox(height: 12),
@@ -316,7 +360,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                               ),
                             ),
                           ],
-                          if (pins.isResolvingLocation)
+                          if (pins.isResolvingLocation || pins.isResolvingLabel)
                             const Padding(
                               padding: EdgeInsets.only(top: 8),
                               child: LinearProgressIndicator(minHeight: 2),
@@ -341,6 +385,7 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                   if (!shareContact &&
                       !supply.isLoading &&
                       supply.available &&
+                      coverage.canBook &&
                       pins.pickup != null &&
                       pins.pickup!.isValid) ...[
                     CyrloButton(
@@ -366,9 +411,9 @@ class _PassengerMapScreenState extends ConsumerState<PassengerMapScreen> {
                                   .useCurrentLocationAsPickup();
                               final pickup = ref.read(tripPinProvider).pickup;
                               if (pickup != null) {
-                                _mapController.move(
+                                _moveCamera(
                                   pickup.toMapCoordinate(),
-                                  15,
+                                  GreaterKumasiExtent.focusedZoom,
                                 );
                               }
                             },
@@ -506,6 +551,79 @@ class _NearbyRiderMapSheet extends StatelessWidget {
               ),
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceCoverageBanner extends StatelessWidget {
+  const _ServiceCoverageBanner({required this.coverage});
+
+  final ServiceCoverageState coverage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (Color bg, Color fg, IconData icon) = switch (coverage.status) {
+      ServiceCoverageStatus.serviceAvailable => (
+          AppColors.brandLight.withValues(alpha: 0.18),
+          AppColors.brandLight,
+          Icons.check_circle_rounded,
+        ),
+      ServiceCoverageStatus.outsideServiceArea => (
+          const Color(0xFFFFF1E8),
+          const Color(0xFF9A3412),
+          Icons.wrong_location_rounded,
+        ),
+      ServiceCoverageStatus.locationUnavailable => (
+          AppColors.field,
+          AppColors.textSecondary,
+          Icons.location_off_rounded,
+        ),
+      ServiceCoverageStatus.checking => (
+          AppColors.field,
+          AppColors.textSecondary,
+          Icons.hourglass_top_rounded,
+        ),
+    };
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: fg),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    coverage.title,
+                    key: const Key('service-coverage-title'),
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: fg,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    coverage.message,
+                    key: const Key('service-coverage-message'),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );

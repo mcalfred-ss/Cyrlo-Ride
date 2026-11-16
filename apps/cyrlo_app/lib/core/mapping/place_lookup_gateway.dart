@@ -1,6 +1,7 @@
 import 'package:cyrlo_maps/cyrlo_maps.dart';
 
 import '../../shared/models/geo_point.dart';
+import 'resolved_location.dart';
 
 class PlaceLookupHit {
   const PlaceLookupHit({
@@ -26,11 +27,15 @@ class PlaceLookupException implements Exception {
   String toString() => 'PlaceLookupException($code): $message';
 }
 
-/// Forward/reverse geocode and place search. Ride never invents addresses.
+/// Forward/reverse geocode, place search, and structured location resolution.
+/// Ride never invents addresses.
 abstract class PlaceLookupGateway {
   Future<List<PlaceLookupHit>> search(String query, {GeoPoint? bias});
   Future<List<PlaceLookupHit>> forward(String query);
   Future<PlaceLookupHit?> reverse(GeoPoint point);
+
+  /// Structured hierarchy + nearby landmarks. Coordinates are never moved.
+  Future<ResolvedLocation?> resolve(GeoPoint point, {int landmarkLimit = 5});
 }
 
 class CyrloPlaceLookupGateway implements PlaceLookupGateway {
@@ -94,6 +99,26 @@ class CyrloPlaceLookupGateway implements PlaceLookupGateway {
       throw PlaceLookupException(code: error.code, message: error.message);
     }
   }
+
+  @override
+  Future<ResolvedLocation?> resolve(
+    GeoPoint point, {
+    int landmarkLimit = 5,
+  }) async {
+    // Direct SDK path has no Ashanti catalogue — fall back to reverse label only.
+    final hit = await reverse(point);
+    if (hit == null) return null;
+    return ResolvedLocation(
+      formattedAddress: hit.address?.trim().isNotEmpty == true
+          ? hit.address!.trim()
+          : hit.label,
+      point: point,
+      source: 'provider',
+      confidence: 'approximate',
+      approximate: true,
+      providerLabel: hit.label,
+    );
+  }
 }
 
 /// Stock SDK geocoder and place search throw `unavailable`. This keeps that explicit.
@@ -121,6 +146,17 @@ class UnavailablePlaceLookupGateway implements PlaceLookupGateway {
     throw const PlaceLookupException(
       code: 'unavailable',
       message: 'Reverse geocoding is not configured.',
+    );
+  }
+
+  @override
+  Future<ResolvedLocation?> resolve(
+    GeoPoint point, {
+    int landmarkLimit = 5,
+  }) async {
+    throw const PlaceLookupException(
+      code: 'unavailable',
+      message: 'Location resolution is not configured.',
     );
   }
 }

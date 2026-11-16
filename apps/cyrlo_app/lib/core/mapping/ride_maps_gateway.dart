@@ -1,9 +1,11 @@
 import 'package:dio/dio.dart';
 
 import '../../shared/models/geo_point.dart';
+import '../constants/api_paths.dart';
 import '../errors/api_exception.dart';
 import '../network/api_client.dart';
 import 'place_lookup_gateway.dart';
+import 'resolved_location.dart';
 import 'route_preview_gateway.dart';
 
 /// Privileged Maps operations via Cyrlo Ride (server holds the Maps API key).
@@ -49,7 +51,7 @@ class RideMapsPlaceLookupGateway implements PlaceLookupGateway {
   Future<PlaceLookupHit?> reverse(GeoPoint point) async {
     try {
       final response = await api.dio.post<Map<String, dynamic>>(
-        '/maps/geocode/reverse',
+        ApiPaths.mapsReverseGeocode,
         data: {
           'latitude': point.latitude,
           'longitude': point.longitude,
@@ -63,6 +65,46 @@ class RideMapsPlaceLookupGateway implements PlaceLookupGateway {
           latitude: (result['latitude'] as num).toDouble(),
           longitude: (result['longitude'] as num).toDouble(),
         ),
+      );
+    } on DioException catch (error) {
+      throw _lookupError(error);
+    }
+  }
+
+  @override
+  Future<ResolvedLocation?> resolve(
+    GeoPoint point, {
+    int landmarkLimit = 5,
+  }) async {
+    try {
+      final response = await api.dio.post<Map<String, dynamic>>(
+        ApiPaths.mapsLocationResolve,
+        data: {
+          'latitude': point.latitude,
+          'longitude': point.longitude,
+          'landmarkLimit': landmarkLimit,
+        },
+      );
+      final data = response.data?['data'];
+      if (data is! Map) return null;
+      final resolved = ResolvedLocation.fromJson(data);
+      // Never let a descriptive label move the pickup coordinate.
+      return ResolvedLocation(
+        formattedAddress: resolved.formattedAddress,
+        locality: resolved.locality,
+        neighbourhood: resolved.neighbourhood,
+        city: resolved.city,
+        district: resolved.district,
+        region: resolved.region,
+        country: resolved.country,
+        point: point,
+        source: resolved.source,
+        confidence: resolved.confidence,
+        approximate: resolved.approximate,
+        providerLabel: resolved.providerLabel,
+        catalogueTownId: resolved.catalogueTownId,
+        catalogueTownDistanceMeters: resolved.catalogueTownDistanceMeters,
+        nearbyLandmarks: resolved.nearbyLandmarks,
       );
     } on DioException catch (error) {
       throw _lookupError(error);

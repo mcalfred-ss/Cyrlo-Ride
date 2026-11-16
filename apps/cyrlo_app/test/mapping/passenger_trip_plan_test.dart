@@ -2,6 +2,7 @@ import 'package:cyrlo_app/core/errors/api_exception.dart';
 import 'package:cyrlo_app/core/mapping/device_location_gateway.dart';
 import 'package:cyrlo_app/core/mapping/mapping_providers.dart';
 import 'package:cyrlo_app/core/mapping/place_lookup_gateway.dart';
+import 'package:cyrlo_app/core/mapping/resolved_location.dart';
 import 'package:cyrlo_app/passenger_app/map/application/passenger_trip_plan.dart';
 import 'package:cyrlo_app/shared/models/geo_point.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 class _FakePlaces implements PlaceLookupGateway {
   PlaceLookupHit? reverseResult;
+  ResolvedLocation? resolveResult;
 
   @override
   Future<List<PlaceLookupHit>> search(String query, {GeoPoint? bias}) async =>
@@ -19,6 +21,13 @@ class _FakePlaces implements PlaceLookupGateway {
 
   @override
   Future<PlaceLookupHit?> reverse(GeoPoint point) async => reverseResult;
+
+  @override
+  Future<ResolvedLocation?> resolve(
+    GeoPoint point, {
+    int landmarkLimit = 5,
+  }) async =>
+      resolveResult;
 }
 
 void main() {

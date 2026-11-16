@@ -5,6 +5,7 @@ import { validate } from '../../common/middleware/validate.js';
 import type { MapsController } from './module.controller.js';
 import {
   geocodeBodySchema,
+  locationResolveBodySchema,
   placeSearchBodySchema,
   reverseGeocodeBodySchema,
   routeBodySchema,
@@ -26,6 +27,12 @@ export function createMapsRouter(controller: MapsController): Router {
     ...userAuth,
     validate({ body: reverseGeocodeBodySchema }),
     controller.reverse,
+  );
+  router.post(
+    '/location/resolve',
+    ...userAuth,
+    validate({ body: locationResolveBodySchema }),
+    controller.resolveLocation,
   );
   router.post(
     '/places/search',

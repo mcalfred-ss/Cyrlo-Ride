@@ -30,6 +30,14 @@ export class MapsController {
     }
   };
 
+  resolveLocation: RequestHandler = async (req, res, next) => {
+    try {
+      sendSuccess(res, await this.service.resolveLocation(req.body));
+    } catch (error) {
+      next(error);
+    }
+  };
+
   places: RequestHandler = async (req, res, next) => {
     try {
       sendSuccess(res, await this.service.places(req.body));

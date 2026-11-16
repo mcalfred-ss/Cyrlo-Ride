@@ -1,13 +1,18 @@
 import 'package:cyrlo_maps/cyrlo_maps.dart';
 
+import 'greater_kumasi_extent.dart';
+
 /// Ride-owned [MapProject] values. Booking and matching stay out of this file.
 ///
 /// Built here instead of importing `cyrlo_ride_maps` so this app keeps its own
 /// package name and does not pull the extracted Cirlo user-agents or school asset.
+///
+/// Accra is out of scope. Cold start shows Greater Kumasi exploration extent —
+/// not a service-zone boundary.
 abstract final class RideMapProjects {
   static const String passengerUserAgent = 'com.cyrloride.app';
 
-  /// Kumasi center until a GPS fix is available. Matches the pilot region.
+  /// Central Kumasi until a GPS fix is available.
   static const MapCoordinate defaultCenter = MapCoordinate(
     latitude: 6.6885,
     longitude: -1.6244,
@@ -20,9 +25,12 @@ abstract final class RideMapProjects {
   );
 
   static MapProject passengerRequest() {
-    return const MapProject(
+    return MapProject(
       id: 'cyrlo_ride.passenger_request',
-      initialCamera: MapCamera(center: defaultCenter, zoom: 14),
+      initialCamera: MapCamera(
+        center: defaultCenter,
+        zoom: GreaterKumasiExtent.explorationZoom,
+      ),
       styles: styles,
       userAgentPackageName: passengerUserAgent,
       missingTokenPolicy: MissingTokenPolicy.cartoFallback,

@@ -40,6 +40,7 @@ abstract final class ApiPaths {
   static String walletPurchase(String id) => '/wallet/purchases/$id';
 
   static const riderAvailability = '/riders/availability';
+  static const riderEligibility = '/riders/eligibility';
   static const riderOnboarding = '/riders/onboarding';
   static const riderOnboardingSubmit = '/riders/onboarding/submit';
   static const riderVehicles = '/riders/vehicles';
@@ -51,6 +52,7 @@ abstract final class ApiPaths {
   static const mapsConfig = '/maps/config';
   static const mapsGeocode = '/maps/geocode';
   static const mapsReverseGeocode = '/maps/geocode/reverse';
+  static const mapsLocationResolve = '/maps/location/resolve';
   static const mapsPlacesSearch = '/maps/places/search';
   static const mapsRoutes = '/maps/routes';
   static const mapsRouteEstimate = '/maps/routes/estimate';
