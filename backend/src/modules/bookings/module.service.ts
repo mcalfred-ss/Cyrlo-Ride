@@ -1014,7 +1014,6 @@ export class BookingsServiceImpl implements BookingsService {
           data: {
             status: 'SUCCESS',
             providerReference: reference,
-            paidAt: now,
           },
         });
         await tx.booking.update({
