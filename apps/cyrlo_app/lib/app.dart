@@ -15,6 +15,7 @@ class CyrloApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     ref.watch(apiClientProvider);
+    ref.watch(apiClientHeadersBinderProvider);
     ref.watch(realtimeClientProvider);
     ref.watch(pushLifecycleProvider);
     ref.watch(realtimeLifecycleProvider);

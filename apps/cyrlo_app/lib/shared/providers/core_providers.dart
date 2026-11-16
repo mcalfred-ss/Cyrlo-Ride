@@ -6,19 +6,24 @@ import '../../core/network/api_client.dart';
 import '../../core/services/realtime_client.dart';
 import '../../features/auth/application/auth_session.dart';
 
+/// Stable HTTP client. Must not watch auth/demo during create — that loops with
+/// [authSessionProvider] (adopt/save also read this provider).
 final apiClientProvider = Provider<ApiClient>((ref) {
   final client = ApiClient(baseUrl: AppConfig.apiBaseUrl);
   // Late-bound so 401s rotate via the single-flight refresh (never parallel reuse).
   client.onUnauthorized =
       () => ref.read(authSessionProvider.notifier).tryRefresh(reason: 'api_401');
-  // Update Demo Mode in place — never watch(authSession) / watch(demoMode) here
-  // or we recreate the client and create a circular dependency with authSession.
-  client.setDemoMode(ref.read(demoModeProvider));
-  ref.listen<bool>(demoModeProvider, (_, enabled) {
-    client.setDemoMode(enabled);
-  });
   ref.onDispose(client.dio.close);
   return client;
+});
+
+/// Applies Demo Mode + bearer token onto the existing [ApiClient] instance.
+/// Kept outside [apiClientProvider] so toggling demo never recreates Dio and
+/// never creates an auth ↔ client circular dependency.
+final apiClientHeadersBinderProvider = Provider<void>((ref) {
+  final client = ref.watch(apiClientProvider);
+  client.setDemoMode(ref.watch(demoModeProvider));
+  client.setAccessToken(ref.watch(authSessionProvider)?.accessToken);
 });
 
 final realtimeClientProvider = Provider<RealtimeClient>((ref) {
